@@ -47,9 +47,9 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
                             div { class: "error-page-message", "{error_message}" }
                         }
                         div { class: "error-page-actions",
-                            a { class: "btn btn-primary btn-lg", href: "{primary_href}", "{primary_label}" }
+                            crate::navigation::AppLink { class: "btn btn-primary btn-lg", href: "{primary_href}", "{primary_label}" }
                             if let (Some(h), Some(l)) = (secondary_href, secondary_label) {
-                                a { class: "btn btn-outline btn-lg", href: "{h}", "{l}" }
+                                crate::navigation::AppLink { class: "btn btn-outline btn-lg", href: "{h}", "{l}" }
                             }
                         }
                         if kind == ErrorKind::Backend {

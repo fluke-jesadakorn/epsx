@@ -13,7 +13,7 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 ## Common Commands
 
 ### Development (native preferred)
-- UI development defaults to `python3 infrastructure/native/dev-control.py hmr ui` (or `hmr bff-frontend|bff-admin|bff-pay`). This reuses the dev LaunchAgents and Cargo workspace cache, starts DX sequentially, and leaves backend/internal services running. Use `status ui` before starting and `restore-hmr ui` to restore the prior UI processes. See `infrastructure/native/README.md`.
+- UI development defaults to `python3 infrastructure/native/dev-control.py realtime ui` (or `realtime bff-frontend|bff-admin|bff-pay`; `hmr` remains an alias). DX hot reload stays enabled and automatic Rust rebuilds are disabled. Reuse the running dev LaunchAgents for compatible RSX edits; do not restart/build just to change text or layout. Rust logic, unsupported RSX changes, and embedded CSS require `python3 infrastructure/native/dev-control.py rebuild bff-frontend` (or the affected UI). Use `status ui` before starting and `restore-hmr ui` to restore the prior UI processes. See `infrastructure/native/README.md`.
 - After code changes, ensure the affected development server is running with the latest build and verify an HTTP response before handing back. Reuse an existing watcher; do not launch duplicate servers. This does not authorize production deployment.
 - `cargo xtask cloudflare dev --local` - Historical Workers experiment; not the native runtime
 - `cargo xtask dev --all` - Backend, Frontend/Admin/Pay BFF and five internal native services; no automatic migrations

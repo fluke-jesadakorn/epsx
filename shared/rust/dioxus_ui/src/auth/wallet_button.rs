@@ -244,7 +244,7 @@ pub fn ConnectButton(
                 }
             }
         } else {
-            a {
+            crate::navigation::AppLink {
                 class: "{final_class}",
                 href: "{href_val}",
                 "aria-label": "{accessible_label}",
@@ -705,7 +705,7 @@ pub fn ConnectedWalletDropdown(
             if has_links {
                 div { class: "wallet-nav-links",
                     for link in link_list.iter() {
-                        a {
+                        crate::navigation::AppLink {
                             class: "wallet-nav-link",
                             href: "{link.href}",
                             if let Some(icon) = &link.icon {
@@ -743,7 +743,7 @@ pub fn WalletConnectButton(
     if let Some(u) = user {
         rsx! {
             div { class: "wallet-connect-legacy-group flex items-center gap-2",
-                a { class: "btn btn-primary wallet-connect-legacy", href: "/profile",
+                crate::navigation::AppLink { class: "btn btn-primary wallet-connect-legacy", href: "/profile",
                     span { Icon { name: "wallet".to_string(), size: Some(16) } }
                     span { "{u.short_address()}" }
                 }

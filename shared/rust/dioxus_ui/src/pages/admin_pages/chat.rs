@@ -623,7 +623,7 @@ fn ChatFilterBar(
             }
             input { r#type: "hidden", name: "limit", value: "20" }
             button { class: "btn btn-sm btn-primary", r#type: "submit", "Apply" }
-            a { class: "btn btn-sm btn-ghost", href: CHAT_PATH, onclick: move |event|crate::fullstack::admin_chat::follow(event,CHAT_PATH.into()), "Reset" }
+            crate::navigation::AppLink { class: "btn btn-sm btn-ghost", href: CHAT_PATH, onclick: move |event|crate::fullstack::admin_chat::follow(event,CHAT_PATH.into()), "Reset" }
         }
     }
 }
@@ -705,7 +705,7 @@ fn ChatConversationCard(
     let wallet = truncate_wallet(&conversation.wallet_address);
     let unread = conversation.unread_agent;
     rsx! {
-        a { class: "block w-full rounded-xl border border-border/20 bg-card p-3.5 text-left transition-colors hover:border-violet-500/25 hover:bg-violet-500/5", href: conversation_href(&conversation.id), onclick: move |event|crate::fullstack::admin_chat::follow(event,conversation_href(&conversation.id)),
+        crate::navigation::AppLink { class: "block w-full rounded-xl border border-border/20 bg-card p-3.5 text-left transition-colors hover:border-violet-500/25 hover:bg-violet-500/5", href: conversation_href(&conversation.id), onclick: move |event|crate::fullstack::admin_chat::follow(event,conversation_href(&conversation.id)),
             div { class: "mb-2 flex items-start justify-between gap-2",
                 p { class: "line-clamp-1 text-sm font-semibold text-foreground/90", "{conversation.subject}" }
                 if unread > 0 {
@@ -758,10 +758,10 @@ fn ChatPagination(
             span { "{total} total · Page {page}" }
             div { class: "flex gap-2",
                 if let Some(previous_href) = previous_href {
-                    a { class: "btn btn-xs btn-outline", href: previous_href.clone(), onclick: move |event|crate::fullstack::admin_chat::follow(event,previous_href.clone()), "Previous" }
+                    crate::navigation::AppLink { class: "btn btn-xs btn-outline", href: previous_href.clone(), onclick: move |event|crate::fullstack::admin_chat::follow(event,previous_href.clone()), "Previous" }
                 }
                 if has_next {
-                    a { class: "btn btn-xs btn-outline", href: next_href.clone(), onclick: move |event|crate::fullstack::admin_chat::follow(event,next_href.clone()), "Next" }
+                    crate::navigation::AppLink { class: "btn btn-xs btn-outline", href: next_href.clone(), onclick: move |event|crate::fullstack::admin_chat::follow(event,next_href.clone()), "Next" }
                 }
             }
         }
@@ -804,7 +804,7 @@ fn ChatDetailReady(detail: AdminChatDetail, mutation: Option<String>) -> Element
                 header { class: "border-b border-border/20 p-4 md:p-5",
                     div { class: "flex flex-wrap items-center justify-between gap-3",
                         div { class: "flex min-w-0 items-center gap-3",
-                            a { class: "btn btn-sm btn-ghost", href: CHAT_PATH, onclick: move |event|crate::fullstack::admin_chat::follow(event,CHAT_PATH.into()), aria_label: "Back to conversation list",
+                            crate::navigation::AppLink { class: "btn btn-sm btn-ghost", href: CHAT_PATH, onclick: move |event|crate::fullstack::admin_chat::follow(event,CHAT_PATH.into()), aria_label: "Back to conversation list",
                                 Icon { name: "arrow-left".to_string(), size: Some(16) }
                             }
                             div { class: "min-w-0",
@@ -889,7 +889,7 @@ fn ChatUnavailable(
             section { class: "p-4 md:p-8", role: "status", "data-admin-chat-state": state, "data-admin-chat-surface": route.surface(),
                 div { class: "overflow-hidden rounded-2xl border border-border/20 bg-card",
                     header { class: "flex items-center gap-3 border-b border-border/20 p-4",
-                        a { class: "btn btn-sm btn-ghost", href: CHAT_PATH, onclick: move |event|crate::fullstack::admin_chat::follow(event,CHAT_PATH.into()), aria_label: "Back to conversation list",
+                        crate::navigation::AppLink { class: "btn btn-sm btn-ghost", href: CHAT_PATH, onclick: move |event|crate::fullstack::admin_chat::follow(event,CHAT_PATH.into()), aria_label: "Back to conversation list",
                             Icon { name: "arrow-left".to_string(), size: Some(16) }
                         }
                         p { class: "font-semibold text-foreground", "Conversation" }
@@ -901,9 +901,9 @@ fn ChatUnavailable(
                         h1 { class: "text-xl font-bold text-foreground", "{title}" }
                         p { class: "mt-3 max-w-2xl text-sm leading-6 text-muted-foreground", "{detail}" }
                         nav { class: "mt-6 flex flex-wrap justify-center gap-2", aria_label: "Conversation recovery",
-                            a { class: "btn btn-sm btn-primary", href: retry_href, "Try again" }
-                            a { class: "btn btn-sm btn-outline", href: CHAT_PATH, onclick: move |event|crate::fullstack::admin_chat::follow(event,CHAT_PATH.into()), "Conversation list" }
-                            a { class: "btn btn-sm btn-ghost", href: "/", "Admin home" }
+                            crate::navigation::AppLink { class: "btn btn-sm btn-primary", href: retry_href, "Try again" }
+                            crate::navigation::AppLink { class: "btn btn-sm btn-outline", href: CHAT_PATH, onclick: move |event|crate::fullstack::admin_chat::follow(event,CHAT_PATH.into()), "Conversation list" }
+                            crate::navigation::AppLink { class: "btn btn-sm btn-ghost", href: "/", "Admin home" }
                         }
                     }
                 }
@@ -933,11 +933,11 @@ fn ChatUnavailable(
                     h2 { class: "text-xl font-bold text-foreground", "{title}" }
                     p { class: "mt-3 max-w-xl text-sm leading-6 text-muted-foreground", "{detail}" }
                     nav { class: "mt-6 flex flex-wrap justify-center gap-2", aria_label: "Chat recovery",
-                        a { class: "btn btn-sm btn-primary", href: retry_href,
+                        crate::navigation::AppLink { class: "btn btn-sm btn-primary", href: retry_href,
                             Icon { name: "refresh-cw".to_string(), size: Some(14) }
                             " Retry"
                         }
-                        a { class: "btn btn-sm btn-ghost", href: "/", "Admin home" }
+                        crate::navigation::AppLink { class: "btn btn-sm btn-ghost", href: "/", "Admin home" }
                     }
                 }
             }

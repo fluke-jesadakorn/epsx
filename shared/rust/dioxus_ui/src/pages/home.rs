@@ -227,10 +227,10 @@ fn NewsSectionHeader() -> Element {
                     "Latest News"
                 }
             }
-            a {
+            crate::navigation::AppLink {
                 class: "home-prod-news-view-all flex items-center gap-1 text-sm text-cyan-700 hover:text-cyan-800 font-medium dark:text-cyan-400 dark:hover:text-cyan-300 fe-tone-accent",
                 href: "/news",
-                onclick: move |event| crate::fullstack::analytics::follow_link(event, navigation, "/news"),
+                onclick: move |event: MouseEvent| crate::fullstack::analytics::follow_link(event, navigation, "/news"),
                 "View all "
                 Icon { name: "arrow-right".to_string(), size: Some(16) }
             }
@@ -243,10 +243,10 @@ fn LeadNewsCard(post: NewsPost) -> Element {
     let navigation = try_consume_context::<crate::fullstack::analytics::AnalyticsNavigation>();
     let metadata = news_metadata(&post);
     rsx! {
-        a {
+        crate::navigation::AppLink {
             class: "group block home-news-lead",
             href: "/news/{post.slug}",
-            onclick: move |event| crate::fullstack::analytics::follow_link(event, navigation, &format!("/news/{}", post.slug)),
+            onclick: move |event: MouseEvent| crate::fullstack::analytics::follow_link(event, navigation, &format!("/news/{}", post.slug)),
             article { class: "news-featured",
                 if let Some(cover) = &post.cover_image_url {
                     img {
@@ -292,10 +292,10 @@ fn SmallNewsCard(post: NewsPost) -> Element {
     let navigation = try_consume_context::<crate::fullstack::analytics::AnalyticsNavigation>();
     let metadata = news_metadata(&post);
     rsx! {
-        a {
+        crate::navigation::AppLink {
             class: "group block home-news-small",
             href: "/news/{post.slug}",
-            onclick: move |event| crate::fullstack::analytics::follow_link(event, navigation, &format!("/news/{}", post.slug)),
+            onclick: move |event: MouseEvent| crate::fullstack::analytics::follow_link(event, navigation, &format!("/news/{}", post.slug)),
             article { class: "news-small",
                 if let Some(cover) = &post.cover_image_url {
                     img {
@@ -386,16 +386,16 @@ fn NewsPreview(outcome: NewsListOutcome) -> Element {
                         "We couldn’t load the latest news. Please try again."
                     }
                     div { class: "mt-7 flex flex-wrap justify-center gap-3",
-                        a {
+                        crate::navigation::AppLink {
                             class: "inline-flex items-center gap-2 rounded-xl border border-cyan-500/40 px-5 py-3 font-semibold text-cyan-700 hover:bg-cyan-400/10 dark:text-cyan-300 fe-tone-accent",
                             href: "/news",
-                onclick: move |event| crate::fullstack::analytics::follow_link(event, navigation, "/news"),
+                onclick: move |event: MouseEvent| crate::fullstack::analytics::follow_link(event, navigation, "/news"),
                             "Open news"
                         }
-                        a {
+                        crate::navigation::AppLink {
                             class: "inline-flex items-center gap-2 rounded-xl border border-slate-300 px-5 py-3 font-semibold text-slate-800 hover:bg-slate-100 dark:border-white/20 dark:text-white dark:hover:bg-white/5",
                             href: "/",
-                            onclick: move |event| { if let Some(refresh) = refresh { event.prevent_default(); refresh.0.call(()); } },
+                            onclick: move |event: MouseEvent| { if let Some(refresh) = refresh { event.prevent_default(); refresh.0.call(()); } },
                             "Retry home"
                         }
                     }

@@ -45,7 +45,7 @@ def main():
     bootstrap = (runtime / "epsx_service_worker_bootstrap.v3.js").read_text()
     assert f"epsx_service_worker.js?rev={worker_digest}" in bootstrap
     assert f"epsx_service_worker_bg.wasm?rev={worker_digest}" in bootstrap
-    assert "/public/enterprise.css?v=dioxus-2" in bootstrap
+    assert "/public/dist/tailwind.css" in bootstrap
     records = []
     for app, route in [("frontend", "/auth"), ("admin", "/auth"), ("pay", "/docs")]:
         public = release / "fullstack" / app / "public"
@@ -97,9 +97,9 @@ def main():
                     endpoint = "read" if other == "pay" else "auth_session"
                     assert request(origin + f"/_server/{other}/{endpoint}")[0] == 404
                 if app == "frontend":
-                    assert "/public/enterprise.css?v=dioxus-2" in html
-                    css = request(origin + "/public/enterprise.css?v=dioxus-2")[2].decode()
-                    assert "padding: clamp(20px, 3vw, 32px)" in css
+                    assert "/public/dist/tailwind.css" in html
+                    css = request(origin + "/public/dist/tailwind.css")[2].decode()
+                    assert "clamp(20px" in css and ".epsx-frontend" in css
                 records.append({"app": app, "ssr": route, "wasm_files": len(wasm),
                                 "asset_http": "passed", "unknown_route": 404,
                                 "other_app_functions": "not mounted"})

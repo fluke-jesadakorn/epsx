@@ -23,7 +23,7 @@ pub fn Introduction(operations: Vec<DeveloperOperation>, spec: String) -> Elemen
                 div { class: "fe-actions",
                     crate::fullstack::shell::ShellLink { class: "fe-button", href: "/developer", "Manage API keys" }
                     crate::fullstack::shell::ShellLink { class: "fe-button", href: "/developer/usage", "View API usage" }
-                    a { class: "fe-button", href: "/api/v1/developer/openapi", "OpenAPI specification" }
+                    crate::navigation::AppLink { class: "fe-button", href: "/api/v1/developer/openapi", "OpenAPI specification" }
                 }
                 if let Some(api_url) = api_url {
                     p { class: "fe-help", "Set EPSX_API_URL to " code { "{api_url}" } " and EPSX_API_KEY to your secret key in your server environment." }
@@ -46,7 +46,7 @@ pub fn Introduction(operations: Vec<DeveloperOperation>, spec: String) -> Elemen
             nav { class: "fe-panel fe-api-index", aria_label: "API operations",
                 h2 { "API reference" }
                 for operation in operations.iter() {
-                    a { href: format!("#operation-{}", operation.operation_id),
+                    crate::navigation::AppLink { href: format!("#operation-{}", operation.operation_id),
                         span { class: "fe-api-method", "{operation.method}" }
                         code { "{operation.path}" }
                     }

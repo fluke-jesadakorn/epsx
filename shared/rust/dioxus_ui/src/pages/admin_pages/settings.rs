@@ -771,11 +771,11 @@ fn SettingsProblem(title: String, detail: String, tab: String) -> Element {
                     p { class: "mt-1 max-w-3xl text-sm text-muted-foreground", "{detail}" }
                 }
                 nav { class: "flex shrink-0 flex-wrap gap-2", aria_label: "Settings recovery",
-                    a { class: "btn btn-sm btn-primary", href: format!("{SETTINGS_PATH}?tab={tab}"),
+                    crate::navigation::AppLink { class: "btn btn-sm btn-primary", href: format!("{SETTINGS_PATH}?tab={tab}"),
                         Icon { name: "refresh-cw".to_string(), size: Some(15) }
                         "Check again"
                     }
-                    a { class: "btn btn-sm btn-outline", href: "/", "Admin home" }
+                    crate::navigation::AppLink { class: "btn btn-sm btn-outline", href: "/", "Admin home" }
                 }
             }
         }
@@ -949,7 +949,12 @@ mod tests {
         assert!(!rendered.contains("class=\"admin-shell admin-shell-page\""));
         assert!(rendered.contains("href=\"/settings?tab=general\""));
         assert!(rendered.contains(">Check again</a>"));
-        assert!(rendered.contains("href=\"/\">Admin home</a>"));
+        assert!(rendered.split("<a ").any(|anchor| anchor
+            .split('>')
+            .next()
+            .unwrap_or("")
+            .contains("href=\"/\"")
+            && anchor.contains(">Admin home</a>")));
         assert!(!rendered.contains("javascript:"));
         assert!(!rendered.contains("onclick="));
     }

@@ -93,7 +93,7 @@ pub struct AccountRefresh(pub EventHandler<()>);
 pub fn AccountLink(href: String, class: String, children: Element) -> Element {
     let refresh = try_use_context::<AccountRefresh>();
     if href == "/account" && refresh.is_some() {
-        rsx! { a { href, class, onclick: move |event| { if event.modifiers().is_empty() { event.prevent_default(); if let Some(refresh) = refresh { refresh.0.call(()); } } }, {children} } }
+        rsx! { crate::navigation::AppLink { href, class, onclick: move |event: MouseEvent| { if event.modifiers().is_empty() { event.prevent_default(); if let Some(refresh) = refresh { refresh.0.call(()); } } }, {children} } }
     } else {
         rsx! { crate::fullstack::shell::ShellLink { href, class, {children} } }
     }
@@ -174,7 +174,7 @@ pub fn HydratedAccount() -> Element {
         document::Title { "Account — EPSX" }
         document::Meta { name: "description", content: "Manage your access, billing, and notification preferences." }
         section { "data-dioxus-account": "true", aria_busy: pending(),
-            if let Some(failure) = error() { p { role: "status", "{failure.message()}" } button { r#type: "button", class: "fe-button", disabled: pending(), onclick: move |_| refresh.call(()), "Try again" } }
+            if let Some(failure) = error() { crate::fullstack::load_error::LoadErrorNotice { error: failure.clone(),  button { r#type: "button", class: "fe-button", disabled: pending(), onclick: move |_| refresh.call(()), "Try again" } } }
             if let Some(snapshot) = data() {
                 AccountBody {
                     session_user: Some(snapshot.user.clone()), payment_history_address: Some(snapshot.user.address),

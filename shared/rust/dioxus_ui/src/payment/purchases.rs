@@ -158,9 +158,9 @@ pub fn HydratedPurchases(query: ReadSignal<PurchaseQuery>) -> Element {
         section { "data-dioxus-purchases": "true", aria_busy: pending(),
             if pending() { p { role: "status", class: "fe-purchase-note", "Updating purchases…" } }
             if let Some(failure) = error() {
-                div { role: "status", class: "fe-purchase-note",
-                    p { "{failure.message()}" }
-                    button { r#type: "button", class: "fe-button", disabled: pending(), onclick: move |_| refresh_handler.call(()), "Try again" }
+                div {
+                    crate::fullstack::load_error::LoadErrorNotice { error: failure.clone(),
+                    button { r#type: "button", class: "fe-button", disabled: pending(), onclick: move |_| refresh_handler.call(()), "Try again" } }
                 }
             }
             if let Some(snapshot) = data() {

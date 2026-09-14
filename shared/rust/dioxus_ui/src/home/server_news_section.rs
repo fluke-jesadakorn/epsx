@@ -47,7 +47,7 @@ pub fn ServerNewsSection(
                         Icon { name: "newspaper".to_string(), size: Some(20), class_name: Some("text-cyan-400".to_string()) }
                         h2 { class: "text-xl font-bold text-foreground server-news-section-title", "Latest News" }
                     }
-                    a { class: "flex items-center gap-1 text-sm text-cyan-400 hover:text-cyan-300 font-medium server-news-section-view-all",
+                    crate::navigation::AppLink { class: "flex items-center gap-1 text-sm text-cyan-400 hover:text-cyan-300 font-medium server-news-section-view-all",
                         href: "/news",
                         "View all "
                         Icon { name: "arrow-right".to_string(), size: Some(16) }

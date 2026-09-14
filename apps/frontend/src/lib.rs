@@ -330,12 +330,7 @@ pub(crate) fn build_app_with_legacy_pages(state: AppState, legacy_purchases: boo
     let router = Router::new()
         .route(
             "/public/enterprise.css",
-            get(|| async {
-                (
-                    [(axum::http::header::CONTENT_TYPE, "text/css; charset=utf-8")],
-                    include_str!("../public/enterprise.css"),
-                )
-            }),
+            get(|| async { axum::response::Redirect::temporary("/public/dist/tailwind.css") }),
         )
         .route(
             "/favicon.ico",

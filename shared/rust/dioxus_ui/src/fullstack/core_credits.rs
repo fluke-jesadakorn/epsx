@@ -63,15 +63,12 @@ pub fn CoreCredits(query: String) -> Element {
         .find(|(k, _)| k == "wallet")
         .map(|(_, v)| v.into_owned())
         .filter(|v| !v.is_empty());
-    let initial_wallet = wallet.clone();
-    let initial = use_server_future(move || read_credits(initial_wallet.clone()))?;
-    let mut data = use_signal(|| {
-        initial
-            .read()
-            .clone()
-            .and_then(Result::ok)
-            .unwrap_or(Err(LoadError::Unavailable))
-    });
+    let mut initial = use_server_future(use_reactive!(|wallet| read_credits(wallet)))?;
+    let data = initial
+        .read()
+        .clone()
+        .and_then(Result::ok)
+        .unwrap_or(Err(LoadError::Unavailable));
     let mut pending = use_signal(|| false);
     let mut result = use_signal(|| None::<Result<(), LoadError>>);
     let mut previous = use_signal(|| None::<Command>);
@@ -110,18 +107,13 @@ pub fn CoreCredits(query: String) -> Element {
         }
         previous.set(Some(command.clone()));
         pending.set(true);
-        let wallet = command.wallet.clone();
         spawn(async move {
             let outcome = command_credit(command)
                 .await
                 .unwrap_or(Err(LoadError::Unavailable));
             if outcome.is_ok() {
                 previous.set(None);
-                data.set(
-                    read_credits(Some(wallet))
-                        .await
-                        .unwrap_or(Err(LoadError::Unavailable)),
-                );
+                initial.restart();
             }
             result.set(Some(outcome));
             pending.set(false);
@@ -136,10 +128,10 @@ pub fn CoreCredits(query: String) -> Element {
             h1 { class: "text-3xl font-bold", "Wallet credits" }
             if let Some(outcome) = result() { match outcome {
                 Ok(()) => rsx!{p{role:"status","Credit adjustment saved."}},
-                Err(error) => rsx!{p{role:"alert","{error.message()}"}},
+                Err(error) => rsx!{crate::fullstack::load_error::LoadErrorNotice { error: error.clone(),  }},
             } }
-            match data() {
-                Err(error) => rsx!{p{role:"alert","{error.message()}"}},
+            match data {
+                Err(error) => rsx!{crate::fullstack::load_error::LoadErrorNotice { error: error.clone(),  }},
                 Ok(value) => rsx! {
                     dl { class: "grid gap-4 sm:grid-cols-3 rounded-xl border p-5",
                         div { dt { "Outstanding credits" } dd { "{value.stats.total_credits_outstanding}" } }

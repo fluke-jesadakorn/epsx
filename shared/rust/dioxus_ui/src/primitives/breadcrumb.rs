@@ -52,7 +52,7 @@ pub fn BreadcrumbNav(
                             li { class: "breadcrumb-item flex items-center gap-2",
                                 if let Some(h) = href.clone() {
                                     if !is_last {
-                                        a { class: "breadcrumb-link hover:underline text-foreground", href: "{h}",
+                                        crate::navigation::AppLink { class: "breadcrumb-link hover:underline text-foreground", href: "{h}",
                                             "{label}"
                                         }
                                     } else {

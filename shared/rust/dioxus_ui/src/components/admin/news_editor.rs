@@ -90,7 +90,7 @@ pub fn NewsEditorHeader(
                     onclick: move |_| on_save.call(()),
                     "\u{1F4BE} Save"
                 }
-                a {
+                crate::navigation::AppLink {
                     class: "btn btn-sm btn-ghost",
                     href: "{back_href}",
                     Icon { name: "arrow-left".to_string(), size: Some(16) }
@@ -187,7 +187,7 @@ pub fn NewsEditorFooter(
     let cancel_href = cancel_href.unwrap_or_else(|| "/news".to_string());
     rsx! {
         div { class: "news-editor-footer flex items-center justify-end gap-2 pt-4 border-t border-border/10",
-            a { class: "btn btn-outline", href: "{cancel_href}", "Cancel" }
+            crate::navigation::AppLink { class: "btn btn-outline", href: "{cancel_href}", "Cancel" }
             button {
                 class: "btn btn-secondary",
                 r#type: "button",

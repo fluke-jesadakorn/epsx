@@ -219,8 +219,8 @@ pub fn HydratedAdminSettings(query: ReadSignal<String>) -> Element {
                 if pending(){p{role:"status","Saving settings…"}}
                 match data(){
                     Ok(snapshot)=>rsx!{crate::pages::admin_pages::settings::HydratedSettingsBody{key:"{generation}",data:snapshot,tab,mutation:outcome().map(|value|value.state().to_string())}},
-                    Err(failure)=>rsx!{div{class:"p-6",p{role:"status","{failure.message()}"}
-                        button{r#type:"button",class:"btn btn-primary",onclick:move |_|{pending.set(true);spawn(async move{data.set(read_settings().await.map_err(|_|LoadError::Unavailable).and_then(|v|v));pending.set(false);});},"Try again"}
+                    Err(failure)=>rsx!{div{class:"p-6",crate::fullstack::load_error::LoadErrorNotice { error: failure.clone(),
+                        button{r#type:"button",class:"btn btn-primary",onclick:move |_|{pending.set(true);spawn(async move{data.set(read_settings().await.map_err(|_|LoadError::Unavailable).and_then(|v|v));pending.set(false);});},"Try again"} }
                     }},
                 }
             }

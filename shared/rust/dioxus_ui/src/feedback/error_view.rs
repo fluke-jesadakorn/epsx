@@ -16,7 +16,7 @@ pub fn ErrorView(
                 p { class: "error-view-description text-muted-foreground", "{d}" }
             }
             if let Some(h) = retry_href {
-                a { class: "btn btn-primary mt-4", href: "{h}", "Try again" }
+                crate::navigation::AppLink { class: "btn btn-primary mt-4", href: "{h}", "Try again" }
             }
         }
     }

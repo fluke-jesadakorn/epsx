@@ -445,8 +445,7 @@ fn AccountBody(
     notification_preferences_form_state: NotificationPreferencesFormState,
 ) -> Element {
     rsx! {
-
-            div { class: "account-prod-page relative min-h-screen overflow-hidden px-3 pb-20 sm:px-6 fe-base-page",
+            div { class: "account-page relative min-h-screen overflow-hidden px-3 pb-20 sm:px-6 fe-base-page",
                 div { class: "pointer-events-none fixed inset-0 overflow-hidden", aria_hidden: "true",
                     div { class: "absolute left-20 top-20 h-32 w-32 rounded-full bg-gradient-to-r from-yellow-400/20 to-orange-500/20 blur-xl fe-decoration fe-fill-neutral" }
                     div { class: "absolute right-32 top-40 h-24 w-24 rounded-full bg-gradient-to-r from-pink-400/20 to-purple-500/20 blur-lg fe-decoration fe-fill-neutral" }
@@ -554,7 +553,7 @@ fn AccountStatsRow(
             aria_label: "Account summary",
             // Current wallet: only the owner carried by the verified session.
             div {
-                class: "account-stat-wallet card card-glass p-5 sm:p-6 shadow-xl border-2 border-blue-300/50 fe-surface",
+                class: "account-stat-wallet account-panel p-5 sm:p-6 shadow-xl border-2 border-blue-300/50 fe-surface",
                 "data-account-stat-state": if wallet.is_some() { "verified" } else if signed_in { "unavailable" } else { "signed-out" },
                 div { class: "flex items-center justify-between mb-2 sm:mb-4 text-xl sm:text-3xl",
                     Icon { name: "wallet".to_string(), size: Some(20) }
@@ -571,7 +570,7 @@ fn AccountStatsRow(
                     } else if signed_in {
                         div { class: "text-sm font-semibold text-muted-foreground fe-tone-muted", "Not available" }
                     } else {
-                        a { class: "text-sm font-semibold text-blue-500 hover:underline", href: ACCOUNT_SIGN_IN_PATH,
+                        crate::navigation::AppLink { class: "text-sm font-semibold text-blue-500 hover:underline", href: ACCOUNT_SIGN_IN_PATH,
                             "Sign in to view"
                         }
                     }
@@ -579,7 +578,7 @@ fn AccountStatsRow(
             }
             // Membership date is sourced from the owner profile endpoint.
             div {
-                class: "account-stat-member card card-glass p-5 sm:p-6 shadow-xl border-2 border-green-300/50 fe-surface",
+                class: "account-stat-member account-panel p-5 sm:p-6 shadow-xl border-2 border-green-300/50 fe-surface",
                 "data-account-stat-state": if member_since.is_some() { "verified" } else if matches!(profile_load, AccountProfileLoad::Malformed) { "malformed" } else { "unavailable" },
                 div { class: "flex items-center justify-between mb-2 sm:mb-4 text-xl sm:text-3xl",
                     Icon { name: "calendar".to_string(), size: Some(20) }
@@ -597,8 +596,8 @@ fn AccountStatsRow(
                 }
             }
             // Credit authority is the payments database owner endpoint.
-            a {
-                class: "account-stat-balance card card-glass p-5 sm:p-6 shadow-xl border-2 border-orange-300/50 block fe-surface",
+            crate::navigation::AppLink {
+                class: "account-stat-balance account-panel p-5 sm:p-6 shadow-xl border-2 border-orange-300/50 block fe-surface",
                 "data-account-stat-state": if available_credits.is_some() { "verified" } else if matches!(credit_balance, CreditBalanceLoad::Malformed) { "malformed" } else { "unavailable" },
                 href: "/account/credits",
                 div { class: "flex items-center justify-between mb-2 sm:mb-4 text-xl sm:text-3xl",
@@ -622,7 +621,7 @@ fn AccountStatsRow(
             }
             // Authentication method: shown only when the session identifies it.
             div {
-                class: "account-stat-method card card-glass p-5 sm:p-6 shadow-xl border-2 border-purple-300/50 fe-surface",
+                class: "account-stat-method account-panel p-5 sm:p-6 shadow-xl border-2 border-purple-300/50 fe-surface",
                 "data-account-stat-state": if auth_method.is_some() { "verified" } else if signed_in { "unavailable" } else { "signed-out" },
                 div { class: "flex items-center justify-between mb-2 sm:mb-4 text-xl sm:text-3xl",
                     Icon { name: "shield".to_string(), size: Some(20) }
@@ -668,7 +667,7 @@ fn AccountQuickActions() -> Element {
         div { class: "account-quick-actions grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6",
             // Support Center
             crate::fullstack::shell::ShellLink { class: "block group", href: "/contact",
-                div { class: "card card-glass p-5 sm:p-6 relative overflow-hidden border-2 border-blue-300/50 transition-all duration-300 hover:-translate-y-1 fe-surface",
+                div { class: "account-panel p-5 sm:p-6 relative overflow-hidden border-2 border-blue-300/50 transition-all duration-300 hover:-translate-y-1 fe-surface",
                     div { class: "absolute top-4 right-4 w-4 h-4 rounded-full bg-gradient-to-r from-blue-400 to-cyan-500 blur-sm opacity-60 fe-decoration fe-fill-neutral" }
                     h3 { class: "text-lg sm:text-xl font-bold flex items-center gap-2",
                         Icon { name: "message-circle".to_string(), size: Some(20) }
@@ -687,7 +686,7 @@ fn AccountQuickActions() -> Element {
             }
             // Privacy Control
             crate::fullstack::shell::ShellLink { class: "block group", href: "/privacy",
-                div { class: "card card-glass p-5 sm:p-6 relative overflow-hidden border-2 border-green-300/50 transition-all duration-300 hover:-translate-y-1 fe-surface",
+                div { class: "account-panel p-5 sm:p-6 relative overflow-hidden border-2 border-green-300/50 transition-all duration-300 hover:-translate-y-1 fe-surface",
                     div { class: "absolute top-4 right-4 w-4 h-4 rounded-full bg-gradient-to-r from-green-400 to-emerald-500 blur-sm opacity-60 fe-decoration fe-fill-neutral" }
                     h3 { class: "text-lg sm:text-xl font-bold flex items-center gap-2",
                         Icon { name: "shield".to_string(), size: Some(20) }
@@ -706,7 +705,7 @@ fn AccountQuickActions() -> Element {
             }
             // Recent Activity
             crate::fullstack::shell::ShellLink { class: "block group", href: "/notifications",
-                div { class: "card card-glass p-5 sm:p-6 relative overflow-hidden border-2 border-orange-300/50 transition-all duration-300 hover:-translate-y-1 fe-surface",
+                div { class: "account-panel p-5 sm:p-6 relative overflow-hidden border-2 border-orange-300/50 transition-all duration-300 hover:-translate-y-1 fe-surface",
                     div { class: "absolute top-4 right-4 w-4 h-4 rounded-full bg-gradient-to-r from-orange-400 to-pink-500 blur-sm opacity-60 fe-decoration fe-fill-neutral" }
                     h3 { class: "text-lg sm:text-xl font-bold flex items-center gap-2",
                         Icon { name: "bell".to_string(), size: Some(20) }
@@ -738,10 +737,10 @@ fn AccessAndPlansSection(load: AccountAccessLoad) -> Element {
         AccountAccessLoad::Malformed => "malformed",
     };
     rsx! {
-        div { class: "account-access-plans card card-glass p-4 sm:p-8 lg:p-10 shadow-2xl border-2 border-indigo-200/50 fe-surface",
+        div { class: "account-access-plans account-panel p-4 sm:p-8 lg:p-10 shadow-2xl border-2 border-indigo-200/50 fe-surface",
             "data-section": "account-access-plans",
             "data-access-state": access_state,
-            div { class: "flex items-center gap-3 mb-4 sm:mb-8",
+            div { class: "account-section-heading flex items-center gap-3 mb-4 sm:mb-8",
                 div { class: "p-3 bg-indigo-100 dark:bg-indigo-900/30 rounded-2xl",
                     Icon { name: "shield".to_string(), size: Some(24), class_name: Some("text-indigo-600 dark:text-indigo-400".to_string()) }
                 }
@@ -827,7 +826,7 @@ fn PlanPaymentsSection(load: AccountPlanPaymentsLoad) -> Element {
     };
     rsx! {
         section {
-            class: "account-plan-payments card card-glass p-6 sm:p-8 lg:p-10 shadow-2xl border-2 border-emerald-200/50 fe-surface",
+            class: "account-plan-payments account-panel p-6 sm:p-8 lg:p-10 shadow-2xl border-2 border-emerald-200/50 fe-surface",
             "data-section": "account-plan-payments",
             "data-plan-payments-state": state,
             div { class: "flex flex-wrap items-center gap-3 mb-6",
@@ -927,7 +926,7 @@ fn PaymentHistorySection(address: Option<String>, load: PaymentHistoryLoad) -> E
         PaymentHistoryTab {
             address,
             load,
-            class: Some("account-payment-history card card-glass p-6 sm:p-8 lg:p-10 shadow-2xl border-2 border-blue-200/50 fe-surface".to_string()),
+            class: Some("account-payment-history account-panel p-6 sm:p-8 lg:p-10 shadow-2xl border-2 border-blue-200/50 fe-surface".to_string()),
         }
     }
 }
@@ -1183,7 +1182,7 @@ fn NotificationPreferencesSection(
         NotificationPreferencesLoad::Unavailable | NotificationPreferencesLoad::Malformed
     );
     rsx! {
-        div { class: "account-notification-prefs card card-glass p-6 sm:p-8 lg:p-10 shadow-2xl border-2 border-purple-200/50 fe-surface",
+        div { class: "account-notification-prefs account-panel p-6 sm:p-8 lg:p-10 shadow-2xl border-2 border-purple-200/50 fe-surface",
             "data-section": "account-notification-prefs",
             div { class: "flex items-center gap-3 mb-8",
                 div { class: "p-3 bg-purple-100 dark:bg-purple-900/30 rounded-2xl",
@@ -1201,7 +1200,7 @@ fn NotificationPreferencesSection(
                         }
                     }
                     div { class: "flex flex-col gap-3 pt-2",
-                        a { class: "btn btn-outline w-full justify-between group hover:border-purple-300 font-bold",
+                        crate::navigation::AppLink { class: "btn btn-outline w-full justify-between group hover:border-purple-300 font-bold",
                             href: "/notifications",
                             span { "Browse All Alerts" }
                             span { "→" }
@@ -1252,7 +1251,7 @@ fn NotificationPreferencesSection(
                                     if signed_in && ready.is_none() {
                                         hydrated::AccountLink { class: "btn btn-sm btn-outline", href: ACCOUNT_PATH, "Retry" }
                                     } else if !signed_in {
-                                        a { class: "btn btn-sm btn-primary", href: ACCOUNT_SIGN_IN_PATH, "Sign in" }
+                                        crate::navigation::AppLink { class: "btn btn-sm btn-primary", href: ACCOUNT_SIGN_IN_PATH, "Sign in" }
                                     }
                                 }
                             }
@@ -1316,7 +1315,7 @@ fn NotificationPushSection(signed_in: bool) -> Element {
                         "Disable browser notifications"
                     }
                 } else {
-                    a {
+                    crate::navigation::AppLink {
                         class: "btn btn-sm btn-outline",
                         href: ACCOUNT_SIGN_IN_PATH,
                         "Sign in"
@@ -1417,7 +1416,7 @@ fn PrivacyBannerSection() -> Element {
                     "Review the privacy policy to understand how EPSX handles account data."
                 }
             }
-            a { class: "relative z-10 bg-white text-indigo-600 hover:bg-white/90 font-bold px-8 py-3 rounded-xl fe-fill-neutral",
+            crate::navigation::AppLink { class: "relative z-10 bg-white text-indigo-600 hover:bg-white/90 font-bold px-8 py-3 rounded-xl fe-fill-neutral",
                 href: "/privacy",
                 "Read Policy"
             }
@@ -1586,7 +1585,7 @@ mod tests {
             );
         }
         assert!(
-            html.contains("account-payment-history card card-glass p-6 sm:p-8 lg:p-10 shadow-2xl border-2 border-blue-200/50"),
+            html.contains("account-payment-history account-panel p-6 sm:p-8 lg:p-10 shadow-2xl border-2 border-blue-200/50"),
             "transaction history must retain the source card frame. Got: {}",
             html
         );

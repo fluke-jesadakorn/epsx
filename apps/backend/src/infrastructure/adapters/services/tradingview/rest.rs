@@ -194,8 +194,8 @@ impl TradingViewRestClient {
                 MarketDataError::NetworkError(category.to_string())
             })?;
 
-        if !response.status().is_success() {
-            let status = response.status();
+        let status = response.status();
+        if !status.is_success() && status != reqwest::StatusCode::BAD_REQUEST {
             error!("TradingView API returned status {}", status);
             return Err(MarketDataError::HttpStatus(status.as_u16()));
         }
@@ -226,6 +226,17 @@ impl TradingViewRestClient {
             MarketDataError::NetworkError(category.to_string())
         })? {
             append_bounded_response_chunk(&mut response_body, &chunk, MAX_CUSTOM_RESPONSE_BYTES)?;
+        }
+
+        if status == reqwest::StatusCode::BAD_REQUEST {
+            if let Some(total) = exhausted_range_total(&payload, &response_body) {
+                return Ok(TradingViewResponse {
+                    data: Vec::new(),
+                    total_count: Some(total),
+                });
+            }
+            error!("TradingView API returned status {}", status);
+            return Err(MarketDataError::HttpStatus(status.as_u16()));
         }
 
         serde_json::from_slice::<TradingViewResponse>(&response_body).map_err(|e| {
@@ -290,6 +301,39 @@ impl TradingViewRestClient {
             }
         }
     }
+}
+
+/// The scanner reports an exhausted range as HTTP 400 (including totalCount: 0
+/// even when the market has matches). Accept only its exact range error for the
+/// range we sent; unrelated query errors must remain failures. The total is used
+/// for pagination only, and never resets the wallet's entitlement offset.
+fn exhausted_range_total(payload: &serde_json::Value, body: &[u8]) -> Option<i32> {
+    let range = payload.get("range")?.as_array()?;
+    if range.len() != 2 {
+        return None;
+    }
+    let start = i32::try_from(range[0].as_i64()?).ok()?;
+    let end = i32::try_from(range[1].as_i64()?).ok()?;
+    if start < 0 || end <= start {
+        return None;
+    }
+    let response: serde_json::Value = serde_json::from_slice(body).ok()?;
+    if !response.get("data")?.is_null() {
+        return None;
+    }
+    let prefix = format!(
+        "could not write scan response: interval [{start}:{end}] is out of available range [:"
+    );
+    let total = response
+        .get("error")?
+        .as_str()?
+        .strip_prefix(&prefix)?
+        .strip_suffix(']')?;
+    if total.is_empty() || !total.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+    let total: i32 = total.parse().ok()?;
+    (start >= total).then_some(total)
 }
 
 fn append_bounded_response_chunk(
@@ -383,5 +427,65 @@ mod tests {
             .expect_err("response above the limit must fail closed");
         assert!(matches!(error, MarketDataError::ExternalApiError(_)));
         assert_eq!(response_body, vec![1, 2, 3, 4]);
+    }
+    #[test]
+    fn country_range_exhaustion_keeps_the_provider_total() {
+        let payload = json!({"range": [99, 109]});
+        for total in [0, 12, 77, 99] {
+            let body = json!({"totalCount": 0, "data": null, "error": format!(
+                "could not write scan response: interval [99:109] is out of available range [:{total}]"
+            )});
+            assert_eq!(
+                exhausted_range_total(&payload, &serde_json::to_vec(&body).unwrap()),
+                Some(total)
+            );
+        }
+    }
+
+    #[test]
+    fn country_range_exhaustion_does_not_hide_other_provider_errors() {
+        let payload = json!({"range": [99, 109]});
+        for error in [
+            "Unknown field country",
+            "could not write scan response: interval [0:10] is out of available range [:12]",
+            "could not write scan response: interval [99:109] is out of available range [:100]",
+            "could not write scan response: interval [99:109] is out of available range [:-1]",
+            "could not write scan response: interval [99:109] is out of available range [:2147483648]",
+        ] {
+            let body = json!({"data": null, "error": error});
+            assert_eq!(exhausted_range_total(&payload, &serde_json::to_vec(&body).unwrap()), None);
+        }
+        assert_eq!(exhausted_range_total(&payload, b"invalid json"), None);
+    }
+
+    #[tokio::test]
+    async fn country_range_http_400_becomes_empty_page_without_retry() {
+        use axum::{routing::post, Json, Router};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let app = Router::new().route("/scan", post(|body: String| async move {
+            let request: serde_json::Value = serde_json::from_str(&body).unwrap();
+            assert_eq!(request["range"], json!([99, 109]));
+            (axum::http::StatusCode::BAD_REQUEST, Json(json!({
+                "totalCount": 0, "data": null,
+                "error": "could not write scan response: interval [99:109] is out of available range [:12]"
+            })))
+        }));
+        let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        let client = TradingViewRestClient::new(TradingViewConfig {
+            scanner_api_url: format!("http://{address}/scan"),
+            websocket_url: String::new(),
+            origin_url: String::new(),
+            referer_url: "http://localhost/".into(),
+            http_timeout_seconds: 3,
+            auth_token: String::new(),
+        });
+        let result = client
+            .execute_custom_request_once(json!({"range": [99, 109]}))
+            .await;
+        server.abort();
+        let page = result.expect("exhausted country should be an empty successful page");
+        assert!(page.data.is_empty());
+        assert_eq!(page.total_count, Some(12));
     }
 }

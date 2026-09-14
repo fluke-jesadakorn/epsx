@@ -1,0 +1,28 @@
+/* Frontend Tailwind component styles. Edit here; no Rust compilation required. */
+/* Extracted from Home's marketing navigation; scoped so every app can reuse it. */
+.epsx-site-nav { --sn-bg: var(--fe-bg,#f7f9fc); --sn-text: var(--fe-text,#172033); --sn-muted: var(--fe-muted,#586579); --sn-border: var(--fe-border,#dce2eb); --sn-tint: var(--fe-tint,#edf3ff); --sn-primary: var(--fe-primary,#3269b5); @apply relative; @apply z-[60]; color: var(--sn-text); font-family: ui-sans-serif,system-ui,sans-serif; background: var(--sn-bg); }
+.dark .epsx-site-nav, [data-theme=dark] .epsx-site-nav { --sn-bg: var(--fe-bg,#101722); --sn-text: var(--fe-text,#edf2fa); --sn-muted: var(--fe-muted,#adbcd0); --sn-border: var(--fe-border,#33445d); --sn-tint: var(--fe-tint,#223653); --sn-primary: var(--fe-primary,#92baff); }
+.epsx-site-nav * { @apply box-border; }
+.epsx-site-nav .site-nav-header { @apply flex; @apply justify-between; @apply items-center; @apply gap-[24px]; @apply min-h-[80px]; @apply max-w-[1280px]; padding: 12px 40px; margin: auto; border-bottom: 1px solid var(--sn-border); }
+.epsx-site-nav .site-nav-brand { @apply inline-flex; @apply items-center; @apply gap-[10px]; @apply shrink-0; @apply text-[21px]; @apply font-[750]; @apply tracking-[-.025em]; @apply no-underline; color: var(--sn-text); }
+.epsx-site-nav .site-nav-brand img { @apply w-[30px]; @apply h-[30px]; }
+.epsx-site-nav .site-nav-desktop { @apply flex; @apply gap-[20px]; }
+.epsx-site-nav .site-nav-group { @apply relative; }
+.epsx-site-nav summary { @apply list-none; @apply cursor-pointer; }
+.epsx-site-nav summary::-webkit-details-marker { @apply hidden; }
+.epsx-site-nav .site-nav-group > summary { @apply flex; @apply items-center; @apply gap-[6px]; @apply min-h-[44px]; @apply p-[8px]; @apply rounded-[8px]; @apply text-[13px]; @apply font-[550]; color: var(--sn-muted); }
+.epsx-site-nav .site-nav-group[open] > summary { background: var(--sn-tint); color: var(--sn-primary); }
+.epsx-site-nav .site-nav-group > nav { @apply absolute; @apply z-[60]; @apply top-[48px]; @apply left-[-12px]; @apply min-w-[228px]; max-height: min(65vh,540px); @apply overflow-y-auto; @apply p-[8px]; border: 1px solid var(--sn-border); @apply rounded-[12px]; background: var(--sn-bg); box-shadow: 0 12px 32px #0002; }
+.epsx-site-nav .site-nav-link { @apply flex; @apply items-center; @apply gap-[12px]; @apply min-h-[44px]; padding: 10px 12px; @apply rounded-[8px]; @apply text-[13px]; color: var(--sn-muted); @apply no-underline; }
+.epsx-site-nav .site-nav-link:hover, .epsx-site-nav .site-nav-link[aria-current=page] { color: var(--sn-primary); background: var(--sn-tint); }
+.epsx-site-nav .site-nav-link[aria-disabled] { opacity: .5; }
+.epsx-site-nav .site-nav-actions { @apply flex; @apply items-center; @apply justify-end; @apply gap-[12px]; @apply min-w-[0]; }
+.epsx-site-nav :is(a,button,summary):focus-visible { outline: 2px solid var(--sn-primary); outline-offset: 3px; }
+.epsx-site-nav .site-nav-mobile { @apply hidden; @apply max-w-[1280px]; margin: auto; padding: 0 24px 12px; border-bottom: 1px solid var(--sn-border); }
+.epsx-site-nav .site-nav-mobile > summary { padding: 12px 0; @apply min-h-[44px]; @apply text-[13px]; color: var(--sn-muted); }
+.epsx-site-nav .site-nav-mobile > nav { max-height: 65vh; @apply overflow-y-auto; }
+.epsx-site-nav .site-nav-caption { margin: 16px 12px 4px; @apply text-[11px]; @apply uppercase; @apply tracking-[.12em]; color: var(--sn-muted); }
+@media(max-width: 1100px) { .epsx-site-nav .site-nav-desktop { @apply hidden; } .epsx-site-nav .site-nav-mobile { @apply block; } .epsx-site-nav .site-nav-header { padding-inline: 24px; @apply gap-[16px]; } }
+@media(max-width: 480px) { .epsx-site-nav .site-nav-header { padding: 12px 16px; @apply flex-wrap; @apply gap-[12px]; } .epsx-site-nav .site-nav-mobile { padding-inline: 16px; } .epsx-site-nav .site-nav-actions { @apply flex-wrap; } }
+
+.epsx-site-nav .site-nav-dismiss { @apply fixed; inset: 0; border: 0; background: transparent; z-index: -1; }

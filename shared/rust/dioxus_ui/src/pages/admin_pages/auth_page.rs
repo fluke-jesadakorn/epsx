@@ -23,7 +23,7 @@ fn AdminAuthRedirect() -> Element {
             p { "Redirecting…" }
             p {
                 "If you are not redirected automatically, "
-                a { href: "/", "continue to the admin home page" }
+                crate::navigation::AppLink { href: "/", "continue to the admin home page" }
                 "."
             }
         }

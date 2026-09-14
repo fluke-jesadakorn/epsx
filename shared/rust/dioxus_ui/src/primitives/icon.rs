@@ -87,7 +87,7 @@ pub fn IconButton(
 
     if let Some(url) = href {
         rsx! {
-            a { class: "{cls}", href: "{url}", id: id.clone(), title: "{title_attr}", "aria-label": "{aria}",
+            crate::navigation::AppLink { class: "{cls}", href: "{url}", id: id.clone(), title: "{title_attr}", "aria-label": "{aria}",
                 Icon { name: name, size: Some(ic_size) }
             }
         }

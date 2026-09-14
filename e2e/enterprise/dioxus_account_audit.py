@@ -214,7 +214,7 @@ def main():
                 with urlopen(Request(base+'/offline',headers={'Cookie':'epsx.frontend.access_token='+token})) as response:
                     owner=response.read()
                     assert response.headers['x-epsx-public-cache']=='offline-shell-v1'
-                assert b'/public/enterprise.css?v=dioxus-2' in guest, 'offline SSR uses stale stylesheet version'
+                assert b'/public/dist/tailwind.css' in guest, 'offline SSR uses stale stylesheet version'
                 assert guest==owner and WALLET.encode() not in owner
                 assert COUNTERS['jwks']==0 and READS==[],(COUNTERS,READS)
                 records.append({'offline_cookie_independent_ssr_no_auth_reads':True})
@@ -375,10 +375,10 @@ def main():
             if os.getenv('EPSX_AUDIT_OFFLINE') == '1':
                 browser('open',base+'/offline')
                 browser('wait','[data-dioxus-hydrated="true"]')
-                browser('eval',"(async()=>{const old=await caches.open('epsx-public-recovery-v2'); await old.put('/offline',new Response('<link href=\"/public/enterprise.css?v=dioxus-1\">')); await caches.open('unrelated-fixture-cache'); return true;})()")
+                browser('eval',"(async()=>{const old=await caches.open('epsx-public-recovery-v2'); await old.put('/offline',new Response('<link href=\"/public/dist/tailwind.cssdioxus-1\">')); await caches.open('unrelated-fixture-cache'); return true;})()")
                 browser('eval',"(async()=>{await navigator.serviceWorker.register('/runtime/epsx_service_worker_bootstrap.v3.js?rev=3',{type:'module',scope:'/'}); await Promise.race([navigator.serviceWorker.ready,new Promise((_,reject)=>setTimeout(()=>reject(new Error('worker installation timed out')),10000))]);return true;})()")
                 browser('wait','--fn','navigator.serviceWorker.controller !== null')
-                assert browser('eval',"(async()=>{const names=await caches.keys();const cache=await caches.open('epsx-public-recovery-v3');const html=await (await cache.match('/offline')).text();return !names.includes('epsx-public-recovery-v2') && names.includes('unrelated-fixture-cache') && html.includes('/public/enterprise.css?v=dioxus-2') && !!(await cache.match('/public/enterprise.css?v=dioxus-2'));})()")=='true'
+                assert browser('eval',"(async()=>{const names=await caches.keys();const cache=await caches.open('epsx-public-recovery-v3');const html=await (await cache.match('/offline')).text();return !names.includes('epsx-public-recovery-v2') && names.includes('unrelated-fixture-cache') && html.includes('/public/dist/tailwind.css') && !!(await cache.match('/public/dist/tailwind.css'));})()")=='true'
                 records.append({'offline_upgrade_replaces_v1_html_preserves_unrelated_cache':True})
                 browser('open',base+'/account/payments')
                 browser('wait','.fe-purchase-table')

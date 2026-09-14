@@ -383,11 +383,11 @@ fn AnalyticsSurface(
                             p { class: "mt-1 text-sm text-muted-foreground", "{detail}" }
                         }
                         nav { class: "flex shrink-0 gap-2", aria_label: "Analytics recovery",
-                            a { class: "btn btn-sm btn-outline", href: ANALYTICS_PATH,
+                            crate::navigation::AppLink { class: "btn btn-sm btn-outline", href: ANALYTICS_PATH,
                                 Icon { name: "refresh-cw".to_string(), size: Some(15) }
                                 " Check again"
                             }
-                            a { class: "btn btn-sm btn-ghost", href: "/", "Admin home" }
+                            crate::navigation::AppLink { class: "btn btn-sm btn-ghost", href: "/", "Admin home" }
                         }
                     }
                 }

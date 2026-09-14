@@ -1,21 +1,9 @@
 //! Frontend-only document chrome. Admin and Pay keep their existing shells.
-use epsx_templates::{design_system_head_with_keywords, global_js};
-use std::{
-    hash::{DefaultHasher, Hash, Hasher},
-    sync::LazyLock,
-};
+use epsx_templates::{frontend_head_with_keywords, global_js};
 
 fn lucide(name: &str) -> String {
     epsx_templates::lucide(name, "20", "")
 }
-
-pub const CSS: &str = include_str!("../public/enterprise.css");
-// Keep cached styles in step with the markup shipped by this binary.
-static CSS_VERSION: LazyLock<String> = LazyLock::new(|| {
-    let mut hasher = DefaultHasher::new();
-    CSS.hash(&mut hasher);
-    format!("{:016x}", hasher.finish())
-});
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Shell {
@@ -227,10 +215,9 @@ pub fn document(
     } else {
         ""
     };
-    let css_version = CSS_VERSION.as_str();
     format!(
-        r##"<!DOCTYPE html><html lang="en" data-epsx-frontend="true"><head>{}<link rel="stylesheet" href="/public/enterprise.css?v={css_version}">{}</head><body class="epsx-frontend fe-{kind}"><a class="epsx-skip-link" href="#epsx-main-content">Skip to main content</a>{nav}<main id="epsx-main-content" tabindex="-1" class="fe-main">{}<div class="fe-content" data-fe-page="{}">{body}</div></main>{footer}</body></html>"##,
-        design_system_head_with_keywords(title, description, keywords),
+        r##"<!DOCTYPE html><html lang="en" data-epsx-frontend="true"><head>{}{}</head><body class="epsx-frontend fe-{kind}"><a class="epsx-skip-link" href="#epsx-main-content">Skip to main content</a>{nav}<main id="epsx-main-content" tabindex="-1" class="fe-main">{}<div class="fe-content" data-fe-page="{}">{body}</div></main>{footer}</body></html>"##,
+        frontend_head_with_keywords(title, description, keywords),
         global_js(),
         if shell(path) == Shell::Workspace {
             mobile_navigation()

@@ -30,29 +30,29 @@ pub fn Footer() -> Element {
                 div { class: "footer-col",
                     h4 { class: "footer-heading", "Platform" }
                     ul { class: "footer-list",
-                        li { a { href: "/", "Home" } }
-                        li { a { href: "/pricing", "Pricing" } }
-                        li { a { href: "/plans", "Plans" } }
-                        li { a { href: "/analytics", "Analytics" } }
-                        li { a { href: "/portfolio", "Portfolio" } }
+                        li { crate::navigation::AppLink { href: "/", "Home" } }
+                        li { crate::navigation::AppLink { href: "/pricing", "Pricing" } }
+                        li { crate::navigation::AppLink { href: "/plans", "Plans" } }
+                        li { crate::navigation::AppLink { href: "/analytics", "Analytics" } }
+                        li { crate::navigation::AppLink { href: "/portfolio", "Portfolio" } }
                     }
                 }
                 div { class: "footer-col",
                     h4 { class: "footer-heading", "Developers" }
                     ul { class: "footer-list",
-                        li { a { href: "/developer", "Developer Portal" } }
-                        li { a { href: "/developer/docs", "API Docs" } }
-                        li { a { href: "/manual", "Manual" } }
+                        li { crate::navigation::AppLink { href: "/developer", "Developer Portal" } }
+                        li { crate::navigation::AppLink { href: "/developer/docs", "API Docs" } }
+                        li { crate::navigation::AppLink { href: "/manual", "Manual" } }
                     }
                 }
                 div { class: "footer-col",
                     h4 { class: "footer-heading", "Company" }
                     ul { class: "footer-list",
-                        li { a { href: "/about", "About" } }
-                        li { a { href: "/contact", "Contact" } }
-                        li { a { href: "/news", "News" } }
-                        li { a { href: "/terms", "Terms" } }
-                        li { a { href: "/privacy", "Privacy" } }
+                        li { crate::navigation::AppLink { href: "/about", "About" } }
+                        li { crate::navigation::AppLink { href: "/contact", "Contact" } }
+                        li { crate::navigation::AppLink { href: "/news", "News" } }
+                        li { crate::navigation::AppLink { href: "/terms", "Terms" } }
+                        li { crate::navigation::AppLink { href: "/privacy", "Privacy" } }
                     }
                 }
             }

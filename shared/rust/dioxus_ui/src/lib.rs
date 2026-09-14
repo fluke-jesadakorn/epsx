@@ -29,6 +29,7 @@ pub mod fullstack;
 pub mod home;
 pub mod i18n;
 pub mod layout;
+pub mod navigation;
 pub mod news;
 pub mod pages;
 pub mod payment;

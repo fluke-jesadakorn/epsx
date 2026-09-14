@@ -203,8 +203,14 @@ fn is_browser_adapter_asset(path: &Path, bytes: &[u8]) -> bool {
         "shared/rust/dioxus_ui/src/fullstack/wallet_disconnect.js" => {
             "925b85698c5e7d851a7812ae9c97c6926b15641a85ace4bc5df0399600bb9d35"
         }
+        "shared/rust/dioxus_ui/src/navigation_lifecycle.js" => {
+            "3d978b7c983de83d5738ecc6ac5842f66f4ad17256c004463ac2c81eb4d0abba"
+        }
         "infrastructure/native/local-deploy.js" => {
             "3363765b1095a9bfb84a7c4aa57e3592740e788fc9c41137df7d41f26ef31497"
+        }
+        "infrastructure/native/dev-live-css.js" => {
+            "64c845d1ae706aa23327474ddd892b6531719bd9dafb4f2b8abbf98554d48ce2"
         }
         _ => return false,
     };
@@ -789,7 +795,7 @@ fn runtime_bootstrap(crate_name: &str) -> String {
              self.addEventListener('fetch', (event) => {{\n\
                if (!isDev && event.request.method === 'GET' && event.request.mode === 'navigate') {{\n\
                  event.respondWith(runtime.then(() => fetch_navigation(event.request)));\n\
-               }} else if (!isDev && event.request.method === 'GET' && new URL(event.request.url).origin === self.location.origin && ['/public/dist/tailwind.css','/public/enterprise.css?v=dioxus-2'].includes(new URL(event.request.url).pathname + new URL(event.request.url).search)) {{\n\
+               }} else if (!isDev && event.request.method === 'GET' && new URL(event.request.url).origin === self.location.origin && ['/public/dist/tailwind.css'].includes(new URL(event.request.url).pathname + new URL(event.request.url).search)) {{\n\
                  event.respondWith(runtime.then(() => fetch_public_style(event.request)));\n\
                }}\n\
              }});\n\
@@ -3173,7 +3179,9 @@ mod tests {
         for name in [
             "shared/rust/dioxus_ui/src/fullstack/pay/wallet_adapter.js",
             "shared/rust/dioxus_ui/src/fullstack/wallet_disconnect.js",
+            "shared/rust/dioxus_ui/src/navigation_lifecycle.js",
             "infrastructure/native/local-deploy.js",
+            "infrastructure/native/dev-live-css.js",
         ] {
             let path = Path::new(name);
             let bytes = std::fs::read(super::repo_root().unwrap().join(path)).unwrap();

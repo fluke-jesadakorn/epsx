@@ -100,7 +100,7 @@ pub fn DropdownItem(
         cls.push_str(" dropdown-item-inset");
     }
     if let Some(h) = href {
-        rsx! { a { class: "{cls}", href: "{h}", role: "menuitem",
+        rsx! { crate::navigation::AppLink { class: "{cls}", href: "{h}", role: "menuitem",
             if let Some(i) = icon {
                 span { class: "dropdown-item-icon", Icon { name: i.clone(), size: Some(16) } }
             }

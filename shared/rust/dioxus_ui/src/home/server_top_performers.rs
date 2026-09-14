@@ -22,7 +22,7 @@ pub fn ServerTopPerformers() -> Element {
                         p { class: "text-muted-foreground mx-auto max-w-2xl server-top-performers-sub",
                             "No ranking records are shown until the backend returns a verified market response."
                         }
-                        a {
+                        crate::navigation::AppLink {
                             class: "mx-auto inline-flex items-center rounded-xl border border-cyan-400/30 px-5 py-3 font-semibold text-cyan-300",
                             href: "/analytics",
                             "Open analytics"

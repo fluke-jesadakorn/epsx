@@ -321,7 +321,7 @@ pub fn HydratedDeveloper(query: ReadSignal<String>, #[props(default)] usage: boo
         document::Meta { name: "description", content: "Manage API keys and review your API access and usage." }
         div { class: "container page-content space-y-6 fe-page-layout", "data-dioxus-developer": "true", aria_busy: pending(),
             PageHeader { title: if usage { "API usage".to_string() } else { "Developer portal".to_string() }, description: Some("Manage API keys and review the access included in your plan.".into()), icon: Some("code".into()) }
-            if let Some(failure) = error() { p { role: "status", "{failure.message()}" } button { class: "btn btn-outline", r#type: "button", disabled: pending(), onclick: move |_| { let next = *revision.peek()+1; revision.set(next); }, "Try again" } }
+            if let Some(failure) = error() { crate::fullstack::load_error::LoadErrorNotice { error: failure.clone(),  button { class: "btn btn-outline", r#type: "button", disabled: pending(), onclick: move |_| { let next = *revision.peek()+1; revision.set(next); }, "Try again" } } }
             if !status().is_empty() { p { role: "status", "{status}" } }
             if let Some(data) = data() { if usage { UsageReady { data } } else { OverviewReady { data } } }
         }
@@ -358,7 +358,7 @@ pub fn HydratedDeveloperDocs() -> Element {
                         for operation in operations { TryOperation { key: "{operation.operation_id}", operation, api_key } }
                     }
                 },
-                Err(error) => rsx! { p { role: "status", "{error.message()}" } button { class: "btn btn-outline", onclick: move |_| resource.restart(), "Try again" } }
+                Err(error) => rsx! { crate::fullstack::load_error::LoadErrorNotice { error: error.clone(),  button { class: "btn btn-outline", onclick: move |_| resource.restart(), "Try again" } } }
             }
         }
     }

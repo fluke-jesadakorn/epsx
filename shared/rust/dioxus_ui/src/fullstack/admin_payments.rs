@@ -343,7 +343,7 @@ pub fn HydratedAdminPayments(query: ReadSignal<String>) -> Element {
         navigate,
     });
     use_context_provider(move || AdminNavigation(navigate));
-    rsx! {AdminAnalyticsShell{authenticated:data().is_ok(),current_path:"/payments",title:"Payments",document::Title{"Payments | EPSX Admin"}fieldset{disabled:pending(),aria_busy:pending(),if pending(){p{class:"p-4",role:"status","Loading payments…"}}match data(){Ok(snapshot)=>rsx!{crate::pages::admin_pages::payments::HydratedPaymentsBody{key:"{generation}",data:snapshot,query:parsed().unwrap_or_default(),mutation:result()}},Err(error)=>rsx!{div{class:"p-6 space-y-4",p{role:"status","{error.message()}"}button{r#type:"button",class:"btn btn-outline",onclick:move |_|navigate.call(parsed().unwrap_or_default().href()),"Try again"}}}}}}
+    rsx! {AdminAnalyticsShell{authenticated:data().is_ok(),current_path:"/payments",title:"Payments",document::Title{"Payments | EPSX Admin"}fieldset{disabled:pending(),aria_busy:pending(),if pending(){p{class:"p-4",role:"status","Loading payments…"}}match data(){Ok(snapshot)=>rsx!{crate::pages::admin_pages::payments::HydratedPaymentsBody{key:"{generation}",data:snapshot,query:parsed().unwrap_or_default(),mutation:result()}},Err(error)=>rsx!{div{class:"p-6 space-y-4",crate::fullstack::load_error::LoadErrorNotice { error: error.clone(), button{r#type:"button",class:"btn btn-outline",onclick:move |_|navigate.call(parsed().unwrap_or_default().href()),"Try again"} }}}}}}
     }
 }
 

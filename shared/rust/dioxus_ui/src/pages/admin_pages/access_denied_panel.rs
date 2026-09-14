@@ -165,7 +165,7 @@ fn AccessDeniedPanelInner(model: DenialModel) -> Element {
                     nav {
                         class: "flex flex-col sm:flex-row gap-3",
                         "aria-label": "Access denied actions",
-                        a {
+                        crate::navigation::AppLink {
                             href: "/auth?return_url=%2F",
                             "data-admin-denial-auth": "true",
                             "data-epsx-logout": "true",
@@ -178,7 +178,7 @@ fn AccessDeniedPanelInner(model: DenialModel) -> Element {
                             }
                             "Go to Auth"
                         }
-                        a {
+                        crate::navigation::AppLink {
                             href: "/",
                             "data-admin-denial-back": "true",
                             "data-epsx-action": "back",
@@ -262,7 +262,10 @@ mod tests {
             );
         }
         assert!(html.contains("href=\"/auth?return_url=%2F\""));
-        assert!(html.contains("href=\"/\" data-admin-denial-back=\"true\""));
+        assert!(html.split("<a ").any(|anchor| {
+            let tag = anchor.split('>').next().unwrap_or("");
+            tag.contains("href=\"/\"") && tag.contains("data-admin-denial-back=\"true\"")
+        }));
     }
 
     #[test]
@@ -284,7 +287,10 @@ mod tests {
                 &format!("route={untrusted_target}&reason={untrusted_target}"),
             );
             assert!(html.contains("href=\"/auth?return_url=%2F\""));
-            assert!(html.contains("href=\"/\" data-admin-denial-back=\"true\""));
+            assert!(html.split("<a ").any(|anchor| {
+                let tag = anchor.split('>').next().unwrap_or("");
+                tag.contains("href=\"/\"") && tag.contains("data-admin-denial-back=\"true\"")
+            }));
             assert!(!html.contains("evil.example"));
             assert!(!html.contains("tab=history"));
             assert!(!html.contains("javascript:"));

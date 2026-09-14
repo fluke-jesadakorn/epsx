@@ -39,13 +39,13 @@ pub fn OrdersPage(data: Value, admin: bool) -> Element {
     let rows = data["orders"].as_array().cloned().unwrap_or_default();
     rsx! {main {class:"container-x max-w-6xl mx-auto py-10 space-y-6",
         nav {class:"flex flex-wrap gap-5 text-sm",
-            a {href:if admin {"/"}else{"/account"},class:"underline",if admin {"Admin home"}else{"My account"}}
-            a {href:"/plans",class:"underline","Plans"}
-            if admin {a{href:"/payments",class:"underline","Other payments"} a{href:"/pay/merchant-escrows",class:"underline","Escrow disputes"}}
+            crate::navigation::AppLink {href:if admin {"/"}else{"/account"},class:"underline",if admin {"Admin home"}else{"My account"}}
+            crate::navigation::AppLink {href:"/plans",class:"underline","Plans"}
+            if admin {crate::navigation::AppLink {href:"/payments",class:"underline","Other payments"} crate::navigation::AppLink {href:"/pay/merchant-escrows",class:"underline","Escrow disputes"}}
         }
         h1 {class:"text-3xl font-bold","EPSX Plan purchases"}
         p {class:"text-muted-foreground","Payment confirmation and plan access are tracked separately. Refresh to check the latest status."}
-        if let Some(nav) = navigation { button { r#type:"button",class:"btn btn-outline",disabled:(nav.pending)(),onclick:move |_|nav.refresh.call(()),"Refresh status" } } else { a {href:if detail {format!("{base}/{}",text(&data,"order_id"))}else{base.into()},class:"btn btn-outline","Refresh status"} }
+        if let Some(nav) = navigation { button { r#type:"button",class:"btn btn-outline",disabled:(nav.pending)(),onclick:move |_|nav.refresh.call(()),"Refresh status" } } else { crate::navigation::AppLink {href:if detail {format!("{base}/{}",text(&data,"order_id"))}else{base.into()},class:"btn btn-outline","Refresh status"} }
         if detail {
             section {class:"border rounded-2xl p-6 space-y-4 bg-card",
                 h2 {class:"text-xl font-semibold",{text(&data,"plan_name")}}
@@ -61,13 +61,13 @@ pub fn OrdersPage(data: Value, admin: bool) -> Element {
                 if data["payment_available"]==false {p {role:"status","Payment verification is temporarily unavailable. Your recorded order is preserved."}}
                 if data["fulfillment_status"]=="granted" {p {role:"status",class:"text-emerald-600 font-semibold","Plan activation recorded. Your current access is available in My account."}}
             }
-            a {href:base,onclick:move |event|follow(event,navigation,base.into()),class:"underline","All purchases"}
+            crate::navigation::AppLink {href:base,onclick:move |event|follow(event,navigation,base.into()),class:"underline","All purchases"}
         } else {
             if rows.is_empty() {p {role:"status","No Pay purchases yet."}}
             div {class:"overflow-x-auto border rounded-2xl bg-card",
                 table {class:"w-full text-left",thead {tr {for label in ["Plan","Amount","Order status","Plan access","Created"] {th {class:"p-4","{label}"}}}}
                     tbody {for row in rows {tr {class:"border-t",
-                        td {class:"p-4", {let url = format!("{base}/{}",text(&row,"order_id")); rsx!{a {class:"underline font-semibold",href:url.clone(),onclick:move |event|follow(event,navigation,url.clone()),{text(&row,"plan_name")}}}}}
+                        td {class:"p-4", {let url = format!("{base}/{}",text(&row,"order_id")); rsx!{crate::navigation::AppLink {class:"underline font-semibold",href:url.clone(),onclick:move |event|follow(event,navigation,url.clone()),{text(&row,"plan_name")}}}}}
                         td {class:"p-4 whitespace-nowrap",{amount(&row)}}
                         td {class:"p-4",{text(&row,"status")}}
                         td {class:"p-4",{text(&row,"fulfillment_status")}}
@@ -75,7 +75,7 @@ pub fn OrdersPage(data: Value, admin: bool) -> Element {
                     }}}
                 }
             }
-            if let Some(offset)=data["next_offset"].as_i64() {a {href:format!("{base}?offset={offset}"),onclick:move |event|follow(event,navigation,format!("{base}?offset={offset}")),class:"btn btn-outline","Older purchases"}}
+            if let Some(offset)=data["next_offset"].as_i64() {crate::navigation::AppLink {href:format!("{base}?offset={offset}"),onclick:move |event|follow(event,navigation,format!("{base}?offset={offset}")),class:"btn btn-outline","Older purchases"}}
         }
     }}
 }
@@ -126,12 +126,12 @@ fn PurchaseHistory(data: Value) -> Element {
             div { class: "fe-purchase-actions",
                 if let Some(nav) = navigation {
                     button { r#type: "button", class: "fe-button", disabled: (nav.pending)(), onclick: move |_| nav.refresh.call(()), Icon { name: "refresh-cw", size: 16 } "Refresh status" }
-                } else { a { href: refresh, class: "fe-button", Icon { name: "refresh-cw", size: 16 } "Refresh status" } }
-                a { href: "/plans", class: "fe-button fe-primary", "Explore plans" Icon { name: "arrow-right", size: 16 } }
+                } else { crate::navigation::AppLink { href: refresh, class: "fe-button", Icon { name: "refresh-cw", size: 16 } "Refresh status" } }
+                crate::navigation::AppLink { href: "/plans", class: "fe-button fe-primary", "Explore plans" Icon { name: "arrow-right", size: 16 } }
             }
         }
         if detail {
-            a { href: "/account/payments", onclick: move |event| follow(event, navigation, "/account/payments".into()), class: "fe-text-link", "← All purchases" }
+            crate::navigation::AppLink { href: "/account/payments", onclick: move |event| follow(event, navigation, "/account/payments".into()), class: "fe-text-link", "← All purchases" }
             section { class: "fe-purchase-panel",
                 header { class: "fe-purchase-panel-heading", h2 { {text(&data,"plan_name")} } strong { {amount(&data)} } }
                 dl { class: "fe-purchase-details",
@@ -154,7 +154,7 @@ fn PurchaseHistory(data: Value) -> Element {
                 div { class: "fe-state-art", Icon { name: "receipt", size: 28 } }
                 h2 { "No purchases yet" }
                 p { "Once you purchase a plan, your payment and activation details will appear here." }
-                a { href: "/plans", class: "fe-button fe-primary", "Find a plan" }
+                crate::navigation::AppLink { href: "/plans", class: "fe-button fe-primary", "Find a plan" }
             }
         } else {
             section { class: "fe-purchase-panel", "aria-label": "Purchase history",
@@ -163,19 +163,19 @@ fn PurchaseHistory(data: Value) -> Element {
                     thead { tr { for label in ["Plan", "Amount", "Payment", "Plan access", "Purchased on", ""] { th { scope: "col", "{label}" } } } }
                     tbody { for row in rows {
                         { let detail_url = format!("/account/payments/{}",text(&row,"order_id")); let plan_url = detail_url.clone(); rsx! { tr {
-                        td { "data-label": "Plan", a { class: "fe-purchase-plan", onclick: move |event| follow(event, navigation, plan_url.clone()), href: format!("/account/payments/{}",text(&row,"order_id")), {text(&row,"plan_name")} } }
+                        td { "data-label": "Plan", crate::navigation::AppLink { class: "fe-purchase-plan", onclick: move |event| follow(event, navigation, plan_url.clone()), href: format!("/account/payments/{}",text(&row,"order_id")), {text(&row,"plan_name")} } }
                         td { "data-label": "Amount", class: "fe-purchase-amount", {amount(&row)} }
                         td { "data-label": "Payment", PurchaseBadge { status: text(&row,"status") } }
                         td { "data-label": "Plan access", PurchaseBadge { status: text(&row,"fulfillment_status") } }
                         td { "data-label": "Purchased on", time { datetime: text(&row,"created_at"), {purchase_date(&row)} } }
-                        td { a { class: "fe-text-link", onclick: move |event| follow(event, navigation, detail_url.clone()), href: format!("/account/payments/{}",text(&row,"order_id")), "aria-label": format!("View {} purchase from {}",text(&row,"plan_name"),purchase_date(&row)), "Details" Icon { name: "arrow-right", size: 14 } } }
+                        td { crate::navigation::AppLink { class: "fe-text-link", onclick: move |event| follow(event, navigation, detail_url.clone()), href: format!("/account/payments/{}",text(&row,"order_id")), "aria-label": format!("View {} purchase from {}",text(&row,"plan_name"),purchase_date(&row)), "Details" Icon { name: "arrow-right", size: 14 } } }
                     } } } } }
                 }
             }
-            if let Some(offset) = data["next_offset"].as_i64() { a { href: format!("/account/payments?offset={offset}"), onclick: move |event| follow(event, navigation, format!("/account/payments?offset={offset}")), class: "fe-button", "Older purchases" } }
+            if let Some(offset) = data["next_offset"].as_i64() { crate::navigation::AppLink { href: format!("/account/payments?offset={offset}"), onclick: move |event| follow(event, navigation, format!("/account/payments?offset={offset}")), class: "fe-button", "Older purchases" } }
         }
         aside { class: "fe-purchase-note", Icon { name: "info", size: 18 }
-            p { "Payment and plan activation are tracked separately. A granted purchase records activation; check " a { href: "/account", "My account" } " for your current access." }
+            p { "Payment and plan activation are tracked separately. A granted purchase records activation; check " crate::navigation::AppLink { href: "/account", "My account" } " for your current access." }
         }
     } }
 }

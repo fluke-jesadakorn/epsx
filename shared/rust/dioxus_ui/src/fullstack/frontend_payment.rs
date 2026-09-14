@@ -168,7 +168,7 @@ pub fn HydratedPayment(plan_id: Option<String>) -> Element {
        });}
       }
      }else{PaymentEntryContent{}}},
-     Some(Ok(Err(LoadError::Unauthenticated)))=>rsx!{section{class:"fe-state-card",h1{"Sign in to continue"}super::shell::ShellLink{href:return_url.clone(),class:"btn btn-primary", "Sign in with wallet"}}},
+     Some(Ok(Err(LoadError::Unauthenticated)))=>rsx!{super::load_error::SessionNotice{actions:rsx!{super::shell::ShellLink{href:return_url.clone(),class:"epsx-session-primary", "Connect wallet →"}}}},
      Some(Ok(Err(LoadError::NotFound)))=>rsx!{CheckoutErrorContent{title:"Plan not found".to_string(),body:"Choose another current plan.".to_string()}},
      Some(_)=>rsx!{section{class:"fe-state-card",role:"alert",p{"Checkout could not be loaded."}button{onclick:move |_|initial.restart(),"Try again"}}},
      None=>rsx!{p{role:"status","Loading checkout…"}},

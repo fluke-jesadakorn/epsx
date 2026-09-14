@@ -61,7 +61,7 @@ pub fn WalletManagementTabs(
                     }
                     let href = t.2.to_string();
                     rsx! {
-                        a {
+                        crate::navigation::AppLink {
                             key: "{t.0}",
                             href: "{href}",
                             class: "{tab_cls}",

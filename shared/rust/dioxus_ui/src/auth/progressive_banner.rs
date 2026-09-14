@@ -93,7 +93,7 @@ pub fn ProgressiveAuthBanner(
                     "{cta_label_val}"
                 }
             } else {
-                a { class: "btn btn-sm btn-primary", href: "{href_val}", "{cta_label_val}" }
+                crate::navigation::AppLink { class: "btn btn-sm btn-primary", href: "{href_val}", "{cta_label_val}" }
             }
             if has_dismiss {
                 if let Some(h) = on_dismiss {

@@ -6,7 +6,7 @@ pub fn render(_ctx: &PageContext) -> (PageMeta, Element) {
     (
         meta,
         rsx! {
-            div { "Redirecting… " a { href: "/notifications/manage", "Continue" } }
+            div { "Redirecting… " crate::navigation::AppLink { href: "/notifications/manage", "Continue" } }
         },
     )
 }

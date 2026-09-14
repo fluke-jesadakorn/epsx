@@ -2100,7 +2100,8 @@ mod routing_tests {
         assert_eq!(create.status(), StatusCode::OK);
         let body = to_bytes(create.into_body(), 2 * 1024 * 1024).await.unwrap();
         let html = String::from_utf8_lossy(&body);
-        assert!(html.contains("Please sign in again to continue."));
+        assert!(html.contains("data-session-state=\"sign-in-required\""));
+        assert!(html.contains("Connect wallet"));
         assert!(!html.contains("epsx_browser_runtime_bootstrap"));
     }
 }

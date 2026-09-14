@@ -17,8 +17,8 @@ use epsx_templates::page_shell_with_body_class;
 #[component]
 fn EscrowPage(id: String) -> Element {
     rsx! {main {class:"container-x py-10 max-w-4xl mx-auto space-y-6","data-native-pay-page":"true","data-pay-admin":"true","data-pay-intent":id.clone(),
-        a {href:"/",class:"underline","Admin home"}
-        a {href:"/pay/merchant-escrows",class:"underline","Merchant escrow disputes"}
+        epsx_dioxus_ui::navigation::AppLink {href:"/",class:"underline","Admin home"}
+        epsx_dioxus_ui::navigation::AppLink {href:"/pay/merchant-escrows",class:"underline","Merchant escrow disputes"}
         h1 {class:"text-2xl font-semibold","Pay escrow disputes"}
         p {id:"native-pay-status",role:"status","Only disputed escrows can be resolved. Sign the selected transaction with the configured Admin wallet."}
         div {class:"flex gap-3",
@@ -40,7 +40,7 @@ fn EscrowPage(id: String) -> Element {
 #[component]
 fn MerchantEscrowPage(id: String) -> Element {
     rsx! {main{class:"container-x max-w-5xl mx-auto py-10 space-y-6","data-merchant-pay-page":"true","data-merchant-admin":"true","data-payment-id":id.clone(),
-        a{href:"/pay/escrows",class:"underline","Legacy escrows"}
+        epsx_dioxus_ui::navigation::AppLink {href:"/pay/escrows",class:"underline","Legacy escrows"}
         h1{class:"text-2xl font-semibold","Merchant escrow disputes"}
         p{id:"merchant-status",role:"status","Resolve disputed payments using the configured Admin wallet."}
         select{id:"merchant-environment",class:"input",option{value:"test","Test"}option{value:"live","Live"}}

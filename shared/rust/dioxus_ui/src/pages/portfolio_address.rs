@@ -47,7 +47,7 @@ fn RenderPortfolioAddress(ctx: PageContext) -> Element {
                     }
                 }
                 p {
-                    a { href: "{target}", "Continue to portfolio" }
+                    crate::navigation::AppLink { href: "{target}", "Continue to portfolio" }
                 }
             }
         }

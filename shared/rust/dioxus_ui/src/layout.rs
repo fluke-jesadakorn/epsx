@@ -67,3 +67,5 @@ pub use navbar_skeleton::*;
 // the comment on the `pub mod main_layout;` line above.
 // === wave6b-admin-pages-depth-track-a === re-export (AdminShell primitive)
 pub use admin_shell::*;
+
+pub mod site_navbar;

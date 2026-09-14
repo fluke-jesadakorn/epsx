@@ -45,7 +45,7 @@ pub fn Breadcrumbs(items: Vec<Crumb>) -> Element {
                 for (i, item) in items.iter().enumerate() {
                     li { class: "breadcrumbs-item",
                         if let Some(h) = &item.href {
-                            a { href: "{h}", "{item.label}" }
+                            crate::navigation::AppLink { href: "{h}", "{item.label}" }
                         } else {
                             span { "{item.label}" }
                         }
@@ -321,7 +321,7 @@ pub fn Breadcrumb(current_path: String) -> Element {
                                 }
                             }
                             if !is_last {
-                                a {
+                                crate::navigation::AppLink {
                                     class: "text-muted-foreground hover:text-gray-800 dark:hover:text-gray-100 truncate max-w-[100px] sm:max-w-[150px] lg:max-w-none",
                                     href: "{item.href}", onclick: {let href=item.href.clone(); move |event| crate::fullstack::admin::follow_admin_link(event,navigation,&href)},
                                     title: "{item.label}",

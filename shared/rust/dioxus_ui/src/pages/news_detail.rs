@@ -334,7 +334,7 @@ fn NewsArticleView(article: NewsArticle) -> Element {
                     div { class: "absolute inset-0 bg-gradient-to-br from-cyan-500/8 via-background to-purple-500/8 fe-fill-neutral" }
                 }
                 div { class: "relative z-10 max-w-4xl mx-auto px-4 sm:px-6 pt-8 pb-12 flex flex-col min-h-[240px] sm:min-h-[300px]",
-                    a { class: "inline-flex items-center gap-2 text-sm mb-auto transition-colors news-detail-back", href: "/news", onclick: move |event| super::news::hydrated::follow(event, navigation, "/news".into()),
+                    crate::navigation::AppLink { class: "inline-flex items-center gap-2 text-sm mb-auto transition-colors news-detail-back", href: "/news", onclick: move |event| super::news::hydrated::follow(event, navigation, "/news".into()),
                         Icon { name: "arrow-left".to_string(), size: Some(16) }
                         " Back to News"
                     }
@@ -363,7 +363,7 @@ fn NewsArticleView(article: NewsArticle) -> Element {
             div { class: "max-w-3xl mx-auto px-4 sm:px-6 pt-12 pb-20 news-detail-content",
                 SafeMarkdownView { content }
                 div { class: "mt-16 pt-8 border-t border-border/20 news-detail-footer",
-                    a { class: "inline-flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground bg-card/50 hover:bg-card border border-border/20 hover:border-border/40 transition-all group news-detail-back-link fe-surface fe-tone-muted", href: "/news", onclick: move |event| super::news::hydrated::follow(event, navigation, "/news".into()),
+                    crate::navigation::AppLink { class: "inline-flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground bg-card/50 hover:bg-card border border-border/20 hover:border-border/40 transition-all group news-detail-back-link fe-surface fe-tone-muted", href: "/news", onclick: move |event| super::news::hydrated::follow(event, navigation, "/news".into()),
                         Icon { name: "arrow-left".to_string(), size: Some(16) }
                         " Back to all articles"
                     }
@@ -471,20 +471,20 @@ fn SafeMarkdownNodes(nodes: Vec<SafeMarkdownNode>) -> Element {
                 SafeMarkdownNode::Link { target, title, children } => match target {
                     SafeLinkTarget::Internal(href) => if let Some(title) = title {
                         rsx! {
-                            a { class: "news-markdown-link", href: href, title: title,
+                            crate::navigation::AppLink { class: "news-markdown-link", href: href, title: title,
                                 SafeMarkdownNodes { nodes: children.clone() }
                             }
                         }
                     } else {
                         rsx! {
-                            a { class: "news-markdown-link", href: href,
+                            crate::navigation::AppLink { class: "news-markdown-link", href: href,
                                 SafeMarkdownNodes { nodes: children.clone() }
                             }
                         }
                     },
                     SafeLinkTarget::External(href) => if let Some(title) = title {
                         rsx! {
-                            a {
+                            crate::navigation::AppLink {
                                 class: "news-markdown-link",
                                 href: href,
                                 title: title,
@@ -494,7 +494,7 @@ fn SafeMarkdownNodes(nodes: Vec<SafeMarkdownNode>) -> Element {
                         }
                     } else {
                         rsx! {
-                            a {
+                            crate::navigation::AppLink {
                                 class: "news-markdown-link",
                                 href: href,
                                 rel: "nofollow noopener noreferrer",
@@ -548,7 +548,7 @@ fn NewsNotFound() -> Element {
                 div { class: "mx-auto mb-4 text-cyan-500 fe-tone-accent", Icon { name: "newspaper".to_string(), size: Some(40) } }
                 h1 { id: "news-not-found-title", class: "text-2xl font-bold", "Article not found" }
                 p { class: "mt-3 text-sm text-muted-foreground fe-tone-muted", "This article is not available as published content." }
-                a { class: "btn btn-primary mt-6", href: "/news", onclick: move |event| super::news::hydrated::follow(event, navigation, "/news".into()), "Browse all news" }
+                crate::navigation::AppLink { class: "btn btn-primary mt-6", href: "/news", onclick: move |event| super::news::hydrated::follow(event, navigation, "/news".into()), "Browse all news" }
             }
         }
     }
@@ -564,8 +564,8 @@ fn NewsDetailError(retry_href: String) -> Element {
                 h1 { class: "text-2xl font-bold fe-type-title", "Article temporarily unavailable" }
                 p { class: "mt-3 text-sm text-muted-foreground fe-tone-muted", "We could not load this published article. No default article is being shown." }
                 div { class: "mt-6 flex flex-wrap justify-center gap-3",
-                    a { class: "btn btn-primary", href: retry_href, "Try again" }
-                    a { class: "btn btn-outline", href: "/news", onclick: move |event| super::news::hydrated::follow(event, navigation, "/news".into()), "Back to news" }
+                    crate::navigation::AppLink { class: "btn btn-primary", href: retry_href, "Try again" }
+                    crate::navigation::AppLink { class: "btn btn-outline", href: "/news", onclick: move |event| super::news::hydrated::follow(event, navigation, "/news".into()), "Back to news" }
                 }
             }
         }

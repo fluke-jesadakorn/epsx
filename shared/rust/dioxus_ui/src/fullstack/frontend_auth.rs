@@ -83,6 +83,58 @@ async fn command(value: AuthCommand) -> Result<AuthReply, String> {
         .map_err(|e| e.to_string())?
         .map_err(|e| e.message().to_owned())
 }
+/// One recovery owner per mounted frontend. Concurrent reads recheck the cookie
+/// session after taking the lock, so a rotating refresh token is used only once.
+#[derive(Clone, Default)]
+pub struct SessionRecovery(std::rc::Rc<futures::lock::Mutex<bool>>);
+
+impl SessionRecovery {
+    fn signed_in(&self) {
+        if let Some(mut rejected) = self.0.try_lock() {
+            *rejected = false;
+        }
+    }
+
+    pub async fn restore(&self) -> Result<(), LoadError> {
+        let mut rejected = self.0.lock().await;
+        let session = auth_session().await.map_err(|_| LoadError::Unavailable)??;
+        if session.verifier_unavailable {
+            return Err(LoadError::Unavailable);
+        }
+        if session.authenticated {
+            if *rejected {
+                *rejected = false;
+                invalidate();
+            }
+            return Ok(());
+        }
+        if !session.recover_session {
+            if !*rejected {
+                *rejected = true;
+                invalidate();
+            }
+            return Err(LoadError::Unauthenticated);
+        }
+        let result = auth_action(AuthCommand::Refresh)
+            .await
+            .map_err(|_| LoadError::Unavailable)?;
+        let outcome = match result {
+            Ok(reply) if reply.authenticated => Ok(()),
+            Ok(_) => Err(LoadError::Unauthenticated),
+            Err(error) => Err(error),
+        };
+        // Never retry indefinitely when the identity service is unavailable.
+        if outcome.is_ok() {
+            *rejected = false;
+            invalidate();
+        } else if outcome == Err(LoadError::Unauthenticated) && !*rejected {
+            *rejected = true;
+            invalidate();
+        }
+        outcome
+    }
+}
+
 pub fn return_path(query: &str) -> String {
     url::form_urlencoded::parse(query.trim_start_matches('?').as_bytes())
         .find(|(key, _)| key == "return_url")
@@ -105,6 +157,8 @@ fn invalidate() {
 #[component]
 pub fn HydratedAuth(query: String) -> Element {
     use crate::pages::auth_page::{AuthPageSessionState, RenderAuth};
+    let recovery = use_context::<SessionRecovery>();
+    let refresh_recovery = recovery.clone();
     let destination = return_path(&query);
     let navigator = use_navigator();
     let initial = use_server_future(auth_session)?;
@@ -128,10 +182,10 @@ pub fn HydratedAuth(query: String) -> Element {
             recovered.set(true);
             busy.set(true);
             let redirect = redirect.clone();
+            let recovery = refresh_recovery.clone();
             spawn(async move {
-                match command(AuthCommand::Refresh).await {
-                    Ok(v) if v.authenticated => {
-                        invalidate();
+                match recovery.restore().await {
+                    Ok(()) => {
                         navigator.replace(redirect);
                     }
                     _ => {
@@ -151,14 +205,14 @@ pub fn HydratedAuth(query: String) -> Element {
      div {class:if dark(){"dark"}else{"light"},
       RenderAuth {session_state:state,return_url:Some(destination.clone()),busy:busy(),error:error(),
        on_theme:move |_|{let value=!dark();dark.set(value);},
-       on_sign_in:move |_|{if busy(){return;}busy.set(true);error.set(None);let destination=destination.clone();spawn(async move{
+       on_sign_in:move |_|{if busy(){return;}busy.set(true);error.set(None);let destination=destination.clone();let recovery=recovery.clone();spawn(async move{
          let result:Result<(),String>=async{
           let address:String=browser("connect",serde_json::json!({"chain":0,"walletconnect":false})).await?;
           let challenge=command(AuthCommand::Challenge{address:address.clone()}).await?.challenge.ok_or("Wallet challenge unavailable")?;
           if !challenge.address.eq_ignore_ascii_case(&address){return Err("Wallet challenge does not match".into());}
           let signature:String=browser("sign",&challenge).await?;
           if !command(AuthCommand::Verify{challenge,signature}).await?.authenticated{return Err("Sign-in verification failed".into());}
-          invalidate();navigator.replace(destination);Ok(())
+          recovery.signed_in();invalidate();navigator.replace(destination);Ok(())
          }.await;
          if let Err(message)=result{error.set(Some(message));}busy.set(false);
        });}
@@ -169,6 +223,15 @@ pub fn HydratedAuth(query: String) -> Element {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn sign_in_return_preserves_pagination_and_nested_filter_encoding() {
+        let target = "/analytics?page=3&limit=25&country=america&sector=Research%26Development";
+        let query = url::form_urlencoded::Serializer::new(String::new())
+            .append_pair("return_url", target)
+            .finish();
+        assert_eq!(return_path(&query), target);
+    }
+
     #[test]
     fn return_urls_remain_local() {
         for value in [

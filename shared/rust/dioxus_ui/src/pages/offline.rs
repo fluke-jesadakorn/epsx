@@ -138,7 +138,7 @@ fn OfflineActions() -> Element {
     rsx! {
         div { class: "offline-actions",
             if let Some(retry) = retry {
-                a { class: "btn offline-retry", href: "/", onclick: move |event| retry.0.call(event),
+                crate::navigation::AppLink { class: "btn offline-retry", href: "/", onclick: move |event| retry.0.call(event),
                     Icon { name: "rotate-ccw".to_string(), size: Some(18) }
                     span { "Try Again" }
                 }
@@ -161,11 +161,11 @@ fn OfflineActions() -> Element {
                 ""
             }
             div { class: "offline-actions-row",
-                a { class: "btn btn-outline", href: "/",
+                crate::navigation::AppLink { class: "btn btn-outline", href: "/",
                     Icon { name: "home".to_string(), size: Some(14) }
                     span { "Home" }
                 }
-                a { class: "btn btn-outline", href: "/notifications",
+                crate::navigation::AppLink { class: "btn btn-outline", href: "/notifications",
                     Icon { name: "bell".to_string(), size: Some(14) }
                     span { "Notifications" }
                 }

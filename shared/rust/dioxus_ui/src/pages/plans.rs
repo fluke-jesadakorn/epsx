@@ -274,18 +274,10 @@ fn PlansUnavailableContent() -> Element {
         div {
                 class: "plans-prod-page relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-900 dark:to-indigo-900 fe-base-page fe-fill-neutral",
                 "data-plans-state": "unavailable",
-                // The local SSR stylesheet does not emit Tailwind's standard
-                // `dark:from-*` gradient utilities. Keep the source light
-                // fallback while making the dark production frame explicit.
-                style { "
-                    .plans-prod-page {{ background: linear-gradient(to right bottom, #f8fafc 0%, #eff6ff 50%, #eef2ff 100%); }}
-                    html.dark .plans-prod-page {{ background: linear-gradient(to right bottom, #111827 0%, #111827 50%, #312e81 100%); }}
-                " }
 
                 div { class: "plans-prod-container relative z-10 mx-auto max-w-7xl px-4 py-12",
                     header {
-                        class: "plans-prod-hero mx-auto mb-16 text-center",
-                        style: "margin-bottom: 64px;",
+                        class: "plans-prod-hero mx-auto mb-[64px]! text-center",
                         h1 { class: "plans-prod-title bg-gradient-to-r from-emerald-600 via-blue-600 to-purple-600 bg-clip-text text-4xl font-bold text-transparent md:text-6xl mb-6 fe-fill-neutral fe-type-title",
                             "Plans"
                         }

@@ -22,16 +22,6 @@ use super::PageMeta;
 use crate::layout::main_layout::MainLayout;
 use dioxus::prelude::*;
 
-const TERMS_INLINE_CSS: &str = r#"
-body:not(.epsx-frontend) .terms-page-prod { background-color: #08060B !important; color: #ffffff !important; }
-body:not(.epsx-frontend) .terms-prod-card { background-color: #27262c !important; border-color: #383241 !important; border-radius: 24px !important; }
-body:not(.epsx-frontend) .terms-page-prod .legal-section-title { color: #c084fc !important; }
-body:not(.epsx-frontend) .terms-page-prod .legal-section-text,
-body:not(.epsx-frontend) .terms-page-prod .legal-section-list { color: #d1d5db !important; }
-body:not(.epsx-frontend) .terms-page-prod .legal-section-list { list-style: disc !important; }
-body:not(.epsx-frontend) .terms-page-prod .legal-section-list li { margin-bottom: 0.25rem; }
-"#;
-
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let mut meta = PageMeta::marketing("Terms and Conditions");
     meta.description = "EPSX terms and conditions.".into();
@@ -46,8 +36,6 @@ pub fn HydratedTerms() -> Element {
     rsx! {
         document::Title { "Terms and Conditions — EPSX" }
         document::Meta { name: "description", content: "EPSX terms and conditions." }
-
-                style { "{TERMS_INLINE_CSS}" }
                 div { class: "terms-page-prod min-h-screen bg-[#08060B] text-white fe-base-page fe-tone-text",
                     div { class: "max-w-4xl mx-auto p-6",
                         TermsHero {}

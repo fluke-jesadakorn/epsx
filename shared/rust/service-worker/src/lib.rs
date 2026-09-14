@@ -5,6 +5,25 @@
 
 pub const GENERATED_MODULE: &str = "epsx_service_worker_bootstrap.v3.js";
 
+pub const RECOVERY_STYLES: &[&str] = &["/public/dist/tailwind.css"];
+
+pub fn recovery_document_has_styles(html: &str) -> bool {
+    RECOVERY_STYLES.iter().all(|path| html.contains(path))
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn tailwind_only_offline_document_can_install() {
+        assert!(super::recovery_document_has_styles(
+            r#"<link rel="stylesheet" href="/public/dist/tailwind.css">"#
+        ));
+        assert!(!super::recovery_document_has_styles(
+            r#"<link rel="stylesheet" href="/public/enterprise.css?v=dioxus-2">"#
+        ));
+    }
+}
+
 #[cfg(target_arch = "wasm32")]
 mod worker {
     use js_sys::{global, Array, Object, Promise, Reflect};
@@ -15,11 +34,8 @@ mod worker {
         NotificationEvent, PushEvent, Request, Response, ServiceWorkerGlobalScope, WindowClient,
     };
 
-    const CACHE: &str = "epsx-public-recovery-v3";
-    const STYLES: [&str; 2] = [
-        "/public/dist/tailwind.css",
-        "/public/enterprise.css?v=dioxus-2",
-    ];
+    const CACHE: &str = "epsx-public-recovery-v4";
+    const STYLES: &[&str] = super::RECOVERY_STYLES;
     const OFFLINE_PATH: &str = "/offline";
 
     /// Complete the public offline-shell installation after the generated
@@ -46,7 +62,7 @@ mod worker {
                 .await?
                 .as_string()
                 .ok_or_else(|| JsValue::from_str("invalid offline HTML"))?;
-            if !html.contains(STYLES[1]) {
+            if !super::recovery_document_has_styles(&html) {
                 return Err(JsValue::from_str(
                     "offline shell stylesheet version is stale",
                 ));

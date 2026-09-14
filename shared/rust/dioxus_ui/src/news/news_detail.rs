@@ -40,7 +40,7 @@ pub fn NewsDetail(item: NewsDetailItem) -> Element {
                         }
                     }
                 }
-                a { class: "news-detail-back mt-8 inline-flex items-center gap-2 text-orange-500 hover:text-orange-600",
+                crate::navigation::AppLink { class: "news-detail-back mt-8 inline-flex items-center gap-2 text-orange-500 hover:text-orange-600",
                     href: "/news",
                     Icon { name: "arrow-left".to_string(), size: Some(16) }
                     "Back to news"

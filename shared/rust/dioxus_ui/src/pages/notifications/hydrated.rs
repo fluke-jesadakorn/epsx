@@ -131,7 +131,7 @@ pub(super) fn NotificationLink(
 ) -> Element {
     let control = try_use_context::<NotificationsControls>();
     let target = href.clone();
-    rsx! { a { href, class, rel, aria_current, onclick: move |event| {
+    rsx! { crate::navigation::AppLink { href, class, rel, aria_current, onclick: move |event: MouseEvent| {
         if event.modifiers().is_empty() { if let Some(control) = control { event.prevent_default(); control.navigate.call(target.clone()); } }
     }, {children} } }
 }
@@ -247,8 +247,8 @@ pub fn HydratedNotifications(query: ReadSignal<String>) -> Element {
                 } });
             },
             PageHeader { title: "Notifications".to_string(), description: data.read().as_ref().map(NotificationPage::loaded_summary), icon: None }
-            if let Some(failure) = error() { p { role: "status", "{failure.message()}" } }
-            button { r#type: "button", class: "btn btn-sm btn-outline", disabled: pending(), onclick: move |_| { let next = *refresh.peek() + 1; refresh.set(next); }, "Refresh notifications" }
+            if let Some(failure) = error() { crate::fullstack::load_error::LoadErrorNotice { error: failure.clone(),  } }
+            if error() != Some(LoadError::Unauthenticated) { button { r#type: "button", class: "btn btn-sm btn-outline", disabled: pending(), onclick: move |_| { let next = *refresh.peek() + 1; refresh.set(next); }, "Refresh notifications" } }
             if let Some(page) = data() { NotificationPageSection { page } }
         }
     }

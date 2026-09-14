@@ -1,5 +1,6 @@
 //! Dioxus-owned native enterprise chrome. Browser adapters only persist display
 //! preferences or perform clipboard/focus operations; Dioxus owns all UI state.
+use crate::layout::site_navbar::{SiteNavGroup, SiteNavItem, SiteNavbar};
 use crate::{enterprise::FrontendIcon, routes::FrontendRoute};
 use dioxus::prelude::*;
 
@@ -19,69 +20,28 @@ const ACCOUNT: &[NavItem] = &[
     ("/payment", "Billing", "wallet"),
     ("/account/payments", "Purchases", "file-text"),
 ];
-const DEVELOPER: &[NavItem] = &[
-    ("/developer", "API keys", "key"),
-    ("/developer/usage", "API usage", "chart-line"),
-    ("/developer/docs", "API documentation", "book-open"),
-];
 const COMPANY: &[NavItem] = &[
     ("/about", "About", "info"),
     ("/contact", "Contact", "mail"),
     ("/chat", "Support", "message-circle"),
+    ("/privacy", "Privacy", "shield"),
+    ("/terms", "Terms", "file-text"),
 ];
 
 pub fn migrated_link(href: &str) -> bool {
-    let path = href.split('?').next().unwrap_or(href);
-    matches!(
-        path,
-        "/" | "/index"
-            | "/auth"
-            | "/analytics"
-            | "/notifications"
-            | "/account"
-            | "/account/payments"
-            | "/news"
-            | "/plans"
-            | "/account/credits"
-            | "/profile"
-            | "/dashboard"
-            | "/permissions"
-            | "/developer"
-            | "/developer/usage"
-            | "/developer/docs"
-            | "/portfolio"
-            | "/payment"
-            | "/access-denied"
-            | "/chat"
-            | "/chat/history"
-            | "/about"
-            | "/contact"
-            | "/privacy"
-            | "/terms"
-    ) || path
-        .strip_prefix("/news/")
-        .is_some_and(|slug| !slug.is_empty() && !slug.contains('/'))
-        || path.strip_prefix("/payment/").is_some_and(|rest| {
-            rest.split_once('/')
-                .is_some_and(|(kind, id)| !kind.is_empty() && !id.is_empty() && !id.contains('/'))
-        })
-        || path
-            .strip_prefix("/chat/")
-            .is_some_and(|id| uuid::Uuid::parse_str(id).is_ok())
-        || path
-            .strip_prefix("/account/payments/")
-            .is_some_and(|id| uuid::Uuid::parse_str(id).is_ok())
+    crate::navigation::local_route(href)
+        && href
+            .split('#')
+            .next()
+            .unwrap_or(href)
+            .parse::<FrontendRoute>()
+            .is_ok_and(|route| !matches!(route, FrontendRoute::NotFoundView { .. }))
 }
 fn marketing(path: &str) -> bool {
     matches!(
         path,
         "/" | "/index" | "/about" | "/contact" | "/manual" | "/privacy" | "/terms" | "/offline"
     )
-}
-fn active(path: &str, href: &str) -> bool {
-    path == href
-        || (!matches!(href, "/" | "/account" | "/developer")
-            && path.starts_with(&format!("{href}/")))
 }
 #[derive(Clone, Copy)]
 pub struct AuthRevision(pub Signal<u64>);
@@ -90,8 +50,6 @@ pub struct ThemeSignal(pub Signal<bool>);
 
 #[derive(Clone, Copy)]
 struct ShellState {
-    drawer: Signal<bool>,
-    menu: Signal<Option<String>>,
     wallet: Signal<bool>,
 }
 
@@ -112,43 +70,14 @@ pub fn ShellLink(
             handler.call(event);
         }
         if let Some(mut state) = state {
-            state.drawer.set(false);
-            state.menu.set(None);
             state.wallet.set(false);
         }
     };
     if state.is_some() && migrated_link(&href) {
         rsx! { Link { to: href, class, aria_current: current.then_some("page"), title: label, onclick: close, attributes, {children} } }
     } else {
-        rsx! { a { href, class, aria_current: current.then_some("page"), title: label, onclick: close, ..attributes, {children} } }
+        rsx! { crate::navigation::AppLink { href, class, aria_current: current.then_some("page"), title: label, onclick: close, attributes, {children} } }
     }
-}
-#[component]
-fn Brand() -> Element {
-    rsx! { ShellLink { class: "fe-brand", href: "/", label: "EPSX home",
-        img { src: "/public/logos/epsx-icon.svg", alt: "", width: 30, height: 30 }
-        span { class: "fe-nav-label", "EPSX" }
-    } }
-}
-#[component]
-fn NavigationLinks(items: &'static [NavItem], path: String) -> Element {
-    rsx! { for (href, label, icon) in items {
-        ShellLink { href: *href, class: "fe-nav-link", current: active(&path, href), label: *label,
-            FrontendIcon { name: *icon, size: 20 }
-            span { class: "fe-nav-label", "{label}" }
-        }
-    } }
-}
-#[component]
-fn MarketingGroup(name: &'static str, items: &'static [NavItem], path: String) -> Element {
-    let mut state = use_context::<ShellState>();
-    let open = state.menu.read().as_deref() == Some(name);
-    // Native exclusivity also applies before the WASM client has hydrated.
-    rsx! { details { class: "fe-nav-group", "name": "fe-marketing-menu", open,
-        onclick: move |event| event.stop_propagation(),
-        summary { aria_expanded: open, onclick: move |event| { event.prevent_default(); state.menu.set(if open { None } else { Some(name.into()) }); }, "{name}" FrontendIcon { name: "chevron-down", size: 20 } }
-        nav { aria_label: name, NavigationLinks { items, path } }
-    } }
 }
 #[component]
 fn WalletMenu(address: String) -> Element {
@@ -194,7 +123,6 @@ fn WalletMenu(address: String) -> Element {
             nav { class: "fe-wallet-links", aria_label: "Wallet account",
                 ShellLink { href: "/dashboard", FrontendIcon { name: "layout-dashboard", size: 20 } span { "Overview" } }
                 ShellLink { href: "/account", FrontendIcon { name: "user", size: 20 } span { "Account settings" } }
-                ShellLink { href: "/developer", FrontendIcon { name: "code", size: 20 } span { "Developer" } }
             }
             button { class: "fe-wallet-disconnect", r#type: "button", disabled: disconnecting(), onclick: move |_| {
                 if *disconnecting.peek() { return; }
@@ -221,7 +149,6 @@ pub fn FrontendShell() -> Element {
 #[component]
 fn FrontendShellContent(offline: ReadSignal<bool>) -> Element {
     let mut hydrated = use_signal(|| false);
-    let mut collapsed = use_signal(|| false);
     let mut dark = use_signal(|| true);
     use_context_provider(|| ThemeSignal(dark));
     use_effect(move || {
@@ -238,109 +165,55 @@ fn FrontendShellContent(offline: ReadSignal<bool>) -> Element {
         });
     });
     let mut state = ShellState {
-        drawer: use_signal(|| false),
-        menu: use_signal(|| None),
         wallet: use_signal(|| false),
     };
     use_context_provider(|| state);
     let auth_revision = AuthRevision(use_signal(|| 0_u64));
     use_context_provider(|| auth_revision);
-    let mut profile = use_server_future(move || {
-        let offline = offline();
-        async move {
-            if offline {
-                Ok(Err(crate::fullstack::LoadError::Unauthenticated))
-            } else {
-                crate::pages::profile::read_profile().await
-            }
-        }
-    })?;
-    use_effect(move || {
-        if (auth_revision.0)() > 0 && !offline() {
-            profile.restart();
-        }
-    });
-    let user = if offline() {
-        None
-    } else {
-        profile
-            .read()
-            .as_ref()
-            .and_then(|result| result.as_ref().ok())
-            .and_then(|result| result.as_ref().ok())
-            .cloned()
-    };
+    use_context_provider(super::frontend_auth::SessionRecovery::default);
     let full_path = use_route::<FrontendRoute>().to_string();
     let path = full_path.split('?').next().unwrap_or(&full_path).to_owned();
     let is_marketing = marketing(&path);
     let is_auth = path == "/auth";
+    let navigator = use_navigator();
     rsx! {
-        document::Style { "body:has(#main > .epsx-frontend) {{ margin: 0; }}" }
         document::Link { rel: "stylesheet", href: "/public/dist/tailwind.css" }
-        document::Link { rel: "stylesheet", href: "/public/enterprise.css?v=dioxus-2" }
-        div { class: if is_auth { "epsx-frontend fe-auth" } else if is_marketing { "epsx-frontend fe-marketing" } else { "epsx-frontend fe-workspace" },
-            class: if collapsed() { "fe-nav-collapsed" }, class: if (state.drawer)() { "fe-nav-open" },
-            style: "--font-sans: ui-sans-serif, system-ui, sans-serif;",
+        div { class: if is_auth { "epsx-frontend fe-auth" } else if is_marketing { "epsx-frontend fe-marketing" } else { "epsx-frontend fe-topnav" },
             class: if dark() { "dark" },
             "data-theme": if dark() { "dark" } else { "light" }, "data-dioxus-hydrated": hydrated(),
             onmounted: move |_| {
                 spawn(async move {
-                    let preferences = document::eval("let theme = 'dark', collapsed = false; try { theme = localStorage.getItem('epsx-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); collapsed = localStorage.getItem('epsx-frontend-nav-collapsed') === 'true'; } catch (_) {} dioxus.send([theme === 'dark', collapsed]);").recv::<(bool,bool)>().await;
-                    if let Ok((theme, nav)) = preferences { dark.set(theme); collapsed.set(nav); }
+                    // Match the server's dark default until the user explicitly
+                    // chooses a theme; hydration must not switch it to OS light.
+                    let preferences = document::eval("let theme = 'dark'; try { theme = localStorage.getItem('epsx-theme') || 'dark'; } catch (_) {} dioxus.send(theme !== 'light');").recv::<bool>().await;
+                    if let Ok(theme) = preferences { dark.set(theme); }
                     // Browser lifecycle adapter only; all page UI stays in Dioxus.
                     let _ = document::eval("if (isSecureContext && 'serviceWorker' in navigator) { const blocked = ['localhost','127.0.0.1','::1','[::1]','dev.epsx.io','dev-admin.epsx.io','dev-pay.epsx.io'].includes(location.hostname); if (!blocked) { navigator.serviceWorker.register('/runtime/epsx_service_worker_bootstrap.v3.js?rev=3', {type:'module',scope:'/'}).catch(() => {}); } }");
                     hydrated.set(true);
                 });
             },
-            onclick: move |_| state.menu.set(None),
-            onkeydown: move |event| { if event.key() == Key::Escape { state.drawer.set(false); state.menu.set(None); state.wallet.set(false); } },
-            a { class: "epsx-skip-link", href: "#epsx-main-content", "Skip to main content" }
-            if is_marketing {
-                header { class: "fe-marketing-header", Brand {}
-                    nav { class: "fe-marketing-nav", aria_label: "Primary",
-                        MarketingGroup { name: "Market", items: MARKET, path: path.clone() }
-                        MarketingGroup { name: "Developer", items: DEVELOPER, path: path.clone() }
-                        MarketingGroup { name: "Company", items: COMPANY, path: path.clone() }
-                    }
-                    HeaderTools { path: full_path.clone(), user: user.clone(), dark }
-                }
-                details { class: "fe-public-mobile", open: (state.drawer)(),
-                    summary { aria_expanded: (state.drawer)(), onclick: move |event| { event.prevent_default(); state.drawer.toggle(); }, "Menu" }
-                    nav { aria_label: "Mobile navigation",
-                        for (heading, items) in [("MARKET", MARKET), ("DEVELOPER", DEVELOPER), ("COMPANY", COMPANY)] {
-                            p { class: "fe-nav-caption", "{heading}" } NavigationLinks { items, path: path.clone() }
+            onkeydown: move |event| { if event.key() == Key::Escape { state.wallet.set(false); } },
+            crate::navigation::AppLink { class: "epsx-skip-link", href: "#epsx-main-content", "Skip to main content" }
+            if !is_auth {
+                SiteNavbar {
+                    groups: [("Market", MARKET), ("Company", COMPANY), ("Account", ACCOUNT)].into_iter().map(|(label, items)| SiteNavGroup::new(label, items.iter().map(|(href, label, icon)| SiteNavItem::new(*href, *label).with_icon(*icon)).collect())).collect(),
+                    path: full_path.clone(),
+                    on_navigate: move |(event, href): (MouseEvent, String)| {
+                        if migrated_link(&href) && event.modifiers().is_empty() && event.trigger_button() == Some(dioxus::html::input_data::MouseButton::Primary) {
+                            event.prevent_default();
+                            navigator.push(href);
                         }
-                        ShellLink { class: "fe-nav-link", href: "/account", "Account" }
-                    }
+                    },
+                    actions: rsx! { SuspenseBoundary { fallback: |_| rsx! { span { role: "status", "Loading account…" } }, HeaderProfile { offline, path: full_path.clone(), dark } } },
                 }
-            } else if !is_auth {
-                aside { id: "fe-sidebar", class: "fe-sidebar", aria_label: "Workspace navigation",
-                    div { class: "fe-sidebar-brand", Brand {}
-                        button { r#type: "button", id: "fe-nav-desktop-trigger", class: "fe-icon-button fe-nav-desktop-trigger", aria_controls: "fe-sidebar", aria_expanded: !collapsed(), aria_label: "Toggle navigation", title: "Toggle navigation", onclick: move |_| {
-                            collapsed.toggle(); let value = collapsed();
-                            spawn(async move { let script = format!("try {{ localStorage.setItem('epsx-frontend-nav-collapsed','{}'); }} catch (_) {{}}", value); let _ = document::eval(&script); });
-                        }, FrontendIcon { name: "menu", size: 20 } }
-                        button { r#type: "button", class: "fe-icon-button fe-drawer-close", aria_label: "Close navigation", onclick: move |_| state.drawer.set(false), FrontendIcon { name: "x", size: 20 } }
-                    }
-                    div { class: "fe-sidebar-scroll",
-                        for (heading, items) in [("YOUR WORKSPACE", MARKET), ("ACCOUNT", ACCOUNT), ("DEVELOPER", DEVELOPER), ("COMPANY", COMPANY)] {
-                            p { class: if heading == "YOUR WORKSPACE" { "fe-nav-caption" } else { "fe-nav-caption fe-nav-section" }, "{heading}" }
-                            nav { aria_label: heading, NavigationLinks { items, path: path.clone() } }
-                        }
-                    }
-                    div { class: "fe-sidebar-bottom", HeaderTools { path: full_path.clone(), user, dark }
-                        div { class: "fe-sidebar-legal", ShellLink { href: "/privacy", "Privacy" } ShellLink { href: "/terms", "Terms" } }
-                    }
-                }
-                button { class: "fe-drawer-overlay", r#type: "button", aria_label: "Close navigation", tabindex: -1, onclick: move |_| state.drawer.set(false) }
             }
             main { class: "fe-main", id: "epsx-main-content", tabindex: -1,
-                if !is_marketing && !is_auth { button { r#type: "button", id: "fe-nav-trigger", class: "fe-icon-button fe-nav-mobile-trigger", aria_controls: "fe-sidebar", aria_expanded: (state.drawer)(), aria_label: "Open navigation", onclick: move |_| state.drawer.set(true), FrontendIcon { name: "menu", size: 20 } } }
-                div { class: "fe-content", "data-fe-page": path, Outlet::<FrontendRoute> {} }
+
+                div { class: "fe-content", "data-fe-page": path, SuspenseBoundary { fallback: |_| rsx! { crate::navigation::PageSkeleton {} }, Outlet::<FrontendRoute> {} } }
             }
             if is_marketing {
                 footer { class: "fe-footer", div { strong { "EPSX" } p { "Financial Technology Platform" } }
-                    nav { aria_label: "Footer", for (href, label) in [("/about","About"),("/news","News"),("/contact","Contact"),("/chat","Support"),("/developer","Developer"),("/terms","Terms"),("/privacy","Privacy")] { ShellLink { href, "{label}" } } }
+                    nav { aria_label: "Footer", for (href, label) in [("/about","About"),("/news","News"),("/contact","Contact"),("/chat","Support"),("/terms","Terms"),("/privacy","Privacy")] { ShellLink { href, "{label}" } } }
                 }
             }
         }
@@ -405,16 +278,13 @@ mod tests {
     #[component]
     fn PublicMenus() -> Element {
         let state = ShellState {
-            drawer: use_signal(|| false),
-            menu: use_signal(|| None),
             wallet: use_signal(|| false),
         };
         use_context_provider(|| state);
-        rsx! {
-            MarketingGroup { name: "Market", items: MARKET, path: "/" }
-            MarketingGroup { name: "Developer", items: DEVELOPER, path: "/" }
-            MarketingGroup { name: "Company", items: COMPANY, path: "/" }
-        }
+        rsx! { SiteNavbar {
+            groups: [("Market", MARKET), ("Company", COMPANY)].into_iter().map(|(label, items)| SiteNavGroup::new(label, items.iter().map(|(href,label,icon)| SiteNavItem::new(*href,*label).with_icon(*icon)).collect())).collect(),
+            path: "/".to_string(), actions: rsx! {},
+        } }
     }
 
     #[test]
@@ -422,7 +292,7 @@ mod tests {
         let mut dom = VirtualDom::new(|| rsx! { Router::<TestRoute> {} });
         dom.rebuild_in_place();
         let html = dioxus_ssr::render(&dom);
-        assert_eq!(html.matches("name=\"fe-marketing-menu\"").count(), 3);
+        assert_eq!(html.matches("name=\"epsx-primary-menu\"").count(), 2);
         assert_eq!(html.matches("<details").count(), 3);
         assert!(!html.contains(" open"));
         for href in [
@@ -430,9 +300,6 @@ mod tests {
             "/portfolio",
             "/plans",
             "/news",
-            "/developer",
-            "/developer/usage",
-            "/developer/docs",
             "/about",
             "/contact",
             "/chat",
@@ -440,4 +307,35 @@ mod tests {
             assert!(html.contains(&format!("href=\"{href}\"")), "missing {href}");
         }
     }
+}
+
+#[component]
+fn HeaderProfile(offline: ReadSignal<bool>, path: String, dark: Signal<bool>) -> Element {
+    let auth_revision = use_context::<AuthRevision>();
+    let mut profile = use_server_future(move || {
+        let offline = offline();
+        async move {
+            if offline {
+                Ok(Err(crate::fullstack::LoadError::Unauthenticated))
+            } else {
+                crate::pages::profile::read_profile().await
+            }
+        }
+    })?;
+    use_effect(move || {
+        if (auth_revision.0)() > 0 && !offline() {
+            profile.restart();
+        }
+    });
+    let user = if offline() {
+        None
+    } else {
+        profile
+            .read()
+            .as_ref()
+            .and_then(|result| result.as_ref().ok())
+            .and_then(|result| result.as_ref().ok())
+            .cloned()
+    };
+    rsx! { HeaderTools { path, user, dark } }
 }

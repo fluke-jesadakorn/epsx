@@ -89,7 +89,9 @@ impl ThemeMode {
 #[component]
 pub fn ThemeRoot(children: Element) -> Element {
     rsx! {
-        style { "{EPSX_CSS_VARS}" }
+        if try_consume_context::<crate::app::FrontendTailwindStyles>().is_none() {
+            style { "{EPSX_CSS_VARS}" }
+        }
         {children}
     }
 }

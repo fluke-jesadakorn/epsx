@@ -61,10 +61,26 @@ pub async fn auth_action(
     Ok((p.command)(command, headers).await)
 }
 async fn command(value: AuthCommand) -> Result<AuthReply, String> {
-    auth_action(value)
+    let changes_session = matches!(
+        value,
+        AuthCommand::Verify { .. } | AuthCommand::Refresh | AuthCommand::Logout
+    );
+    let state = try_consume_context::<crate::navigation::AdminAuthenticated>();
+    let revision = try_consume_context::<crate::navigation::AdminRevision>();
+    let reply = auth_action(value)
         .await
         .map_err(|e| e.to_string())?
-        .map_err(|e| e.message().to_owned())
+        .map_err(|e| e.message().to_owned())?;
+    if changes_session {
+        if let Some(mut state) = state {
+            state.0.set(reply.authenticated);
+        }
+        if let Some(mut revision) = revision {
+            let next = *revision.0.peek() + 1;
+            revision.0.set(next);
+        }
+    }
+    Ok(reply)
 }
 #[derive(Clone, Copy)]
 pub struct AdminRecoveryOwned;

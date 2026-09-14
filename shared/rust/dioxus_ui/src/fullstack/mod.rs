@@ -7,6 +7,7 @@ pub mod admin_settings;
 pub mod analytics;
 pub mod frontend_auth;
 pub mod frontend_payment;
+pub mod load_error;
 #[cfg(feature = "pay-ui")]
 pub mod pay;
 pub mod shell;
@@ -48,7 +49,7 @@ impl LoadError {
         match self {
             Self::NotFound => "The requested page was not found.",
             Self::InvalidQuery => "Check the selected filters and try again.",
-            Self::Unauthenticated => "Please sign in again to continue.",
+            Self::Unauthenticated => "Connect your wallet to continue.",
             Self::Forbidden => "Your account cannot access these results.",
             Self::Unavailable | Self::Malformed => "Could not load results. Please try again.",
         }

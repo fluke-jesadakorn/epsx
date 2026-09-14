@@ -89,7 +89,11 @@ pub fn format_currency(value: f64, currency: &str) -> String {
 }
 
 #[component]
-fn WatchlistControl(symbol: String, watchlist: StockCardWatchlist) -> Element {
+fn WatchlistControl(
+    symbol: String,
+    watchlist: StockCardWatchlist,
+    sign_in_path: String,
+) -> Element {
     let initial_watched = matches!(
         &watchlist,
         StockCardWatchlist::Ready {
@@ -105,9 +109,9 @@ fn WatchlistControl(symbol: String, watchlist: StockCardWatchlist) -> Element {
     }
     match watchlist {
         StockCardWatchlist::SignedOut => rsx! {
-            a {
+            crate::navigation::AppLink {
                 class: "{base_class} text-gray-400 hover:text-pink-400",
-                href: ANALYTICS_SIGN_IN_PATH,
+                href: "{sign_in_path}",
                 "data-watchlist-signed-out": "true",
                 "data-symbol": "{symbol}",
                 "aria-label": "Sign in to add {symbol} to watchlist",
@@ -166,10 +170,6 @@ fn WatchlistControl(symbol: String, watchlist: StockCardWatchlist) -> Element {
     }
 }
 
-pub(crate) fn watchlist_control(symbol: &str, watchlist: &StockCardWatchlist) -> Element {
-    rsx! { WatchlistControl { symbol: symbol.to_string(), watchlist: watchlist.clone() } }
-}
-
 #[component]
 pub fn StockDataCard(
     symbol: String,
@@ -181,6 +181,7 @@ pub fn StockDataCard(
     #[props(default = None)] progress_percentage: Option<f64>,
     #[props(default = None)] company_name: Option<String>,
     #[props(default = None)] watchlist: Option<StockCardWatchlist>,
+    #[props(default = ANALYTICS_SIGN_IN_PATH.to_string())] sign_in_path: String,
 ) -> Element {
     let _ = eps_growth;
     let theme = rank_theme(rank);
@@ -196,7 +197,7 @@ pub fn StockDataCard(
         .map(|days| format!("{days} Days"))
         .unwrap_or_else(|| "N/A".to_string());
     let price_label = format_currency(price, &currency);
-    let details_url = format!("https://www.tradingview.com/symbols/{symbol}");
+    let details_url = crate::enterprise::tradingview_symbol_url(&symbol);
     let header_label = if rank > 5 {
         theme.label.clone()
     } else {
@@ -213,10 +214,14 @@ pub fn StockDataCard(
         article {
             class: "stock-data-card group relative flex h-full w-full flex-col overflow-hidden rounded-2xl border bg-white/90 shadow-lg backdrop-blur-xl transition-transform duration-300 hover:-translate-y-1 dark:bg-slate-900/90 {theme.glow}",
             "data-stock-card": "true",
-            "data-rank": rank,
+            "data-rank": "{rank}",
             "data-symbol": "{symbol}",
             if let Some(watchlist) = watchlist.as_ref() {
-                {watchlist_control(&symbol, watchlist)}
+                WatchlistControl {
+                    symbol: symbol.clone(),
+                    watchlist: watchlist.clone(),
+                    sign_in_path: sign_in_path.clone(),
+                }
             }
             if rank <= 5 {
                 div { class: "absolute left-1/2 top-3 z-20 -translate-x-1/2 -translate-y-1/2",
@@ -231,9 +236,9 @@ pub fn StockDataCard(
                     p { class: "mb-1 text-xs font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400",
                         "{header_label}"
                     }
-                    h3 { class: "break-words text-4xl font-black tracking-tighter {theme.color}", "{symbol}" }
+                    h3 { class: "break-words text-3xl font-bold tracking-tight {theme.color}", "{symbol}" }
                     if let Some(name) = company_name.as_deref().filter(|name| !name.is_empty()) {
-                        p { class: "mx-auto mt-0.5 max-w-[90%] truncate text-xs font-medium text-gray-500 dark:text-gray-400",
+                        p { class: "mx-auto mt-1 break-words line-clamp-2 min-h-[2.5rem] text-sm font-medium text-gray-500 dark:text-gray-400",
                             "{name}"
                         }
                     }
@@ -243,14 +248,14 @@ pub fn StockDataCard(
                 div { class: "mb-4 flex flex-grow flex-col justify-center",
                     div { class: "relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-50 via-indigo-50/50 to-white p-4 ring-1 ring-blue-200/50 transition-colors dark:from-slate-800 dark:via-slate-800 dark:to-slate-800 dark:bg-slate-800 dark:ring-white/10",
                         div { class: "pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full bg-blue-500/10 blur-2xl", "aria-hidden": "true" }
-                        div { class: "relative flex items-center justify-between gap-3",
+                        div { class: "relative flex flex-col items-start gap-3",
                             div { class: "flex items-center gap-2",
                                 div { class: "flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-cyan-500 shadow-md",
                                     Icon { name: "calendar".to_string(), size: Some(18), class_name: Some("text-white".to_string()) }
                                 }
                                 span { class: "text-xs font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400", "Next Action" }
                             }
-                            span { class: "whitespace-nowrap text-2xl font-black tracking-tight text-slate-900 dark:text-white tabular-nums", "{action_label}" }
+                            span { class: "break-words text-2xl font-black tracking-tight text-slate-900 dark:text-white tabular-nums", "{action_label}" }
                         }
                         div { class: "mt-4 h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800",
                             div {
@@ -262,7 +267,7 @@ pub fn StockDataCard(
                     }
                 }
 
-                a {
+                crate::navigation::AppLink {
                     class: "mt-auto flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 py-3 text-sm font-bold text-white transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/25",
                     href: "{details_url}",
                     target: "_blank",

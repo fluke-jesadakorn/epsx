@@ -151,7 +151,7 @@ pub fn CardLink(
     let target_attr = target.unwrap_or_default();
 
     rsx! {
-        a {
+        crate::navigation::AppLink {
             class: "block {cls}",
             href: "{href}",
             target: "{target_attr}",

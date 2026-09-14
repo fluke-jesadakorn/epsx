@@ -161,7 +161,7 @@ pub fn NewsArticleCard(
                                     Icon { name: "eye".to_string(), size: Some(16) }
                                 }
                             }
-                            a {
+                            crate::navigation::AppLink {
                                 class: "p-1.5 rounded-lg hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors",
                                 href: "{edit_href}",
                                 title: "Edit",
@@ -219,7 +219,7 @@ pub fn NewsEmptyState() -> Element {
                 p { class: "font-semibold text-foreground", "No articles yet" }
                 p { class: "text-sm text-muted-foreground mt-1", "Create your first article to get started." }
             }
-            a { class: "flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#7645d9] to-[#5a33b8] text-white text-sm font-semibold hover:opacity-90 transition-opacity",
+            crate::navigation::AppLink { class: "flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#7645d9] to-[#5a33b8] text-white text-sm font-semibold hover:opacity-90 transition-opacity",
                 href: "/news/create",
                 Icon { name: "plus".to_string(), size: Some(16) }
                 "Create Article"
@@ -242,13 +242,13 @@ pub fn NewsPagination(page: u32, total_pages: u32, status: String) -> Element {
     let base = format!("/news?status={status}");
     rsx! {
         div { class: "news-management-pagination flex items-center justify-center gap-2",
-            a {
+            crate::navigation::AppLink {
                 class: if page == 1 { "px-3 py-1.5 rounded-lg text-sm border border-border/20 opacity-40 pointer-events-none" } else { "px-3 py-1.5 rounded-lg text-sm border border-border/20 hover:bg-muted/50 transition-colors" },
                 href: format!("{base}&page={}", page.saturating_sub(1)),
                 "Previous"
             }
             span { class: "text-sm text-muted-foreground", "{page} / {total_pages}" }
-            a {
+            crate::navigation::AppLink {
                 class: if page == total_pages { "px-3 py-1.5 rounded-lg text-sm border border-border/20 opacity-40 pointer-events-none" } else { "px-3 py-1.5 rounded-lg text-sm border border-border/20 hover:bg-muted/50 transition-colors" },
                 href: format!("{base}&page={}", page + 1),
                 "Next"

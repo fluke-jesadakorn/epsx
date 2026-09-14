@@ -105,6 +105,9 @@ pub fn AdminShell(
     sidebar_items: Option<Vec<SidebarItem>>,
     children: Element,
 ) -> Element {
+    if try_use_context::<crate::navigation::AdminShellOwned>().is_some() {
+        return children;
+    }
     let is_authenticated = ctx.user.as_ref().map(|u| u.is_authed()).unwrap_or(false);
     let session_state = crate::layout::session_state::SessionState::from_params(&ctx.params)
         .unwrap_or({

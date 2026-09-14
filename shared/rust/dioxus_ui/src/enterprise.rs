@@ -52,7 +52,7 @@ pub fn DataState(
             Icon { name: "database".to_string(), size: Some(24) }
         }
         h2 { "{title}" } p { "{message}" }
-        a { class: "fe-button", href, onclick: move |event| {
+        crate::navigation::AppLink { class: "fe-button", href, onclick: move |event| {
             if crate::fullstack::shell::migrated_link(&target) { crate::fullstack::analytics::follow_link(event, navigation, &target); }
         },
             Icon { name: "arrow-right".to_string(), size: Some(16) } "{action}"
@@ -74,10 +74,10 @@ pub fn HomeHero() -> Element {
                 h1 { id: "home-title", "Financial technology. " span { "Connected by design." } }
                 p { class: "fe-lead", "{HOME_DESCRIPTION}" }
                 div { class: "fe-actions",
-                    a { class: "fe-button fe-primary", href: "/analytics", onclick: move |event| crate::fullstack::analytics::follow_link(event, navigation, "/analytics"),
+                    crate::navigation::AppLink { class: "fe-button fe-primary", href: "/analytics", onclick: move |event| crate::fullstack::analytics::follow_link(event, navigation, "/analytics"),
                         "Explore platform" Icon { name: "arrow-up-right".to_string(), size: Some(18) }
                     }
-                    a { class: "fe-button fe-hero-secondary", href: "/about", onclick: move |event| crate::fullstack::analytics::follow_link(event, navigation, "/about"),
+                    crate::navigation::AppLink { class: "fe-button fe-hero-secondary", href: "/about", onclick: move |event| crate::fullstack::analytics::follow_link(event, navigation, "/about"),
                         "About EPSX" Icon { name: "arrow-right".to_string(), size: Some(18) }
                     }
                 }
@@ -194,15 +194,7 @@ impl NextAction {
 
 #[component]
 fn NextActionDate(action: NextAction, today: chrono::NaiveDate) -> Element {
-    rsx! { div { class: "fe-next-action", "data-next-action-source": match action { NextAction::Api(_) => "api", NextAction::Estimated { .. } => "estimated", NextAction::Unavailable => "unavailable" },
-        div { class: "fe-event-date",
-            if let Some(date) = action.date() {
-                time { datetime: date.to_string(), {date.format("%d %B %Y").to_string()} }
-                if matches!(action, NextAction::Estimated { .. }) { span { class: "fe-badge", "Estimated" } }
-            } else { span { "Date not available" } }
-        }
-        small { if action.date().is_some() { "Company report · " } "{action.relative_to(today)}" }
-    } }
+    rsx! { div { class: "fe-next-action", strong { "{action.relative_to(today)}" } } }
 }
 
 #[component]
@@ -222,9 +214,6 @@ fn ReportContent(
         }
         div { class: "fe-event-details",
             div { p { class: "fe-eyebrow", "NEXT ACTION" } NextActionDate { action, today } }
-            div { class: "fe-event-context",
-                ReportDateContext { action, today }
-            }
         }
     } }
 }
@@ -267,7 +256,7 @@ fn FrontendWatch(
     let sign_in = format!("/auth?{}", query.finish());
     match state {
         StockCardWatchlist::SignedOut => rsx! {
-            a { href: sign_in, "data-watchlist-signed-out": "true",
+            crate::navigation::AppLink { href: sign_in, "data-watchlist-signed-out": "true",
                 "data-symbol": symbol.clone(), aria_label: "Sign in to save {symbol}",
                 Icon { name: "bookmark".to_string(), size: Some(17) } span { "Save" }
             }
@@ -291,26 +280,8 @@ fn FrontendWatch(
     }
 }
 
-#[component]
-fn ReportDateContext(action: NextAction, today: chrono::NaiveDate) -> Element {
-    rsx! {
-                match action {
-                    NextAction::Api(_) => rsx! { strong { "Company report date" } p { "Date supplied by the data provider. It may change." } },
-                    NextAction::Estimated { previous, .. } => rsx! {
-                        strong { "Estimated 90 days after the previous company report." }
-                        p { "Previous company report: " time { datetime: previous.to_string(), {previous.format("%d %B %Y").to_string()} } }
-                    },
-                    NextAction::Unavailable => rsx! { strong { "No usable report date is available." } p { "Save this company and check back for a date." } },
-                }
-                if action.date().is_some_and(|date| date < today) {
-                    p { "This date has passed. The date alone does not tell us whether a report has been published." }
-                }
-                p { "Use this date to plan when to revisit. Saving a company does not set a reminder or subscribe you to notifications. Dates use UTC." }
-    }
-}
-
 /// Match the production symbol link, encoding the symbol as one path segment.
-fn tradingview_symbol_url(symbol: &str) -> String {
+pub(crate) fn tradingview_symbol_url(symbol: &str) -> String {
     let mut url =
         url::Url::parse("https://www.tradingview.com/symbols/").expect("static TradingView URL");
     url.path_segments_mut()
@@ -348,7 +319,7 @@ pub fn RankingCards(
                                 p { class: "fe-card-company-name", title: row.company_name.clone().unwrap_or_default(), {row.company_name.as_deref().unwrap_or("Company name unavailable")} }
                             }
                             CardNextAction { action: NextAction::from_row(row), today, previous_report: row.last_earnings_date }
-                            a { class: "fe-card-details", href: tradingview_symbol_url(&row.symbol),
+                            crate::navigation::AppLink { class: "fe-card-details", href: tradingview_symbol_url(&row.symbol),
                                 target: "_blank", rel: "noopener noreferrer", "data-tradingview-details": "true",
                                 aria_label: "View details for {row.symbol} on TradingView (opens in a new tab)",
                                 title: "Open {row.symbol} on TradingView in a new tab",
@@ -360,7 +331,6 @@ pub fn RankingCards(
                 }
             }
             if show_watch { p { class: "fe-watch-feedback", "data-watchlist-feedback": "true", role: "status", aria_live: "polite" } }
-            p { class: "fe-data-note", "Next action is the next company report date. Dates may change; estimates are labeled. All dates use UTC." }
         }
     }
 }
@@ -376,17 +346,9 @@ fn CardNextAction(
     } else {
         "Date not available".into()
     };
-    rsx! { div { class: "fe-card-next", "data-next-action-source": match action { NextAction::Api(_) => "api", NextAction::Estimated { .. } => "estimated", NextAction::Unavailable => "unavailable" },
-        p { class: "fe-card-next-label", Icon { name: "calendar".to_string(), size: Some(13) } "Next action"
-            if matches!(action, NextAction::Estimated { .. }) { span { class: "fe-badge", "Estimated" } }
-        }
+    rsx! { div { class: "fe-card-next",
+        p { class: "fe-card-next-label", Icon { name: "calendar".to_string(), size: Some(13) } "Next action" }
         strong { class: "fe-card-countdown", "{relative}" }
-        p { class: "fe-card-report-date", "Company report"
-            if let Some(date) = action.date() {
-                span { aria_hidden: "true", " · " }
-                time { datetime: date.to_string(), {date.format("%d %B %Y").to_string()} }
-            }
-        }
         ReportProgress { action, today, previous_report }
 
     } }
@@ -426,26 +388,16 @@ fn ReportProgress(
         } else {
             "active"
         };
-        let explanation = if state == "past" {
-            "The report date has passed. This does not indicate that the report has been published."
-                .to_string()
-        } else {
-            format!("{elapsed} of {total} calendar days elapsed between the previous company report and the {}report date.", if matches!(action, NextAction::Estimated { .. }) { "estimated " } else { "next " })
-        };
+        let percent = elapsed * 100 / total;
         rsx! {
             progress { class: "fe-report-progress", "data-report-progress": state,
-                value: "{elapsed}", max: "{total}", aria_label: "Company report timeline",
-                aria_valuetext: explanation.clone(), title: explanation.clone(),
-                "{elapsed} of {total} days"
+                value: "{percent}", max: "100", aria_label: "Next action progress",
+                "{percent}%"
             }
-            p { class: "fe-progress-explanation", "{explanation}" }
         }
     } else {
-        rsx! {
-            div { class: "fe-report-progress fe-report-progress-unavailable", "data-report-progress": "unavailable",
-                role: "img", aria_label: "Report timeline unavailable", title: "A timeline needs valid previous and next report dates." }
-            p { class: "fe-progress-explanation", "A timeline is unavailable without valid previous and next report dates." }
-        }
+        rsx! { div { class: "fe-report-progress fe-report-progress-unavailable",
+        "data-report-progress": "unavailable", aria_hidden: "true" } }
     }
 }
 
@@ -463,7 +415,7 @@ pub fn MarketTable(
     rsx! { div { class: "fe-market-results", "data-section": "analytics-card-grid",
         if show_watch { p { class: "fe-watch-feedback", "data-watchlist-feedback": "true", role: "status", aria_live: "polite" } }
         table { class: "fe-market-table", aria_label: "Company rankings",
-            caption { class: "sr-only", "Company rankings and next company report dates. Rankings are generated using EPSX’s proprietary methodology." }
+            caption { class: "sr-only", "Company rankings. Rankings are generated using EPSX’s proprietary methodology." }
             thead { tr {
                 th { scope: "col", class: "fe-expand-cell", span { class: "sr-only", "Details" } }
                 th { scope: "col", class: "fe-rank", "Rank" }
@@ -516,7 +468,6 @@ pub fn MarketTable(
                 }
             }
         }
-        p { class: "fe-data-note", "Next action is the next company report date. Dates may change; estimates are labeled. All dates use UTC." }
     } }
 }
 
@@ -568,13 +519,23 @@ mod tests {
     }
 
     #[test]
-    fn card_days_are_primary_while_shared_date_presentation_remains_absolute_first() {
+    fn company_dates_and_source_details_are_not_rendered() {
         let today = chrono::NaiveDate::from_ymd_opt(2026, 9, 8).unwrap();
         let action = NextAction::Api(today + chrono::Days::new(63));
         let card = dioxus_ssr::render_element(rsx! { CardNextAction { action, today } });
         let shared = dioxus_ssr::render_element(rsx! { NextActionDate { action, today } });
-        assert!(card.find("In 63 days").unwrap() < card.find("10 November 2026").unwrap());
-        assert!(shared.find("10 November 2026").unwrap() < shared.find("In 63 days").unwrap());
+        for html in [card, shared] {
+            assert!(html.contains("In 63 days"));
+            for private in [
+                "Company report",
+                "10 November 2026",
+                "2026-11-10",
+                "data-next-action-source",
+                "Estimated",
+            ] {
+                assert!(!html.contains(private));
+            }
+        }
         for (action, expected) in [
             (NextAction::Api(today), "Today"),
             (NextAction::Api(today - chrono::Days::new(1)), "Date passed"),
@@ -628,7 +589,7 @@ mod tests {
         let html = dioxus_ssr::render_element(
             rsx! { ReportProgress { action, today: date("2026-09-08"), previous_report: None } },
         );
-        assert!(html.contains("Report timeline unavailable"));
+        assert!(html.contains("data-report-progress=\"unavailable\""));
         assert!(!html.contains("<progress"));
         assert!(!html.contains("aria-valuenow"));
     }
@@ -646,7 +607,7 @@ mod tests {
             rsx! { ReportProgress { action, today: date("2026-09-09"), previous_report: Some(timestamp("2026-08-01")) } },
         );
         assert!(html.contains("data-report-progress=\"past\""));
-        assert!(html.contains("does not indicate that the report has been published"));
+        assert!(!html.contains("report date"));
     }
 
     fn row() -> AnalyticsRow {
@@ -738,7 +699,8 @@ mod tests {
         ] {
             assert!(!html.contains(hidden), "unexpected presentation: {hidden}");
         }
-        assert!(html.contains("Date not available"));
+        assert!(html.contains("Save this company to revisit"));
+        assert!(!html.contains("Company report"));
         assert!(html.contains("aria-controls=\"fe-event-TEST\""));
         assert!(html.contains("data-watchlist-signed-out"));
     }
@@ -752,21 +714,26 @@ mod tests {
         assert_eq!(html.matches(href).count(), 4);
     }
     #[test]
-    fn past_estimate_keeps_its_date_and_explains_source_without_publication_claim() {
+    fn company_details_do_not_expose_report_dates_or_estimation_method() {
         let mut row = row();
         row.last_earnings_date = Some(timestamp("2026-01-01"));
         let html = dioxus_ssr::render_element(
             rsx! { ReportContent { row, today: date("2026-09-08"), watch: Some(StockCardWatchlist::SignedOut) } },
         );
-        for expected in [
+        assert!(html.contains("Date passed"));
+        assert!(html.contains("Save"));
+        for private in [
             "01 April 2026",
-            "Date passed",
-            "Estimated 90 days after the previous company report.",
             "01 January 2026",
-            "does not tell us whether a report has been published",
-            "Save",
+            "Estimated",
+            "90 days",
+            "company report",
+            "datetime=",
         ] {
-            assert!(html.contains(expected), "missing {expected}");
+            assert!(
+                !html.contains(private),
+                "private metadata rendered: {private}"
+            );
         }
     }
 }

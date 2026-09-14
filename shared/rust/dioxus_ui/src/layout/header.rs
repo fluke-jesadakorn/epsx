@@ -237,7 +237,7 @@ fn DefaultBell(
                 } else {
                     div { class: "admin-notifications-list",
                         for notification in notifications.iter().take(6) {
-                            a {
+                            crate::navigation::AppLink {
                                 class: if notification.read { "admin-notification-item" } else { "admin-notification-item admin-notification-item-unread" },
                                 href: "/notifications",
                                 role: "menuitem",
@@ -249,7 +249,7 @@ fn DefaultBell(
                         }
                     }
                 }
-                a {
+                crate::navigation::AppLink {
                     class: "admin-notifications-view-all",
                     href: "/notifications",
                     role: "menuitem",
@@ -269,7 +269,7 @@ fn AdminWalletControl(user: Option<User>, return_url: String) -> Element {
     let Some(user) = user else {
         let href = format!("/auth?return_url={}", encode_query_value(&return_url));
         return rsx! {
-            a {
+            crate::navigation::AppLink {
                 class: "admin-wallet-connect",
                 href,
                 Icon { name: "wallet".to_string(), size: Some(16) }
@@ -378,7 +378,7 @@ fn AdminWalletControl(user: Option<User>, return_url: String) -> Element {
                         span { "Copy address" }
                     }
                     if let Some(explorer_href) = explorer_href {
-                        a {
+                        crate::navigation::AppLink {
                             class: "admin-wallet-menu-item",
                             href: explorer_href,
                             target: "_blank",

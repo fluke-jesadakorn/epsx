@@ -329,7 +329,7 @@ pub fn HydratedAdminChat(id: ReadSignal<Option<String>>, query: ReadSignal<Strin
             }
         });
     });
-    rsx! {AdminAnalyticsShell{authenticated:data().is_ok(),current_path:"/chat",title:"Chat support",document::Title{"Chat Support | EPSX Admin"}fieldset{disabled:pending(),aria_busy:pending(),if pending(){p{class:"p-4",role:"status","Updating conversations…"}}match (data(),location()){(Ok(data),Ok(query))=>rsx!{crate::pages::admin_pages::chat::HydratedChatBody{key:"{render_generation}",data,query,mutation:outcome().map(|v|v.label().to_string())}},(Err(error),_)=>rsx!{div{class:"p-6 space-y-4",p{role:"status","{error.message()}"}button{r#type:"button",class:"btn btn-outline",onclick:move |_|{let next=*revision.peek()+1;revision.set(next);},"Try again"}}},_=>rsx!{p{"Invalid chat URL"}}}}}}
+    rsx! {AdminAnalyticsShell{authenticated:data().is_ok(),current_path:"/chat",title:"Chat support",document::Title{"Chat Support | EPSX Admin"}fieldset{disabled:pending(),aria_busy:pending(),if pending(){p{class:"p-4",role:"status","Updating conversations…"}}match (data(),location()){(Ok(data),Ok(query))=>rsx!{crate::pages::admin_pages::chat::HydratedChatBody{key:"{render_generation}",data,query,mutation:outcome().map(|v|v.label().to_string())}},(Err(error),_)=>rsx!{div{class:"p-6 space-y-4",crate::fullstack::load_error::LoadErrorNotice { error: error.clone(), button{r#type:"button",class:"btn btn-outline",onclick:move |_|{let next=*revision.peek()+1;revision.set(next);},"Try again"} }}},_=>rsx!{p{"Invalid chat URL"}}}}}}
 }
 
 #[cfg(feature = "server")]

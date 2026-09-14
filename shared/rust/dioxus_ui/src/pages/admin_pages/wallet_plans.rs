@@ -388,7 +388,7 @@ fn PlanListRow(plan: AdminPlanProjection) -> Element {
                 p { class: "text-sm font-semibold text-foreground", "{plan.amount} {plan.currency}" }
                 p { class: "mt-1 text-xs text-muted-foreground", "{state}" }
             }
-            a { class: "btn btn-sm btn-outline", href, "Read detail" }
+            crate::navigation::AppLink { class: "btn btn-sm btn-outline", href, "Read detail" }
         }
     }
 }
@@ -426,7 +426,7 @@ fn PlanDetailReady(
         .unwrap_or_default();
     rsx! {
         WalletManagementHub { ctx,
-            a {
+            crate::navigation::AppLink {
                 class: "inline-flex w-fit items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground",
                 href: PLANS_PATH,
                 Icon { name: "arrow-left".to_string(), size: Some(16) }
@@ -457,7 +457,7 @@ fn PlanDetailReady(
                     div { class: "flex items-center justify-between gap-3 border-b border-border/20 px-4 py-3 sm:px-8",
                         button { class: "btn btn-sm btn-outline cursor-not-allowed opacity-50", r#type: "button", disabled: true, title: "The subscription service does not expose a versioned delete contract", "Delete" }
                         div { class: "flex gap-2",
-                            a { class: "btn btn-sm btn-outline", href: plan_href(&plan.id), "Discard" }
+                            crate::navigation::AppLink { class: "btn btn-sm btn-outline", href: plan_href(&plan.id), "Discard" }
                             button { class: "btn btn-sm btn-primary", r#type: "submit", "Save Changes" }
                         }
                     }
@@ -585,7 +585,7 @@ fn plan_problem_element(
 ) -> Element {
     rsx! {
         WalletManagementHub { ctx,
-            a {
+            crate::navigation::AppLink {
                 class: "inline-flex w-fit items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground",
                 href: PLANS_PATH,
                 Icon { name: "arrow-left".to_string(), size: Some(16) }
@@ -601,7 +601,7 @@ fn plan_problem_element(
                         h2 { id: "admin-wallet-plans-problem-title", class: "font-bold text-foreground", "{title}" }
                         p { class: "mt-1 max-w-3xl text-sm leading-6 text-muted-foreground", "{detail}" }
                     }
-                    a { class: "btn btn-sm btn-outline shrink-0", href: PLANS_PATH, "Retry plan read" }
+                    crate::navigation::AppLink { class: "btn btn-sm btn-outline shrink-0", href: PLANS_PATH, "Retry plan read" }
                 }
             }
             PlanEditorScaffold {}

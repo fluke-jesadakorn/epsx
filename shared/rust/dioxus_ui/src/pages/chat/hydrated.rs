@@ -161,7 +161,7 @@ pub fn HydratedChat(
     rsx! {
         document::Title{"Support — EPSX"}document::Meta{name:"description",content:"Your private support conversations with EPSX."}
         if error() == Some(LoadError::Unauthenticated) { RenderPublicChat {} }
-        else if let Some(failure)=error(){p{role:"status","{failure.message()}"}button{class:"btn btn-outline",disabled:pending(),onclick:move |_|{let next=*revision.peek()+1;revision.set(next);},"Try again"}}
+        else if let Some(failure)=error(){crate::fullstack::load_error::LoadErrorNotice { error: failure.clone(), button{class:"btn btn-outline",disabled:pending(),onclick:move |_|{let next=*revision.peek()+1;revision.set(next);},"Try again"} }}
         if let Some(data)=data(){ChatReady{inbox:data.inbox,active:data.active,show_new:query().split('&').any(|part|part=="new=1"),history}}
     }
 }
@@ -256,7 +256,7 @@ pub(super) fn NewConversation(topics: Vec<ChatTopic>) -> Element {
                             input{r#type:"file",accept:".jpg,.jpeg,.png,.gif,.webp,.pdf",disabled:pending(),onchange:choose_file}
                             if let Some((name,_))=attachment(){p{class:"chat-topic-file-list","{name}"}}
                         }
-                        if !status().is_empty(){p{role:"status",class:"chat-topic-form-status","{status}"}}
+                        if !status().is_empty(){p{role:"status",class:"chat-topic-form-status",crate::fullstack::load_error::SessionMessage{message:status()}}}
                         button{class:"chat-topic-start",r#type:"submit",disabled:pending()||subject().trim().is_empty()||message().trim().is_empty(),if pending(){"Sending…"}else if created().is_some(){"Retry attachment"}else{"Start conversation"}}
                         if let Some(id)=created(){crate::fullstack::shell::ShellLink{href:format!("/chat/{id}"),"Open created conversation"}}
                     }

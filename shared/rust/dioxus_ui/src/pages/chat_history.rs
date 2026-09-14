@@ -50,7 +50,7 @@ fn HistorySurface(ctx: PageContext) -> Element {
             rsx! {
                 div { class: "container page-content chat-history", "data-chat-history-state": if filtered.is_empty() { "empty" } else { "ready" },
                     div { class: "chat-history-header",
-                        a { class: "chat-history-back", href: "/chat", aria_label: "Back to chat",
+                        crate::navigation::AppLink { class: "chat-history-back", href: "/chat", aria_label: "Back to chat",
                             Icon { name: "arrow-left".to_string(), size: Some(16) }
                         }
                         div { class: "chat-history-titles",
@@ -58,7 +58,7 @@ fn HistorySurface(ctx: PageContext) -> Element {
                             p { class: "chat-history-subtitle", "{inbox.conversations.len()} total conversations" }
                         }
                     }
-                    form { class: "chat-history-filters", method: "get", action: "/chat/history",
+                    crate::navigation::QueryForm { class: "chat-history-filters", action: "/chat/history",
                         Icon { name: "sliders-horizontal".to_string(), size: Some(14) }
                         select { class: "chat-history-filter", name: "status", aria_label: "Status",
                             option { value: "all", selected: status.is_none(), "All Statuses" }
@@ -92,7 +92,7 @@ fn HistorySurface(ctx: PageContext) -> Element {
                                         span { class: "chat-history-group-count", "{group_items.len()}" }
                                     }
                                     for (index, conversation) in group_items.iter().enumerate() {
-                                        a {
+                                        crate::navigation::AppLink {
                                             class: if index + 1 == group_items.len() { "chat-history-card chat-history-card-last" } else if conversation.unread_user > 0 { "chat-history-card chat-history-card-unread" } else { "chat-history-card" },
                                             href: format!("/chat/{}", conversation.id),
                                             div { class: "chat-history-card-main",
@@ -208,7 +208,7 @@ fn HistoryProblem(title: String) -> Element {
                     Icon { name: "history".to_string(), size: Some(24) }
                 }
                 h1 { class: "chat-history-empty-title", "{title}" }
-                a { class: "btn btn-outline mt-4", href: "/chat/history", "Try again" }
+                crate::navigation::AppLink { class: "btn btn-outline mt-4", href: "/chat/history", "Try again" }
             }
         }
     }

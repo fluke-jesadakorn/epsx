@@ -1,0 +1,164 @@
+{
+  "deployment": {
+    "old_release": "/opt/epsx/releases/20260914-ui-hotfix-00a4adc39",
+    "new_release": "/opt/epsx/releases/20260914-ui-final-a2fd0c711",
+    "status": "deployed",
+    "commit": "a2fd0c711705a3ce1633ae3bd8396414510e8e9b",
+    "started_at": "2026-09-14T08:53:00Z",
+    "readiness": {
+      "wallet": true,
+      "subscription": true,
+      "analytics": true,
+      "notification": true,
+      "pay-service": true,
+      "epsx": true,
+      "bff-frontend": true,
+      "bff-admin": true,
+      "bff-pay": true
+    },
+    "countries": {
+      "10": 10,
+      "25": 25,
+      "50": 50,
+      "100": 100,
+      "thailand": 10,
+      "germany": 0,
+      "frontend_100_cards": 100
+    },
+    "finished_at": "2026-09-14T08:53:08Z"
+  },
+  "initial_hotfix": {
+    "old_release": "/opt/epsx/releases/20260914-country-filter-6f59b7a7b",
+    "new_release": "/opt/epsx/releases/20260914-ui-hotfix-00a4adc39",
+    "status": "deployed",
+    "commit": "00a4adc3929be53bf0d4d190e975ea1530606fc5",
+    "started_at": "2026-09-14T08:35:53Z",
+    "readiness": {
+      "wallet": true,
+      "subscription": true,
+      "analytics": true,
+      "notification": true,
+      "pay-service": true,
+      "epsx": true,
+      "bff-frontend": true,
+      "bff-admin": true,
+      "bff-pay": true
+    },
+    "countries": {
+      "10": 10,
+      "25": 25,
+      "50": 50,
+      "100": 100,
+      "thailand": 10,
+      "germany": 0
+    },
+    "finished_at": "2026-09-14T08:37:57Z"
+  },
+  "package": {
+    "type": "scoped-hotfix",
+    "commit": "a2fd0c711705a3ce1633ae3bd8396414510e8e9b",
+    "component_commits": {
+      "bff-frontend": "a2fd0c711705a3ce1633ae3bd8396414510e8e9b",
+      "bff-admin": "6f59b7a7b56e0b6d371606adffeccf2f09a38b22",
+      "notification": "6f59b7a7b56e0b6d371606adffeccf2f09a38b22",
+      "bff-pay": "6f59b7a7b56e0b6d371606adffeccf2f09a38b22",
+      "epsx": "00a4adc3929be53bf0d4d190e975ea1530606fc5",
+      "subscription": "6f59b7a7b56e0b6d371606adffeccf2f09a38b22",
+      "migrate": "6f59b7a7b56e0b6d371606adffeccf2f09a38b22",
+      "wallet": "6f59b7a7b56e0b6d371606adffeccf2f09a38b22",
+      "pay-service": "6f59b7a7b56e0b6d371606adffeccf2f09a38b22",
+      "analytics": "6f59b7a7b56e0b6d371606adffeccf2f09a38b22"
+    },
+    "files": 514,
+    "manifest_sha256": "2a8bede5052bbced2c912b66088d5b605f96a70f9b5450754758aafb48561ec7",
+    "checksums_verified": true,
+    "migrations_unchanged": true
+  },
+  "validation": {
+    "workspace_baseline": {
+      "commit": "00a4adc3929be53bf0d4d190e975ea1530606fc5",
+      "passed": 2315,
+      "failed": 0,
+      "ignored": 44,
+      "workspace_exit_code": 0,
+      "clippy_exit_code": 0,
+      "gates_exit_code": 0,
+      "foundry_passed": 33,
+      "unchanged_migration_files": 131
+    },
+    "final_ui_tests": {
+      "passed": 859,
+      "failed": 0,
+      "commit": "a2fd0c711705a3ce1633ae3bd8396414510e8e9b"
+    },
+    "final_clippy_exit_code": 0,
+    "format_exit_code": 0,
+    "format_commit": "aab6e8132fea7432ddf189f84fe8babe509be93d",
+    "format_note": "The only post-build change wraps a line in the regression test; production code is unchanged.",
+    "assets_verified": true
+  },
+  "service_readiness": {
+    "epsx": true,
+    "wallet": true,
+    "subscription": true,
+    "analytics": true,
+    "notification": true,
+    "pay-service": true,
+    "bff-frontend": true,
+    "bff-admin": true,
+    "bff-pay": true,
+    "minio": true,
+    "tunnel": true,
+    "postgresql": true,
+    "redis": true
+  },
+  "browser": {
+    "public_page_sizes_verified": [
+      10,
+      25,
+      50,
+      100
+    ],
+    "page_2_limit_100": {
+      "cards": 100,
+      "first_rank": 200,
+      "last_rank": 299
+    },
+    "slash_ticker": "TMM/A accepted; details URL path encoded",
+    "country_thailand_limit_25": {
+      "cards": 25,
+      "busy": false
+    },
+    "loading": {
+      "display": "flex",
+      "padding": "16px 20px",
+      "animation": "fe-loading-spin",
+      "controls_disabled_while_pending": true,
+      "network_throttle_restored": true
+    },
+    "account": {
+      "authenticated": true,
+      "dark_theme_verified": true,
+      "light_theme_verified": true,
+      "mobile_width": 390,
+      "horizontal_overflow": false,
+      "original_theme_and_viewport_restored": true
+    },
+    "privacy": {
+      "company_report_label_visible": false,
+      "report_date_rows": 0,
+      "saved_company_page_checked": true
+    },
+    "entitlement_note": "The signed-in account had a backend total of five accessible rows. Page-size selection does not override that entitlement."
+  },
+  "operational_notes": [
+    "Only backend and frontend changed; unchanged components were copied from the verified complete base release with per-component revisions.",
+    "The first cutover exposed an asynchronous launchd bootout race. Backend was bootstrapped after unload completed; all services recovered. The final frontend-only cutover waits for unload before bootstrap.",
+    "Configuration, signing keys, database schemas and production tunnel routes were preserved."
+  ],
+  "development": {
+    "http": 200,
+    "cards": 100,
+    "loading_css_clean": true
+  }
+}

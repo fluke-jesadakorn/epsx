@@ -244,7 +244,7 @@ fn PortfolioWatchlist(layout: WatchlistLayoutData) -> Element {
                     Icon { name: "search".to_string(), size: Some(18), class_name: Some("text-slate-500 shrink-0".to_string()) }
                     input {
                         id: "portfolio-watchlist-symbol",
-                        class: "portfolio-watchlist-input min-w-0 flex-1 border-0 bg-transparent p-0 text-base font-semibold tracking-wide outline-none placeholder:normal-case",
+                        class: "portfolio-watchlist-input uppercase! min-w-0 flex-1 border-0 bg-transparent p-0 text-base font-semibold tracking-wide outline-none placeholder:normal-case",
                         r#type: "text",
                         name: "symbol",
                         maxlength: "20",
@@ -254,7 +254,6 @@ fn PortfolioWatchlist(layout: WatchlistLayoutData) -> Element {
                         required: true,
                         placeholder: "Enter a symbol, e.g. AAPL",
                         "aria-label": "Save a company by symbol",
-                        style: "text-transform: uppercase;",
                     }
                 }
                 if !groups.is_empty() {
@@ -341,7 +340,7 @@ fn PortfolioWatchlist(layout: WatchlistLayoutData) -> Element {
                         "Enter a company symbol above or use Save in Explore. Your saved companies are kept in your account."
                     }
                     div { class: "mt-6 flex flex-col items-center gap-3 sm:flex-row",
-                        a { class: "inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-900/20 transition-colors hover:bg-emerald-500 fe-tone-text fe-action-primary", href: "/analytics",
+                        crate::navigation::AppLink { class: "inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-900/20 transition-colors hover:bg-emerald-500 fe-tone-text fe-action-primary", href: "/analytics",
                             Icon { name: "bar-chart-3".to_string(), size: Some(16) }
                             "Explore rankings"
                         }
@@ -695,13 +694,13 @@ fn PortfolioUnavailable(source_shape: bool) -> Element {
                     nav {
                         class: "mt-3 flex flex-col gap-2 sm:flex-row",
                         aria_label: "Portfolio alternatives",
-                        a {
+                        crate::navigation::AppLink {
                             class: "inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-slate-600 bg-slate-800 px-4 py-2.5 text-sm font-semibold text-slate-200 hover:bg-slate-700 fe-surface",
                             href: "/account",
                             Icon { name: "user".to_string(), size: Some(16) }
                             " Return to account"
                         }
-                        a {
+                        crate::navigation::AppLink {
                             class: "inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-slate-700 bg-transparent px-4 py-2.5 text-sm font-semibold text-slate-300 hover:bg-slate-800/50 hover:text-slate-200 fe-tone-muted",
                             href: "/contact",
                             Icon { name: "circle-help".to_string(), size: Some(16) }
@@ -750,7 +749,7 @@ fn PortfolioSignInCard() -> Element {
                 span { class: "fe-saved-welcome-icon", Icon { name: "bookmark".to_string(), size: Some(24) } }
                 h2 { "A space for companies you want to revisit." }
                 p { "Save companies, build your own groups, and move cards into an order that makes sense to you." }
-                a { class: "fe-button fe-primary", href: PORTFOLIO_SIGN_IN_PATH, "Sign in to get started"
+                crate::navigation::AppLink { class: "fe-button fe-primary", href: PORTFOLIO_SIGN_IN_PATH, "Sign in to get started"
                     Icon { name: "arrow-right".to_string(), size: Some(16) }
                 }
                 p { class: "fe-saved-welcome-note", Icon { name: "lock".to_string(), size: Some(14) } "Sign in to view and organize your saved companies." }

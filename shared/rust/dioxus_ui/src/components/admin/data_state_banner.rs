@@ -96,6 +96,15 @@ pub fn AdminDataStateBanner(
         state,
         AdminDataState::Unauthenticated | AdminDataState::Unauthorized
     );
+    if needs_sign_in {
+        return rsx! {
+            div { "data-admin-data-state": state.as_str(),
+                crate::fullstack::load_error::SessionNotice {
+                    return_path, expired: state == AdminDataState::Unauthorized,
+                }
+            }
+        };
+    }
     let primary_label = if needs_sign_in {
         "Sign in"
     } else {
@@ -118,8 +127,8 @@ pub fn AdminDataStateBanner(
                     p { class: "mt-1 max-w-3xl text-sm text-muted-foreground", "{detail}" }
                 }
                 nav { class: "flex shrink-0 flex-wrap gap-2",
-                    a { class: "btn btn-sm btn-outline", href: primary_href, "{primary_label}" }
-                    a { class: "btn btn-sm btn-ghost", href: "/", "Admin home" }
+                    crate::navigation::AppLink { class: "btn btn-sm btn-outline", href: primary_href, "{primary_label}" }
+                    crate::navigation::AppLink { class: "btn btn-sm btn-ghost", href: "/", "Admin home" }
                 }
             }
         }

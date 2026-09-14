@@ -1,0 +1,19 @@
+{
+  "docs/user-guide/screenshots/admin.png": "024c1eca366d106f52b71b42c5cf04b30752f17b4037871766257f838a7d01e8",
+  "docs/user-guide/screenshots/analytics.png": "d2639268321cf7cc0d2bdeca029d9df2ab19cfcf5b3a2d24a6a7b55663c6b2ab",
+  "docs/user-guide/screenshots/auth.png": "80bfd7540672148a76347f52def07f281dd9063a5db9730a06c822fc89a1eed8",
+  "docs/user-guide/screenshots/developer.png": "656f6f3920bb655a17c442931e771a9655e14228bc375dc4cc0d3011697c22a8",
+  "docs/user-guide/screenshots/home.png": "1f37f618eb8b4c5bc1fe890996183954a3c3ea1ad4af21193ac37c0a8ced0a48",
+  "docs/user-guide/screenshots/pay-dashboard.png": "855fe83fe2fa8a9a18ee8afe97765ba03d1bf3a071f3d483d4cc1c963d52358c",
+  "docs/user-guide/screenshots/pay.png": "c9bb5bfed9b49835fc7f826b75afabd90ce216a0e80e7a72b81de77d85aa4153",
+  "docs/user-guide/screenshots/plans.png": "cfb97d317a807c71a9bcf48b0a0133b3c0c2203e529e2133afc851f7e5f91005",
+  "docs/user-guide/screenshots/stock-card.png": "0d5296e892b473d92e354c6f52241b088babcfc00b45c4b896d975370f16b7eb",
+  "docs/user-guide/screenshots/stock-country.png": "c2122d4dd38a8caf78f966d660b1902165895e440d9652cd6f98f9544a0ed34d",
+  "docs/user-guide/screenshots/stock-pagination.png": "dcb92b5b9d3286ed14743c03bbb7ae40cf9da8f9b64dbab0a3c7b7dd601df613",
+  "docs/user-guide/screenshots/stock-save.png": "5723f24a0524ee46442bde5c9732dc48f2dcab868757e1fe37695548c3bc051d",
+  "docs/user-guide/evidence/country-api-results.json": "b71f4369b2156a9635c41987688a7b6a1cb825814734f6e3d63216aec60c27c9",
+  "docs/user-guide/evidence/country-empty.png": "715c96421cd8e51da3f3971d18a21895dc2ebde324eee73cbf1cedb2ce067303",
+  "docs/user-guide/evidence/country-ui-results.json": "401b94c7ca9e94f98a9848a0ccde23f6469fe827b473ce467a085893fd9f92fe",
+  "output/pdf/epsx-user-guide-th.pdf": "07fec82584195657ef1e6dfaa9e89215e7d914f673a546a9bb1fca3b8eac1031",
+  "output/pdf/epsx-user-guide-en.pdf": "d686e6fbac61ec2da16138bfbf91b2fe167a878d6a38371a5274c8e040fdf341"
+}

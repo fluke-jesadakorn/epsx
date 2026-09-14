@@ -372,7 +372,7 @@ pub fn HydratedAdminNews(page: NewsPage, query: ReadSignal<String>) -> Element {
                 NewsPage::Create=>rsx!{div{class:"p-4 md:p-8",NewsEditor{route:NewsRoute::Create,projection:None,route_reference:None,image_url:cover()}}},
                 NewsPage::Edit(id)=>rsx!{div{class:"p-4 md:p-8",NewsEditor{key:"{identity_generation}",route:NewsRoute::Edit,projection:snapshot.article,route_reference:Some(id),image_url:cover()}}},
             },
-            Err(error)=>rsx!{section{class:"p-6",p{role:"alert","{error.message()}"}button{class:"btn btn-primary",r#type:"button",onclick:move |_|refresh.call(()),"Try again"}}},
+            Err(error)=>rsx!{section{class:"p-6",crate::fullstack::load_error::LoadErrorNotice { error: error.clone(), button{class:"btn btn-primary",r#type:"button",onclick:move |_|refresh.call(()),"Try again"} }}},
         }
     }}}
 }

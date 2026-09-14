@@ -230,7 +230,7 @@ fn AccessReady(projection: AdminAccessProjection) -> Element {
                 p { class: "mx-auto mt-2 max-w-xl text-sm leading-6 text-muted-foreground",
                     "The backend returned an authoritative empty assignment projection."
                 }
-                a { class: "btn btn-outline mt-5", href: PLANS_PATH, "Review plan definitions" }
+                crate::navigation::AppLink { class: "btn btn-outline mt-5", href: PLANS_PATH, "Review plan definitions" }
             }
         };
     }
@@ -316,8 +316,8 @@ fn AccessProblem(state: &'static str, title: String, detail: String) -> Element 
                         p { class: "mt-1 max-w-3xl text-sm text-muted-foreground", "{detail}" }
                     }
                     nav { class: "flex shrink-0 flex-wrap gap-2", aria_label: "Wallet access recovery",
-                        a { class: "btn btn-sm btn-outline", href: WALLET_ACCESS_PATH, "Retry access read" }
-                        a { class: "btn btn-sm btn-ghost", href: ADMIN_HOME_PATH, "Admin home" }
+                        crate::navigation::AppLink { class: "btn btn-sm btn-outline", href: WALLET_ACCESS_PATH, "Retry access read" }
+                        crate::navigation::AppLink { class: "btn btn-sm btn-ghost", href: ADMIN_HOME_PATH, "Admin home" }
                     }
                 }
             }
@@ -328,7 +328,7 @@ fn AccessProblem(state: &'static str, title: String, detail: String) -> Element 
                         h3 { class: "text-xs font-bold uppercase tracking-[0.2em] text-[#7645d9]", "Access Assignments" }
                         p { class: "mt-2 text-sm text-muted-foreground", "No verified assignment inventory is available." }
                     }
-                    a { class: "btn btn-sm btn-outline", href: PLANS_PATH,
+                    crate::navigation::AppLink { class: "btn btn-sm btn-outline", href: PLANS_PATH,
                         Icon { name: "layers".to_string(), size: Some(15) }
                         " Review plan definitions"
                     }
@@ -460,7 +460,8 @@ mod tests {
         for state in [ADMIN_ACCESS_UNAUTHENTICATED, ADMIN_ACCESS_UNAUTHORIZED] {
             let rendered = html(&with_state(state, Some(projection())));
             assert!(rendered.contains(&format!("data-admin-data-state=\"{state}\"")));
-            assert!(rendered.contains("Sign in"));
+            assert!(rendered.contains("Connect wallet"));
+            assert!(rendered.contains("href=\"/auth?return_url="));
             assert!(!rendered.contains("admin:payments:view"));
         }
     }

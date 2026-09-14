@@ -119,8 +119,8 @@ pub fn HydratedAdminWallets(path: String, query: String) -> Element {
     main{class:"container-x max-w-7xl mx-auto p-6 space-y-6","data-dioxus-admin-wallets":"true",
      header{class:"space-y-2",h1{class:"text-3xl font-bold","Wallet Management Hub"}p{class:"text-muted-foreground","Manage wallets, permissions, credits, and subscription plans."}}
      nav{class:"flex flex-wrap gap-3",for(label,to)in[("Wallets","/wallet-management/wallets"),("Access","/wallet-management/access"),("Credits","/wallet-management/credits"),("Plans","/wallet-management/access/plans")]{Link{class:"btn btn-outline",to,"{label}"}}button{class:"btn btn-outline",disabled:loading()||busy(),onclick:move |_|{let mut value=revision;value+=1;},"Refresh"}}
-     if !message().is_empty(){p{role:"status","aria-live":"polite","{message}"}}if let Some(value)=error(){p{role:"alert","{value}"}}
-     match data(){Err(value)=>rsx!{section{class:"rounded-2xl border border-border/30 p-6",role:"alert",p{"{value.message()}"}Link{class:"btn btn-primary",to:format!("/auth?return_url={}",url::form_urlencoded::byte_serialize(request.page.path().as_bytes()).collect::<String>()),"Sign in"}}},Ok(value)=>rsx!{
+     if !message().is_empty(){p{role:"status","aria-live":"polite","{message}"}}if let Some(value)=error(){p{role:"alert",crate::fullstack::load_error::SessionMessage{message:value}}}
+     match data(){Err(value)=>rsx!{section{class:"rounded-2xl border border-border/30 p-6",role:"alert",crate::fullstack::load_error::LoadErrorNotice { error: value.clone(),  }}},Ok(value)=>rsx!{
       if let Ok(stats)=value.stats{section{class:"grid gap-4 sm:grid-cols-3",for(label,count)in[("Total wallets",stats.total_users),("Active users",stats.active_users),("Disabled",stats.inactive_users)]{article{class:"rounded-2xl border border-border/30 bg-card p-5",p{class:"text-2xl font-bold","{count}"}p{class:"text-muted-foreground","{label}"}}}}}
       match request.page.clone(){
        WalletPage::List=>rsx!{WalletList{projection:value.wallets,filter:request.filter.clone()}},

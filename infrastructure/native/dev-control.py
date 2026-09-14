@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Control only com.epsx.dev LaunchAgents. Config and keys stay outside releases."""
-import argparse, os, pathlib, plistlib, shutil, subprocess, time, urllib.request, urllib.error, fcntl
+import argparse, os, pathlib, plistlib, shutil, subprocess, time, urllib.request, urllib.error, fcntl, json, socket
 ROOT = pathlib.Path.home() / '.config/epsx/dev'
 RELEASES = pathlib.Path.home() / '.local/share/epsx/dev'
 SERVICES = ['epsx','wallet','pay-service','subscription','notification','analytics','bff-frontend','bff-admin','bff-pay']
@@ -31,6 +31,16 @@ def loaded(name):
     return subprocess.run(['launchctl', 'print', DOMAIN+'/'+job(name)],
                           capture_output=True).returncode == 0
 
+def realtime_state(name):
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
+            client.settimeout(1)
+            client.connect(str(ROOT/f'{name}.realtime.sock'))
+            client.sendall(b'status')
+            return json.loads(client.recv(4096))
+    except (OSError, ValueError):
+        return None
+
 def hmr_plist(name):
     p = path(name)
     if p.exists():
@@ -42,6 +52,7 @@ def hmr_plist(name):
                   'StandardErrorPath': str(ROOT/'logs'/f'{name}.log')}
     config['ProgramArguments'] = ['/bin/bash', str(CHECKOUT/'infrastructure/native/dev-ui-hmr.sh'), name]
     config['WorkingDirectory'] = str(CHECKOUT)
+    config.setdefault('EnvironmentVariables', {})['EPSX_DEV_UI_MODE'] = 'realtime-v1'
     return config
 
 def enable_hmr(name):
@@ -50,7 +61,9 @@ def enable_hmr(name):
         shutil.copy2(CHECKOUT/'infrastructure/native/dev-ui-assets.py', ROOT/'tools/dev-ui-assets.py')
     p = path(name)
     config = hmr_plist(name)
-    if p.exists() and plistlib.loads(p.read_bytes()).get('ProgramArguments') == config['ProgramArguments']:
+    previous = plistlib.loads(p.read_bytes()) if p.exists() else {}
+    if (previous.get('ProgramArguments') == config['ProgramArguments']
+            and previous.get('EnvironmentVariables', {}).get('EPSX_DEV_UI_MODE') == 'realtime-v1'):
         if not loaded(name): run('launchctl', 'bootstrap', DOMAIN, str(p))
         return
     backup = p.with_suffix('.plist.pre-hmr')
@@ -82,7 +95,8 @@ def hmr(names):
         try: fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError: raise SystemExit('Another HMR startup is already running.')
         env = dict(os.environ, CARGO_TARGET_DIR=str(CHECKOUT/'target'), CARGO_BUILD_JOBS='2', CARGO_INCREMENTAL='0')
-        subprocess.run(['cargo','xtask','browser-runtime','build'], cwd=CHECKOUT, env=env, check=True)
+        if not (CHECKOUT/'target/epsx-service-worker/epsx_service_worker_bootstrap.js').exists():
+            subprocess.run(['cargo','xtask','browser-runtime','build'], cwd=CHECKOUT, env=env, check=True)
         enable_hmr('ui-worker')
         for name in names:
             enable_hmr(name)
@@ -103,22 +117,32 @@ def restore_hmr(names):
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument('action',choices=['install','start','stop','restart','status','rollback','watch','hmr','restore-hmr'])
+    p.add_argument('action',choices=['install','start','stop','restart','status','rollback','watch','hmr','realtime','rebuild','restore-hmr'])
     p.add_argument('service',nargs='?',choices=ALL+['all','ui','ui-worker'],default='all')
     a=p.parse_args();names=ALL if a.service=='all' else UI if a.service=='ui' else [a.service]
-    if a.action in ('hmr','restore-hmr'):
+    if a.action == 'rebuild':
+        if a.service not in UI+['ui']: p.error('rebuild requires ui or a bff UI service')
+        for name in names:
+            run('python3', str(CHECKOUT/'infrastructure/native/dev-ui-realtime.py'), name, 'rebuild')
+        return
+    if a.action in ('hmr','realtime','restore-hmr'):
         if a.service not in UI+['ui']: p.error('HMR requires ui or a bff UI service')
-        (hmr if a.action=='hmr' else restore_hmr)(names)
+        (restore_hmr if a.action=='restore-hmr' else hmr)(names)
         return
     if a.action=='watch':
-        if a.service != 'bff-frontend':raise SystemExit('watch currently supports bff-frontend only')
+        if a.service not in ('bff-frontend', 'epsx'):raise SystemExit('watch supports bff-frontend or epsx')
         n=a.service
         existing=path(n)
         backup=existing.with_suffix('.plist.release-backup')
         if not backup.exists():shutil.copy2(existing,backup)
         plist=plistlib.loads(existing.read_bytes())
         checkout=pathlib.Path(__file__).resolve().parents[2]
-        plist['ProgramArguments']=['/bin/bash',str(checkout/'infrastructure/native/dev-frontend-watch.sh')]
+        script = 'dev-backend-watch.sh' if n == 'epsx' else 'dev-frontend-watch.sh'
+        arguments = ['/bin/bash', str(checkout/'infrastructure/native'/script)]
+        if plist.get('ProgramArguments') == arguments:
+            if not loaded(n): run('launchctl', 'bootstrap', DOMAIN, str(existing))
+            return
+        plist['ProgramArguments']=arguments
         plist['WorkingDirectory']=str(checkout)
         run('launchctl','bootout',DOMAIN,str(existing),check=False)
         existing.write_bytes(plistlib.dumps(plist));existing.chmod(0o600)
@@ -152,5 +176,7 @@ def main():
         elif a.action=='status':
             r=subprocess.run(['launchctl','print',DOMAIN+'/'+job(n)],capture_output=True,text=True)
             state=[x.strip() for x in r.stdout.splitlines() if x.strip().startswith(('state =','pid =','last exit code ='))]
+            if n in UI and (realtime := realtime_state(n)) is not None:
+                state.append('realtime: automatic rebuilds ' + ('enabled' if realtime['automatic_rebuilds'] else 'disabled'))
             print(n,', '.join(state) if r.returncode==0 else 'not loaded')
 if __name__=='__main__':main()

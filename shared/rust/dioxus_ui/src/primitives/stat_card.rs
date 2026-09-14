@@ -56,7 +56,7 @@ pub fn StatCard(
         }
     };
     if let Some(h) = href {
-        rsx! { a { class: "block", href: "{h}", {inner} } }
+        rsx! { crate::navigation::AppLink { class: "block", href: "{h}", {inner} } }
     } else {
         inner
     }

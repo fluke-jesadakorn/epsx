@@ -57,7 +57,7 @@ def main():
         for phrase in retained: product_text = product_text.replace(phrase, '')
         terms=re.findall(r'\bEPS\b|\bEPS growth\b|\bearnings per share\b|\bwatchlist\b',product_text,re.I)
         records.append({'route':route,'status':response.status,'url':response.url,
-            'frontend_styles': '/public/enterprise.css?v=' in html,
+            'frontend_styles': '/public/dist/tailwind.css' in html,
             'mains':len(re.findall(r'<main[ >]',html)),
             'legacy_terms':terms,'backend_owned_text_retained':retained,
             'content_owner_exception':route.startswith(('/terms','/privacy','/news/','/developer/docs'))})

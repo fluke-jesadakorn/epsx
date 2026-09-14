@@ -104,8 +104,8 @@ pub fn HydratedAdminOrders(query: ReadSignal<PurchaseQuery>) -> Element {
             if pending() { p { role: "status", class: "rounded-xl border bg-card p-6 space-y-4", "Updating purchases…" } }
             if let Some(failure) = error() {
                 div { role: "status", class: "rounded-xl border bg-card p-6 space-y-4",
-                    p { "{failure.message()}" }
-                    button { r#type: "button", class: "btn btn-outline", disabled: pending(), onclick: move |_| refresh_handler.call(()), "Try again" }
+                    crate::fullstack::load_error::LoadErrorNotice { error: failure.clone(),
+                    button { r#type: "button", class: "btn btn-outline", disabled: pending(), onclick: move |_| refresh_handler.call(()), "Try again" } }
                 }
             }
             if let Some(snapshot) = data() {

@@ -345,7 +345,7 @@ fn AuditFilters(location: AuditLocation) -> Element {
                     input { class: "min-w-0 flex-1 rounded-xl border border-border/50 bg-muted/30 px-3 py-2 text-sm", r#type: "date", disabled: true, aria_label: "Audit date to unavailable", title: "Date filtering is not exposed by the analytics service yet" }
                 }
                 div { class: "flex gap-2",
-                    a { class: "btn btn-sm bg-gradient-to-r from-[#7645d9] to-[#5a33b8] text-white", href: refresh_href.clone(), onclick: move |event| crate::fullstack::admin::follow_admin_link(event, navigation, &refresh_href),
+                    crate::navigation::AppLink { class: "btn btn-sm bg-gradient-to-r from-[#7645d9] to-[#5a33b8] text-white", href: refresh_href.clone(), onclick: move |event| crate::fullstack::admin::follow_admin_link(event, navigation, &refresh_href),
                         Icon { name: "refresh-cw".to_string(), size: Some(15) }
                         " Refresh"
                     }
@@ -375,14 +375,14 @@ fn AuditCategoryNav(selected: Option<String>) -> Element {
     ];
     rsx! {
         nav { class: "flex gap-2 overflow-x-auto pb-1 lg:pb-0", aria_label: "Audit category",
-            a {
+            crate::navigation::AppLink {
                 class: if selected.is_none() { "btn btn-sm btn-primary" } else { "btn btn-sm btn-outline" },
                 href: AUDIT_PATH, onclick: move |event| crate::fullstack::admin::follow_admin_link(event, navigation, AUDIT_PATH),
                 aria_current: selected.is_none().then_some("page"),
                 "All activity"
             }
             for (category, label) in CATEGORIES {
-                a {
+                crate::navigation::AppLink {
                     class: if selected.as_deref() == Some(category) { "btn btn-sm btn-primary" } else { "btn btn-sm btn-outline" },
                     href: format!("{AUDIT_PATH}?category={category}"), onclick: move |event| crate::fullstack::admin::follow_admin_link(event, navigation, &format!("{AUDIT_PATH}?category={category}")),
                     aria_current: (selected.as_deref() == Some(category)).then_some("page"),
@@ -426,9 +426,9 @@ fn AuditReady(projection: AdminAuditList, location: AuditLocation) -> Element {
                 }
             }
             nav { class: "flex flex-wrap items-center justify-between gap-3 border-t border-border/30 p-4", aria_label: "Audit pagination",
-                a { class: "btn btn-sm btn-outline", href: location.href(None), onclick: move |event| crate::fullstack::admin::follow_admin_link(event, navigation, &location.href(None)), "Return to newest" }
+                crate::navigation::AppLink { class: "btn btn-sm btn-outline", href: location.href(None), onclick: move |event| crate::fullstack::admin::follow_admin_link(event, navigation, &location.href(None)), "Return to newest" }
                 if let Some(next_href) = next_href {
-                    a { class: "btn btn-sm btn-outline", href: next_href.clone(), onclick: move |event| crate::fullstack::admin::follow_admin_link(event, navigation, &next_href), rel: "next", "Older activity" }
+                    crate::navigation::AppLink { class: "btn btn-sm btn-outline", href: next_href.clone(), onclick: move |event| crate::fullstack::admin::follow_admin_link(event, navigation, &next_href), rel: "next", "Older activity" }
                 } else {
                     span { class: "btn btn-sm btn-outline opacity-50", aria_disabled: "true", "No older activity" }
                 }
@@ -535,7 +535,7 @@ fn AuditEmpty(location: AuditLocation) -> Element {
                 }
             }
             if filtered || continued {
-                a { class: "btn btn-primary mt-5", href: AUDIT_PATH, onclick: move |event| crate::fullstack::admin::follow_admin_link(event, navigation, AUDIT_PATH), "View newest activity" }
+                crate::navigation::AppLink { class: "btn btn-primary mt-5", href: AUDIT_PATH, onclick: move |event| crate::fullstack::admin::follow_admin_link(event, navigation, AUDIT_PATH), "View newest activity" }
             }
         }
     }
@@ -553,8 +553,8 @@ fn AuditProblem(state: &'static str, title: String, detail: String, retry_href: 
             h2 { class: "mt-4 text-xl font-semibold text-foreground", "{title}" }
             p { class: "mx-auto mt-2 max-w-2xl text-sm text-muted-foreground", "{detail}" }
             div { class: "mt-6 flex flex-wrap justify-center gap-3",
-                a { class: "btn btn-primary", href: retry_href.clone(), onclick: move |event| crate::fullstack::admin::follow_admin_link(event, navigation, &retry_href), "Try again" }
-                a { class: "btn btn-outline", href: AUDIT_PATH, onclick: move |event| crate::fullstack::admin::follow_admin_link(event, navigation, AUDIT_PATH), "Reset audit view" }
+                crate::navigation::AppLink { class: "btn btn-primary", href: retry_href.clone(), onclick: move |event| crate::fullstack::admin::follow_admin_link(event, navigation, &retry_href), "Try again" }
+                crate::navigation::AppLink { class: "btn btn-outline", href: AUDIT_PATH, onclick: move |event| crate::fullstack::admin::follow_admin_link(event, navigation, AUDIT_PATH), "Reset audit view" }
             }
         }
     }
