@@ -155,5 +155,10 @@
     "Only backend and frontend changed; unchanged components were copied from the verified complete base release with per-component revisions.",
     "The first cutover exposed an asynchronous launchd bootout race. Backend was bootstrapped after unload completed; all services recovered. The final frontend-only cutover waits for unload before bootstrap.",
     "Configuration, signing keys, database schemas and production tunnel routes were preserved."
-  ]
+  ],
+  "development": {
+    "http": 200,
+    "cards": 100,
+    "loading_css_clean": true
+  }
 }
