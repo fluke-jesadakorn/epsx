@@ -551,8 +551,8 @@ pub(crate) fn AnalyticsPage(
                             query: query.clone(), authoritative_limit: response.pagination.limit }
                     }
                     if empty {
-                        DataState { title: "No companies match these filters",
-                            message: "Try a different country or clear the filters to explore more company data.",
+                        DataState { title: "No companies available for this view",
+                            message: "Try another country or clear the filters. Check your available rank range below.",
                             href: reset, action: "Clear filters" }
                     } else {
                         crate::enterprise::RankingCards { rows: response.data, signed_in, watchlist, watchlist_state, return_path: query.page_url(response.pagination.page.max(1) as u32, response.pagination.limit.max(1) as u32) }
