@@ -1,6 +1,6 @@
 # Native release verification — 15 September 2026
 
-Release source: `71c97f82a533434baa539c723aa95d1d35068bc6`.
+Initial validated release source: `71c97f82a533434baa539c723aa95d1d35068bc6`.
 Package: `20260915-full-71c97f82a`.
 Manifest SHA-256: `728d38944322df3729bfba3f1ede44abda0ba25cf5db34394c5cdc4746640eb0`.
 
@@ -36,7 +36,10 @@ tree. GitHub also rejects updating the protected development branch directly.
 The promotion-history working branch merges both historical environment heads
 before returning through a development PR. Its pre-documentation tree is
 `205b6a4fb3015ce9fa15f527b3c4de8ebfce34ff`, identical to the tested release source.
-This audit record is the only file change in that history-reconciliation PR.
+The history-reconciliation PR also corrects plan-card access labels: legacy page
+limits must not be rendered as a final accessible rank or total result count.
+The label shows only the starting rank. A regression covers limits 5, 25 and -1.
+That follow-up requires a new package before deployment.
 Required checks and branch protection remain enabled for each forward promotion.
 
 This records pre-deployment verification, not completed production deployment.

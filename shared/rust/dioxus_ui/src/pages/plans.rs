@@ -115,13 +115,7 @@ pub fn billing_label(value: &str) -> String {
 
 pub fn ranking_access_label(plan: &PublicPlan) -> String {
     let first_rank = plan.ranking_offset.max(0).saturating_add(1);
-    match plan.rankings_limit {
-        -1 => format!("Stock rankings from rank {first_rank} · unlimited inventory"),
-        limit => {
-            let last_rank = first_rank.saturating_add(limit.max(1)).saturating_sub(1);
-            format!("Stock rankings {first_rank}-{last_rank} · {limit} results")
-        }
-    }
+    format!("Stock rankings from rank {first_rank}")
 }
 
 #[component]
@@ -566,7 +560,20 @@ mod tests {
         assert!(!html.contains("Subscribe"));
         assert!(html.contains("Review plan"));
         assert!(html.contains("/payment/plan/61a62cbe-3371-41db-bd90-321c53a71e06"));
-        assert!(html.contains("Company rankings from rank 1 · unlimited inventory"));
+        assert!(html.contains("Company rankings from rank 1"));
+    }
+
+    #[test]
+    fn legacy_page_limits_never_become_plan_rank_endpoints() {
+        for limit in [5, 25, -1] {
+            let mut plan = verified_plan();
+            plan.ranking_offset = 5;
+            plan.rankings_limit = limit;
+            let html = dioxus_ssr::render_element(rsx! { PlanCard { plan, frontend: true } });
+            assert!(html.contains("Company rankings from rank 6"));
+            assert!(!html.contains("Company rankings 6-"));
+            assert!(!html.contains("results"));
+        }
     }
 
     #[test]
