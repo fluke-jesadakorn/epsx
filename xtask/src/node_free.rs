@@ -795,7 +795,7 @@ fn runtime_bootstrap(crate_name: &str) -> String {
              self.addEventListener('fetch', (event) => {{\n\
                if (!isDev && event.request.method === 'GET' && event.request.mode === 'navigate') {{\n\
                  event.respondWith(runtime.then(() => fetch_navigation(event.request)));\n\
-               }} else if (!isDev && event.request.method === 'GET' && new URL(event.request.url).origin === self.location.origin && ['/public/dist/tailwind.css','/public/enterprise.css?v=dioxus-2'].includes(new URL(event.request.url).pathname + new URL(event.request.url).search)) {{\n\
+               }} else if (!isDev && event.request.method === 'GET' && new URL(event.request.url).origin === self.location.origin && ['/public/dist/tailwind.css'].includes(new URL(event.request.url).pathname + new URL(event.request.url).search)) {{\n\
                  event.respondWith(runtime.then(() => fetch_public_style(event.request)));\n\
                }}\n\
              }});\n\
