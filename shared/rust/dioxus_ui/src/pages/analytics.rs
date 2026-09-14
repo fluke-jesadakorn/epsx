@@ -1608,7 +1608,8 @@ mod tests {
     #[test]
     fn exchange_symbols_with_slashes_do_not_reject_a_rankings_page() {
         let rows = vec![ranking(165, "TMM/A", 25.0)];
-        let payload: AnalyticsResponse = serde_json::from_str(&response(rows.clone(), 1, 1)).unwrap();
+        let payload: AnalyticsResponse =
+            serde_json::from_str(&response(rows.clone(), 1, 1)).unwrap();
         assert!(payload.validated().is_ok());
         let rendered = html(&ready_ctx(rows, 1, 1));
         assert!(rendered.contains("data-symbol=\"TMM/A\""));
