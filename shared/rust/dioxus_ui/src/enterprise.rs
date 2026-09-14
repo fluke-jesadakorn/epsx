@@ -281,7 +281,7 @@ fn FrontendWatch(
 }
 
 /// Match the production symbol link, encoding the symbol as one path segment.
-fn tradingview_symbol_url(symbol: &str) -> String {
+pub(crate) fn tradingview_symbol_url(symbol: &str) -> String {
     let mut url =
         url::Url::parse("https://www.tradingview.com/symbols/").expect("static TradingView URL");
     url.path_segments_mut()

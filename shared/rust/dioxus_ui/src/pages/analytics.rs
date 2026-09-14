@@ -321,7 +321,7 @@ impl AnalyticsResponse {
 fn valid_ranking_symbol(value: &str) -> bool {
     safe_text(value, 32)
         && value.chars().all(|character| {
-            character.is_ascii_alphanumeric() || matches!(character, '.' | '-' | '_' | ':')
+            character.is_ascii_alphanumeric() || matches!(character, '.' | '-' | '_' | ':' | '/')
         })
 }
 
@@ -1603,6 +1603,17 @@ mod tests {
         let unavailable = html(&signed_in);
         assert!(unavailable.contains("data-watchlist-unavailable=\"true\""));
         assert!(!unavailable.contains("data-watchlist-toggle=\"true\""));
+    }
+
+    #[test]
+    fn exchange_symbols_with_slashes_do_not_reject_a_rankings_page() {
+        let rows = vec![ranking(165, "TMM/A", 25.0)];
+        let payload: AnalyticsResponse = serde_json::from_str(&response(rows.clone(), 1, 1)).unwrap();
+        assert!(payload.validated().is_ok());
+        let rendered = html(&ready_ctx(rows, 1, 1));
+        assert!(rendered.contains("data-symbol=\"TMM/A\""));
+        assert!(rendered.contains("https://www.tradingview.com/symbols/TMM%2FA"));
+        assert!(!rendered.contains("data-analytics-state=\"unavailable\""));
     }
 
     #[test]

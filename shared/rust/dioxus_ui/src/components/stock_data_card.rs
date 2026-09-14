@@ -197,7 +197,7 @@ pub fn StockDataCard(
         .map(|days| format!("{days} Days"))
         .unwrap_or_else(|| "N/A".to_string());
     let price_label = format_currency(price, &currency);
-    let details_url = format!("https://www.tradingview.com/symbols/{symbol}");
+    let details_url = crate::enterprise::tradingview_symbol_url(&symbol);
     let header_label = if rank > 5 {
         theme.label.clone()
     } else {
