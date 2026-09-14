@@ -15,8 +15,6 @@ pub trait IdentityProviderPort: Send + Sync {
     ) -> Result<(), anyhow::Error>;
 
     /// Get current custom claims for a user
-    async fn get_user_claims(
-        &self,
-        user_id: &str,
-    ) -> Result<HashMap<String, Value>, anyhow::Error>;
+    async fn get_user_claims(&self, user_id: &str)
+        -> Result<HashMap<String, Value>, anyhow::Error>;
 }

@@ -1,0 +1,198 @@
+#!/bin/bash
+# create-secrets.sh <env>
+# Creates all K8s secrets for a given environment by reading from .env file.
+# Idempotent: uses --dry-run=client -o yaml | kubectl apply -f -
+#
+# Usage:
+#   ./create-secrets.sh dev
+#   ./create-secrets.sh staging
+#   ./create-secrets.sh prod
+#
+# Expects env file at: /Users/fluke/epsx-runner/envs/.env.<env>
+# Requires: kubectl with KUBECONFIG pointing to Colima K8s
+
+set -euo pipefail
+
+TARGET_ENV="${1:-}"
+if [[ -z "$TARGET_ENV" ]]; then
+  echo "Usage: $0 <env>  (dev|staging|prod)" >&2
+  exit 1
+fi
+
+# Determine script root
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
+
+ENV_FILE="${PROJECT_ROOT}/infrastructure/docker/.env.${TARGET_ENV}"
+if [[ ! -f "$ENV_FILE" ]]; then
+  echo "Error: env file not found: $ENV_FILE" >&2
+  exit 1
+fi
+
+# Load env vars (ENV in file may differ from TARGET_ENV; preserve TARGET_ENV)
+set -a
+# shellcheck source=/dev/null
+source "$ENV_FILE"
+set +a
+
+# Validate env vars before creating any secrets
+VALIDATE_SCRIPT="$(dirname "$0")/../../scripts/validate-env.sh"
+if [[ -x "$VALIDATE_SCRIPT" ]]; then
+  "$VALIDATE_SCRIPT" "$TARGET_ENV"
+fi
+
+NAMESPACE="epsx-${TARGET_ENV}"
+
+# Helper: create/update a secret idempotently
+apply_secret() {
+  kubectl create secret generic "$@" \
+    --dry-run=client -o yaml | kubectl apply -f -
+}
+
+echo "Creating secrets in namespace: $NAMESPACE"
+
+# ── epsx-postgres ─────────────────────────────────────────────────────────────
+apply_secret epsx-postgres \
+  -n "$NAMESPACE" \
+  --from-literal=POSTGRES_USER="${DB_USER}" \
+  --from-literal=POSTGRES_PASSWORD="${DB_PASSWORD}" \
+  --from-literal=POSTGRES_DB="${DB_NAME}"
+
+# ── epsx-redis ────────────────────────────────────────────────────────────────
+apply_secret epsx-redis \
+  -n "$NAMESPACE" \
+  --from-literal=REDIS_PASSWORD="${REDIS_PASSWORD}"
+
+# ── epsx-minio ────────────────────────────────────────────────────────────────
+apply_secret epsx-minio \
+  -n "$NAMESPACE" \
+  --from-literal=MINIO_ROOT_USER="${MINIO_ROOT_USER}" \
+  --from-literal=MINIO_ROOT_PASSWORD="${MINIO_ROOT_PASSWORD}" \
+  --from-literal=MINIO_PUBLIC_URL="${MINIO_PUBLIC_URL}"
+
+# ── epsx-backend ──────────────────────────────────────────────────────────────
+# Construct K8s-native connection strings (epsx-postgres, epsx-redis, epsx-minio)
+DB_SUFFIX="${DB_NAME#epsx_}"
+
+apply_secret epsx-backend \
+  -n "$NAMESPACE" \
+  --from-literal=ENV="${ENV}" \
+  --from-literal=NODE_ENV="${NODE_ENV:-production}" \
+  --from-literal=RUST_ENV="${RUST_ENV:-production}" \
+  --from-literal=RUST_LOG="${RUST_LOG:-info}" \
+  --from-literal=LOG_LEVEL="${LOG_LEVEL:-info}" \
+  --from-literal=BACKEND_URL="${BACKEND_URL}" \
+  --from-literal=FRONTEND_URL="${FRONTEND_URL}" \
+  --from-literal=ADMIN_FRONTEND_URL="${ADMIN_FRONTEND_URL}" \
+  --from-literal=DATABASE_MAX_CONNECTIONS="${DATABASE_MAX_CONNECTIONS:-10}" \
+  --from-literal=DATABASE_MIN_CONNECTIONS="${DATABASE_MIN_CONNECTIONS:-2}" \
+  --from-literal=DATABASE_ACQUIRE_TIMEOUT="${DATABASE_ACQUIRE_TIMEOUT:-30}" \
+  --from-literal=DATABASE_IDLE_TIMEOUT="${DATABASE_IDLE_TIMEOUT:-600}" \
+  --from-literal=WEB3_APP_SECRET="${WEB3_APP_SECRET}" \
+  --from-literal=WALLET_SIGNATURE_SECRET="${WALLET_SIGNATURE_SECRET}" \
+  --from-literal=WEB3_SESSION_SECRET="${WEB3_SESSION_SECRET}" \
+  --from-literal=WEB3_SESSION_DURATION_HOURS="${WEB3_SESSION_DURATION_HOURS:-24}" \
+  --from-literal=WEB3_SIGNATURE_TIMEOUT_MINUTES="${WEB3_SIGNATURE_TIMEOUT_MINUTES:-5}" \
+  --from-literal=JWT_SECRET="${JWT_SECRET}" \
+  --from-literal=REFRESH_TOKEN_HMAC_ACTIVE_KID="${REFRESH_TOKEN_HMAC_ACTIVE_KID}" \
+  --from-literal=REFRESH_TOKEN_HMAC_KEYS_JSON="${REFRESH_TOKEN_HMAC_KEYS_JSON}" \
+  --from-literal=BLOCKCHAIN_NETWORK="${BLOCKCHAIN_NETWORK}" \
+  --from-literal=NEXT_PUBLIC_BLOCKCHAIN_NETWORK="${BLOCKCHAIN_NETWORK}" \
+  --from-literal=COMPANY_WALLET_MAINNET="${COMPANY_WALLET_MAINNET}" \
+  --from-literal=COMPANY_WALLET_TESTNET="${COMPANY_WALLET_TESTNET:-}" \
+  --from-literal=BSC_MAINNET_RPC_URL="${BSC_MAINNET_RPC_URL}" \
+  --from-literal=BSC_TESTNET_RPC_URL="${BSC_TESTNET_RPC_URL:-}" \
+  --from-literal=BSC_RPC_URL="${BSC_MAINNET_RPC_URL}" \
+  --from-literal=PAYMENT_RECEIVER_ADDRESS="${COMPANY_WALLET_MAINNET}" \
+  --from-literal=BLOCKCHAIN_CONFIRMATION_TIMEOUT_SECONDS="${BLOCKCHAIN_CONFIRMATION_TIMEOUT_SECONDS:-60}" \
+  --from-literal=BSC_REQUIRED_CONFIRMATIONS="${BSC_REQUIRED_CONFIRMATIONS:-3}" \
+  --from-literal=BSC_TESTNET_REQUIRED_CONFIRMATIONS="${BSC_TESTNET_REQUIRED_CONFIRMATIONS:-1}" \
+  --from-literal=MAX_PAYMENT_AGE_MINUTES="${MAX_PAYMENT_AGE_MINUTES:-60}" \
+  --from-literal=PAYMENTS_DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@host.docker.internal:5432/epsx_payments_${DB_SUFFIX}?sslmode=disable" \
+  --from-literal=ANALYTICS_DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@host.docker.internal:5432/epsx_analytics_${DB_SUFFIX}?sslmode=disable" \
+  --from-literal=NOTIFICATIONS_DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@host.docker.internal:5432/epsx_notifications_${DB_SUFFIX}?sslmode=disable" \
+  --from-literal=NOTIFICATION_ADAPTER="${NOTIFICATION_ADAPTER:-in_process}" \
+  --from-literal=NOTIFICATION_SERVICE_URL="${NOTIFICATION_SERVICE_URL:-}" \
+  --from-literal=NOTIFICATION_SERVICE_TOKEN="${NOTIFICATION_SERVICE_TOKEN:-}"
+
+# ── epsx-pay ──────────────────────────────────────────────────────────────────
+# Keep the extracted pay service on the same environment-specific payments
+# database migrated by the backend init container. Financial mutations remain
+# fail-closed in the application until the separate chain/finality gates pass.
+apply_secret epsx-pay \
+  -n "$NAMESPACE" \
+  --from-literal=DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@host.docker.internal:5432/epsx_payments_${DB_SUFFIX}?sslmode=disable" \
+  --from-literal=OIDC_ISSUER="${OIDC_ISSUER:-${IDENTITY_PUBLIC_URL:-${BACKEND_URL}}}" \
+  --from-literal=OIDC_JWKS_URL="${OIDC_JWKS_URL:-}" \
+  --from-literal=CHAIN_ID="${CHAIN_ID:-56}" \
+  --from-literal=ESCROW_CONTRACT="${PAYMENT_ESCROW_CONTRACT_MAINNET:-}" \
+  --from-literal=EPSX_PAY_WEBHOOK_SECRET="${EPSX_PAY_WEBHOOK_SECRET:-}"
+
+# ── epsx-notification ────────────────────────────────────────────────────────
+# The notification microservice has its own database URL and identity/provider
+# credentials. Empty optional provider values deliberately leave those
+# capabilities unavailable; the service fails closed instead of pretending to
+# deliver mail or push notifications.
+apply_secret epsx-notification \
+  -n "$NAMESPACE" \
+  --from-literal=DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@host.docker.internal:5432/epsx_notifications_${DB_SUFFIX}?sslmode=disable" \
+  --from-literal=OIDC_ISSUER="${OIDC_ISSUER:-${IDENTITY_PUBLIC_URL:-}}" \
+  --from-literal=OIDC_JWKS_URL="${OIDC_JWKS_URL:-}" \
+  --from-literal=SMTP_HOST="${NOTIFICATION_SMTP_HOST:-}" \
+  --from-literal=SMTP_PORT="${NOTIFICATION_SMTP_PORT:-587}" \
+  --from-literal=SMTP_USER="${NOTIFICATION_SMTP_USER:-}" \
+  --from-literal=SMTP_PASSWORD="${NOTIFICATION_SMTP_PASSWORD:-}" \
+  --from-literal=FROM_ADDRESS="${NOTIFICATION_FROM_ADDRESS:-noreply@epsx.io}" \
+  --from-literal=FROM_NAME="${NOTIFICATION_FROM_NAME:-EPSX}" \
+  --from-literal=REDIS_URL="${REDIS_URL:-}" \
+  --from-literal=NOTIFICATION_PLAN_DATABASE_URL="${NOTIFICATION_PLAN_DATABASE_URL:-}" \
+  --from-literal=NOTIFICATION_PROVIDER_SIGNING_SECRET="${NOTIFICATION_PROVIDER_SIGNING_SECRET:-}" \
+  --from-literal=NOTIFICATION_PROVIDER_SIGNING_SECRET_PREVIOUS="${NOTIFICATION_PROVIDER_SIGNING_SECRET_PREVIOUS:-}" \
+  --from-literal=NOTIFICATION_PROVIDER_SIGNING_SECRETS="${NOTIFICATION_PROVIDER_SIGNING_SECRETS:-}" \
+  --from-literal=NOTIFICATION_VAPID_PUBLIC_KEY="${NOTIFICATION_VAPID_PUBLIC_KEY:-}" \
+  --from-literal=NOTIFICATION_VAPID_PRIVATE_KEY="${NOTIFICATION_VAPID_PRIVATE_KEY:-}" \
+  --from-literal=NOTIFICATION_VAPID_KEY_ID="${NOTIFICATION_VAPID_KEY_ID:-active}" \
+  --from-literal=NOTIFICATION_VAPID_PREVIOUS_KEY_ID="${NOTIFICATION_VAPID_PREVIOUS_KEY_ID:-}" \
+  --from-literal=NOTIFICATION_VAPID_PREVIOUS_PUBLIC_KEY="${NOTIFICATION_VAPID_PREVIOUS_PUBLIC_KEY:-}" \
+  --from-literal=NOTIFICATION_VAPID_PREVIOUS_PRIVATE_KEY="${NOTIFICATION_VAPID_PREVIOUS_PRIVATE_KEY:-}"
+
+# ── epsx-frontend ─────────────────────────────────────────────────────────────
+apply_secret epsx-frontend \
+  -n "$NAMESPACE" \
+  --from-literal=ENV="${ENV}" \
+  --from-literal=NODE_ENV="${NODE_ENV:-production}" \
+  --from-literal=BACKEND_URL="${BACKEND_URL}" \
+  --from-literal=FRONTEND_URL="${FRONTEND_URL}" \
+  --from-literal=ADMIN_FRONTEND_URL="${ADMIN_FRONTEND_URL}" \
+  --from-literal=NEXT_PUBLIC_BACKEND_URL="${BACKEND_URL}" \
+  --from-literal=NEXT_PUBLIC_APP_URL="${FRONTEND_URL}" \
+  --from-literal=NEXT_PUBLIC_ADMIN_URL="${ADMIN_FRONTEND_URL}" \
+  --from-literal=NEXT_PUBLIC_BLOCKCHAIN_NETWORK="${BLOCKCHAIN_NETWORK}" \
+  --from-literal=NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID="${WALLETCONNECT_PROJECT_ID}" \
+  --from-literal=NEXT_PUBLIC_CHAIN_ID="${CHAIN_ID}" \
+  --from-literal=NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET="${NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET:-${PAYMENT_ESCROW_CONTRACT_MAINNET:-}}" \
+  --from-literal=NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET="${NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET:-${COMPANY_WALLET_MAINNET}}" \
+  --from-literal=NEXT_PUBLIC_OAUTH_CLIENT_ID="${OAUTH_CLIENT_ID}" \
+  --from-literal=NEXT_PUBLIC_CDN_URL="${MINIO_PUBLIC_URL}"
+
+# ── epsx-admin ────────────────────────────────────────────────────────────────
+apply_secret epsx-admin \
+  -n "$NAMESPACE" \
+  --from-literal=ENV="${ENV}" \
+  --from-literal=NODE_ENV="${NODE_ENV:-production}" \
+  --from-literal=BACKEND_URL="${BACKEND_URL}" \
+  --from-literal=FRONTEND_URL="${FRONTEND_URL}" \
+  --from-literal=ADMIN_FRONTEND_URL="${ADMIN_FRONTEND_URL}" \
+  --from-literal=NEXT_PUBLIC_BACKEND_URL="${BACKEND_URL}" \
+  --from-literal=NEXT_PUBLIC_APP_URL="${ADMIN_FRONTEND_URL}" \
+  --from-literal=NEXT_PUBLIC_ADMIN_URL="${ADMIN_FRONTEND_URL}" \
+  --from-literal=NEXT_PUBLIC_BLOCKCHAIN_NETWORK="${BLOCKCHAIN_NETWORK}" \
+  --from-literal=NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID="${WALLETCONNECT_PROJECT_ID}" \
+  --from-literal=NEXT_PUBLIC_CHAIN_ID="${CHAIN_ID}" \
+  --from-literal=NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET="${NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET:-${PAYMENT_ESCROW_CONTRACT_MAINNET:-}}" \
+  --from-literal=NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET="${NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET:-${COMPANY_WALLET_MAINNET}}" \
+  --from-literal=NEXT_PUBLIC_OAUTH_CLIENT_ID="epsx-admin" \
+  --from-literal=NEXT_PUBLIC_CDN_URL="${MINIO_PUBLIC_URL}"
+
+echo "Done. Secrets created in $NAMESPACE:"
+kubectl get secrets -n "$NAMESPACE" --no-headers | awk '{print "  " $1}'

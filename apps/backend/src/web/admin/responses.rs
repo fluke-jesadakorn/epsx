@@ -8,9 +8,9 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use chrono::{DateTime, Utc};
 use utoipa::ToSchema;
 
 pub use crate::web::pagination::PaginationInfo;
@@ -20,21 +20,21 @@ pub use crate::web::pagination::PaginationInfo;
 pub struct AdminApiResponse<T> {
     /// Request success status
     pub success: bool,
-    
+
     /// Response data (only present on success)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub data: Option<T>,
-    
+
     /// Error message (only present on failure)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
-    
+
     /// Human-readable message
     pub message: String,
-    
+
     /// Response timestamp
     pub timestamp: DateTime<Utc>,
-    
+
     /// Admin-specific metadata
     #[serde(skip_serializing_if = "Option::is_none")]
     pub admin_meta: Option<AdminMetadata>,
@@ -45,19 +45,19 @@ pub struct AdminApiResponse<T> {
 pub struct AdminMetadata {
     /// Operation performed
     pub operation: String,
-    
+
     /// Admin user who performed the operation
     #[serde(skip_serializing_if = "Option::is_none")]
     pub performed_by: Option<String>,
-    
+
     /// Pagination info for list operations
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pagination: Option<PaginationInfo>,
-    
+
     /// Permission context for the admin user
     #[serde(skip_serializing_if = "Option::is_none")]
     pub permissions: Option<AdminPermissionContext>,
-    
+
     /// Additional operation metadata
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<Value>,
@@ -68,10 +68,10 @@ pub struct AdminMetadata {
 pub struct AdminPermissionContext {
     /// Admin user tier/plan
     pub admin_plan: String,
-    
+
     /// Available admin actions
     pub available_actions: Vec<String>,
-    
+
     /// Restricted admin actions
     #[serde(skip_serializing_if = "Option::is_none")]
     pub restricted_actions: Option<Vec<String>>,
@@ -89,7 +89,7 @@ impl<T> AdminApiResponse<T> {
             admin_meta: None,
         }
     }
-    
+
     /// Create successful response with admin metadata
     pub fn success_with_meta(data: T, message: &str, admin_meta: AdminMetadata) -> Self {
         Self {
@@ -101,7 +101,7 @@ impl<T> AdminApiResponse<T> {
             admin_meta: Some(admin_meta),
         }
     }
-    
+
     /// Create error response
     pub fn error(error_message: &str, user_message: &str) -> Self {
         Self {
@@ -113,44 +113,44 @@ impl<T> AdminApiResponse<T> {
             admin_meta: None,
         }
     }
-    
+
     /// Create authentication error
     pub fn auth_error() -> Self {
         Self::error(
             "Authentication required",
-            "Admin authentication is required to access this resource"
+            "Admin authentication is required to access this resource",
         )
     }
-    
+
     /// Create permission error
     pub fn permission_error(required_permission: &str) -> Self {
         Self::error(
             &format!("Permission denied: {}", required_permission),
-            "You don't have permission to perform this action"
+            "You don't have permission to perform this action",
         )
     }
-    
+
     /// Create validation error
     pub fn validation_error(details: &str) -> Self {
         Self::error(
             &format!("Validation failed: {}", details),
-            "The request contains invalid data"
+            "The request contains invalid data",
         )
     }
-    
+
     /// Create not found error
     pub fn not_found(resource: &str) -> Self {
         Self::error(
             &format!("{} not found", resource),
-            &format!("The requested {} was not found", resource)
+            &format!("The requested {} was not found", resource),
         )
     }
-    
+
     /// Create server error
     pub fn server_error() -> Self {
         Self::error(
             "Internal server error",
-            "An unexpected error occurred. Please try again later."
+            "An unexpected error occurred. Please try again later.",
         )
     }
 }
@@ -166,7 +166,7 @@ impl AdminMetadata {
             metadata: None,
         }
     }
-    
+
     /// Create metadata for CRUD operation
     pub fn crud_operation(operation: &str, performed_by: Option<String>) -> Self {
         Self {
@@ -177,13 +177,13 @@ impl AdminMetadata {
             metadata: None,
         }
     }
-    
+
     /// Add admin permissions context
     pub fn with_permissions(mut self, permissions: AdminPermissionContext) -> Self {
         self.permissions = Some(permissions);
         self
     }
-    
+
     /// Add additional metadata
     pub fn with_metadata(mut self, metadata: Value) -> Self {
         self.metadata = Some(metadata);
@@ -200,7 +200,7 @@ impl AdminPermissionContext {
             restricted_actions: None,
         }
     }
-    
+
     /// Add restricted actions
     pub fn with_restrictions(mut self, restricted_actions: Vec<String>) -> Self {
         self.restricted_actions = Some(restricted_actions);
@@ -218,11 +218,23 @@ where
             StatusCode::OK
         } else {
             // Determine status code based on error type
-            if self.error.as_ref().is_some_and(|e| e.contains("Authentication")) {
+            if self
+                .error
+                .as_ref()
+                .is_some_and(|e| e.contains("Authentication"))
+            {
                 StatusCode::UNAUTHORIZED
-            } else if self.error.as_ref().is_some_and(|e| e.contains("Permission")) {
+            } else if self
+                .error
+                .as_ref()
+                .is_some_and(|e| e.contains("Permission"))
+            {
                 StatusCode::FORBIDDEN
-            } else if self.error.as_ref().is_some_and(|e| e.contains("Validation")) {
+            } else if self
+                .error
+                .as_ref()
+                .is_some_and(|e| e.contains("Validation"))
+            {
                 StatusCode::BAD_REQUEST
             } else if self.error.as_ref().is_some_and(|e| e.contains("not found")) {
                 StatusCode::NOT_FOUND
@@ -230,7 +242,7 @@ where
                 StatusCode::INTERNAL_SERVER_ERROR
             }
         };
-        
+
         (status, Json(self)).into_response()
     }
 }
@@ -289,7 +301,7 @@ mod tests {
             has_next: true,
             has_prev: false,
         };
-        
+
         let meta = AdminMetadata::list_operation("list_users", pagination);
         assert_eq!(meta.operation, "list_users");
         assert!(meta.pagination.is_some());

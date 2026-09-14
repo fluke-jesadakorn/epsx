@@ -21,7 +21,7 @@ impl PaymentMetadata {
     pub fn new(created_at: DateTime<Utc>) -> Self {
         // Set expiry to 30 minutes from creation
         let expires_at = created_at + chrono::Duration::minutes(30);
-        
+
         Self {
             created_at,
             updated_at: created_at,

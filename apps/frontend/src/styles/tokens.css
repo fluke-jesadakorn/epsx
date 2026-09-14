@@ -1,0 +1,47 @@
+
+:root {
+  /* These tokens are consumed directly by the frozen Tailwind v4 bundle
+     and by the shared template CSS. Keep them as complete CSS colors rather
+     than bare HSL channels: `background: var(--primary)` must stay valid. */
+  --background: #ffffff;
+  --foreground: #0f172a;
+  --muted: #f1f5f9;
+  --muted-foreground: #475569;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --border: #e2e8f0;
+  --input: #cbd5e1;
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0f172a;
+  --accent: #f1f5f9;
+  --accent-foreground: #0f172a;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --ring: #2563eb;
+  --radius: 0.5rem;
+  --epsx-blue-start: #488BFA;
+  --epsx-blue-end: #A43FF3;
+  --epsx-cyan: #3FC9F3;
+  --epsx-purple: #A43FF3;
+}
+.dark {
+  --background: #020617;
+  --foreground: #e2e8f0;
+  --muted: #0f172a;
+  --muted-foreground: #94a3b8;
+  --card: #020617;
+  --card-foreground: #e2e8f0;
+  --border: #1e293b;
+  --input: #1e293b;
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+  --secondary: #0f172a;
+  --secondary-foreground: #f8fafc;
+  --accent: #1e293b;
+  --accent-foreground: #f8fafc;
+  --destructive: #b91c1c;
+  --destructive-foreground: #ffffff;
+  --ring: #60a5fa;
+}

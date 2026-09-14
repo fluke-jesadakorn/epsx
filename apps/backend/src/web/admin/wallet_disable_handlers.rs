@@ -10,14 +10,12 @@ use axum::{
     Json as RequestJson,
 };
 use chrono::{DateTime, Duration, Utc};
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
 use serde::{Deserialize, Serialize};
 use tracing::{error, info};
 use uuid::Uuid;
 
-use crate::web::auth::AppState;
 use crate::web::admin::responses::{AdminApiResponse, AdminMetadata};
+use crate::web::auth::AppState;
 
 // ============================================================================
 // REQUEST/RESPONSE TYPES
@@ -116,15 +114,20 @@ pub async fn disable_wallet_handler(
     RequestJson(request): RequestJson<DisableWalletRequest>,
 ) -> Result<Json<AdminApiResponse<DisableWalletResponse>>, StatusCode> {
     let admin_wallet = &admin_context.wallet_address;
-    info!("Admin {} disabling wallet: {}", admin_wallet, wallet_address);
+    info!(
+        "Admin {} disabling wallet: {}",
+        admin_wallet, wallet_address
+    );
 
-    let mut conn = app_state.db_pool.get().await.map_err(|e| {
+    let mut conn = app_state.db_pool.acquire().await.map_err(|e| {
         error!("Failed to get connection: {}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
     let now = Utc::now();
-    let expires_at = request.duration_days.map(|days| now + Duration::days(days as i64));
+    let expires_at = request
+        .duration_days
+        .map(|days| now + Duration::days(days as i64));
 
     // Build disable_info JSON with actual admin wallet
     let disable_info = serde_json::json!({
@@ -140,33 +143,33 @@ pub async fn disable_wallet_handler(
     });
 
     // Update auth_users table
-    let rows_affected = diesel::sql_query(
+    let result = sqlx::query(
         "UPDATE auth_users SET is_active = false, disable_info = $1, updated_at = $2 WHERE wallet_address = $3"
     )
-    .bind::<diesel::sql_types::Jsonb, _>(&disable_info)
-    .bind::<diesel::sql_types::Timestamptz, _>(now)
-    .bind::<diesel::sql_types::Text, _>(&wallet_address)
-    .execute(&mut conn)
+    .bind(&disable_info)
+    .bind(now)
+    .bind(&wallet_address)
+    .execute(&mut *conn)
     .await
     .map_err(|e| {
         error!("Failed to disable wallet: {}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
-    if rows_affected == 0 {
+    if result.rows_affected() == 0 {
         return Err(StatusCode::NOT_FOUND);
     }
 
     // Log the activity with actual admin wallet
-    let _ = diesel::sql_query(
+    let _ = sqlx::query(
         "INSERT INTO wallet_activity_logs (wallet_address, event_type, description, performed_by, metadata) 
          VALUES ($1, 'wallet_disabled', $2, $3, $4)"
     )
-    .bind::<diesel::sql_types::Text, _>(&wallet_address)
-    .bind::<diesel::sql_types::Text, _>(format!("Wallet disabled: {}", request.reason_details))
-    .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(Some(admin_wallet.as_str()))
-    .bind::<diesel::sql_types::Jsonb, _>(&disable_info)
-    .execute(&mut conn)
+    .bind(&wallet_address)
+    .bind(format!("Wallet disabled: {}", request.reason_details))
+    .bind(Some(admin_wallet.as_str()))
+    .bind(&disable_info)
+    .execute(&mut *conn)
     .await;
 
     // Send notification if requested
@@ -179,15 +182,13 @@ pub async fn disable_wallet_handler(
             "reason": request.reason_details,
             "expires_at": expires_at.map(|e| e.to_rfc3339()),
         });
-        let _ = diesel::sql_query(
-            "INSERT INTO notifications (wallet_address, notification_type, title, message, data, created_at) 
-             VALUES ($1, 'system', 'Account Disabled', $2, $3, $4)"
-        )
-        .bind::<diesel::sql_types::Text, _>(&wallet_address)
-        .bind::<diesel::sql_types::Text, _>(format!("Your account has been temporarily disabled. Reason: {}", request.reason_category))
-        .bind::<diesel::sql_types::Jsonb, _>(&notification_payload)
-        .bind::<diesel::sql_types::Timestamptz, _>(now)
-        .execute(&mut conn)
+        let _ = sqlx::query("INSERT INTO notifications (wallet_address, notification_type, title, message, data, created_at) 
+             VALUES ($1, 'system', 'Account Disabled', $2, $3, $4)")
+        .bind(&wallet_address)
+        .bind(format!("Your account has been temporarily disabled. Reason: {}", request.reason_category))
+        .bind(&notification_payload)
+        .bind(now)
+        .execute(&mut *conn)
         .await;
     }
 
@@ -201,7 +202,10 @@ pub async fn disable_wallet_handler(
 
     let metadata = AdminMetadata::crud_operation("disable_wallet", Some(admin_wallet.clone()));
 
-    info!("Admin {}: Successfully disabled wallet: {}", admin_wallet, wallet_address);
+    info!(
+        "Admin {}: Successfully disabled wallet: {}",
+        admin_wallet, wallet_address
+    );
     Ok(Json(AdminApiResponse::success_with_meta(
         response,
         "Wallet disabled successfully",
@@ -234,9 +238,12 @@ pub async fn enable_wallet_handler(
     RequestJson(request): RequestJson<EnableWalletRequest>,
 ) -> Result<Json<AdminApiResponse<EnableWalletResponse>>, StatusCode> {
     let admin_wallet = &admin_context.wallet_address;
-    info!("Admin {} re-enabling wallet: {}", admin_wallet, wallet_address);
+    info!(
+        "Admin {} re-enabling wallet: {}",
+        admin_wallet, wallet_address
+    );
 
-    let mut conn = app_state.db_pool.get().await.map_err(|e| {
+    let mut conn = app_state.db_pool.acquire().await.map_err(|e| {
         error!("Failed to get connection: {}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
@@ -244,19 +251,17 @@ pub async fn enable_wallet_handler(
     let now = Utc::now();
 
     // Update auth_users table
-    let rows_affected = diesel::sql_query(
-        "UPDATE auth_users SET is_active = true, disable_info = NULL, updated_at = $1 WHERE wallet_address = $2"
-    )
-    .bind::<diesel::sql_types::Timestamptz, _>(now)
-    .bind::<diesel::sql_types::Text, _>(&wallet_address)
-    .execute(&mut conn)
+    let result = sqlx::query("UPDATE auth_users SET is_active = true, disable_info = NULL, updated_at = $1 WHERE wallet_address = $2")
+    .bind(now)
+    .bind(&wallet_address)
+    .execute(&mut *conn)
     .await
     .map_err(|e| {
         error!("Failed to enable wallet: {}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
-    if rows_affected == 0 {
+    if result.rows_affected() == 0 {
         return Err(StatusCode::NOT_FOUND);
     }
 
@@ -270,31 +275,29 @@ pub async fn enable_wallet_handler(
         "resolution_note": request.resolution_note,
     });
 
-    let _ = diesel::sql_query(
-        "INSERT INTO wallet_activity_logs (wallet_address, event_type, description, performed_by, metadata) 
-         VALUES ($1, 'wallet_enabled', $2, $3, $4)"
-    )
-    .bind::<diesel::sql_types::Text, _>(&wallet_address)
-    .bind::<diesel::sql_types::Text, _>(format!("Wallet re-enabled: {}", request.resolution_note))
-    .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(Some(admin_wallet.as_str()))
-    .bind::<diesel::sql_types::Jsonb, _>(&activity_meta)
-    .execute(&mut conn)
+    let _ = sqlx::query("INSERT INTO wallet_activity_logs (wallet_address, event_type, description, performed_by, metadata) 
+         VALUES ($1, 'wallet_enabled', $2, $3, $4)")
+    .bind(&wallet_address)
+    .bind(format!("Wallet re-enabled: {}", request.resolution_note))
+    .bind(Some(admin_wallet.as_str()))
+    .bind(&activity_meta)
+    .execute(&mut *conn)
     .await;
 
     // Restore permissions if requested
     // This restores any soft-deleted or expired permissions that were set to expire when wallet was disabled
     if request.restore_permissions {
         // Update any permissions that were marked as expired when wallet was disabled
-        let _ = diesel::sql_query(
+        let _ = sqlx::query(
             "UPDATE wallet_permissions 
              SET expires_at = NULL, updated_at = $1 
              WHERE wallet_address = $2 
              AND expires_at < $1 
-             AND source_metadata->>'disabled_during_account_disable' = 'true'"
+             AND source_metadata->>'disabled_during_account_disable' = 'true'",
         )
-        .bind::<diesel::sql_types::Timestamptz, _>(now)
-        .bind::<diesel::sql_types::Text, _>(&wallet_address)
-        .execute(&mut conn)
+        .bind(now)
+        .bind(&wallet_address)
+        .execute(&mut *conn)
         .await;
 
         info!("Restored permissions for wallet: {}", wallet_address);
@@ -304,20 +307,18 @@ pub async fn enable_wallet_handler(
     if request.resume_subscriptions {
         // Get payments pool for subscription updates
         if let Ok(payments_pool) = crate::infrastructure::database::get_payments_pool().await {
-            if let Ok(mut payments_conn) = payments_pool.get().await {
-                // Resume paused subscriptions
-                let _ = diesel::sql_query(
-                    "UPDATE subscriptions 
-                     SET status = 'active', cancelled_at = NULL, metadata = metadata || '{\"resumed_by_admin\": true}'::jsonb
-                     WHERE wallet_address = $1 
-                     AND status = 'paused'"
-                )
-                .bind::<diesel::sql_types::Text, _>(&wallet_address)
-                .execute(&mut payments_conn)
-                .await;
+            // Resume paused subscriptions
+            let _ = sqlx::query(
+                "UPDATE subscriptions 
+                 SET status = 'active', cancelled_at = NULL, metadata = metadata || '{\"resumed_by_admin\": true}'::jsonb
+                 WHERE wallet_address = $1 
+                 AND status = 'paused'",
+            )
+            .bind(&wallet_address)
+            .execute(&payments_pool)
+            .await;
 
-                info!("Resumed subscriptions for wallet: {}", wallet_address);
-            }
+            info!("Resumed subscriptions for wallet: {}", wallet_address);
         }
     }
 
@@ -330,7 +331,10 @@ pub async fn enable_wallet_handler(
 
     let metadata = AdminMetadata::crud_operation("enable_wallet", Some(admin_wallet.clone()));
 
-    info!("Admin {}: Successfully enabled wallet: {}", admin_wallet, wallet_address);
+    info!(
+        "Admin {}: Successfully enabled wallet: {}",
+        admin_wallet, wallet_address
+    );
     Ok(Json(AdminApiResponse::success_with_meta(
         response,
         "Wallet enabled successfully",
@@ -366,60 +370,48 @@ pub async fn get_wallet_activity_handler(
 ) -> Result<Json<AdminApiResponse<ActivityLogResponse>>, StatusCode> {
     info!("Admin: Getting activity for wallet: {}", wallet_address);
 
-    let limit: i32 = params.get("limit")
+    let limit: i32 = params
+        .get("limit")
         .and_then(|l| l.parse().ok())
         .unwrap_or(20)
         .min(100);
 
-    let mut conn = app_state.db_pool.get().await.map_err(|e| {
+    let mut conn = app_state.db_pool.acquire().await.map_err(|e| {
         error!("Failed to get connection: {}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
     // Query activity logs
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct ActivityRow {
-        #[diesel(sql_type = diesel::sql_types::Uuid)]
         id: Uuid,
-        #[diesel(sql_type = diesel::sql_types::Text)]
         event_type: String,
-        #[diesel(sql_type = diesel::sql_types::Text)]
         description: String,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
         performed_by: Option<String>,
-        #[diesel(sql_type = diesel::sql_types::Timestamptz)]
         created_at: DateTime<Utc>,
-        #[diesel(sql_type = diesel::sql_types::Jsonb)]
         metadata: serde_json::Value,
     }
 
-    let activities: Vec<ActivityRow> = diesel::sql_query(
+    let activities: Vec<ActivityRow> = sqlx::query_as::<_, ActivityRow>(
         "SELECT id, event_type, description, performed_by, created_at, metadata 
          FROM wallet_activity_logs 
          WHERE wallet_address = $1 
          ORDER BY created_at DESC 
-         LIMIT $2"
+         LIMIT $2",
     )
-    .bind::<diesel::sql_types::Text, _>(&wallet_address)
-    .bind::<diesel::sql_types::Integer, _>(limit)
-    .load(&mut conn)
+    .bind(&wallet_address)
+    .bind(limit)
+    .fetch_all(&mut *conn)
     .await
     .unwrap_or_default();
 
     // Get total count
-    #[derive(QueryableByName)]
-    struct CountRow {
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
-        count: i64,
-    }
-
-    let total: i64 = diesel::sql_query(
-        "SELECT COUNT(*) as count FROM wallet_activity_logs WHERE wallet_address = $1"
+    let total: i64 = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*) as count FROM wallet_activity_logs WHERE wallet_address = $1",
     )
-    .bind::<diesel::sql_types::Text, _>(&wallet_address)
-    .get_result::<CountRow>(&mut conn)
+    .bind(&wallet_address)
+    .fetch_one(&mut *conn)
     .await
-    .map(|r| r.count)
     .unwrap_or(0);
 
     let events: Vec<ActivityLogEntry> = activities
@@ -438,7 +430,11 @@ pub async fn get_wallet_activity_handler(
 
     let metadata = AdminMetadata::crud_operation("get_wallet_activity", Some("admin".to_string()));
 
-    info!("Admin: Retrieved {} activity events for {}", response.events.len(), wallet_address);
+    info!(
+        "Admin: Retrieved {} activity events for {}",
+        response.events.len(),
+        wallet_address
+    );
     Ok(Json(AdminApiResponse::success_with_meta(
         response,
         "Activity history retrieved successfully",

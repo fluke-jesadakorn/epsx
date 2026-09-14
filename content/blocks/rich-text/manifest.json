@@ -1,0 +1,14 @@
+{
+  "id": "rich-text",
+  "version": "1.0.0",
+  "name": "Rich Text",
+  "category": "content",
+  "schema": "blocks/rich-text/schema.json",
+  "defaultProps": {
+    "markdown": "## Heading\n\nWrite your **markdown** content here.",
+    "alignment": "left",
+    "maxWidth": "md"
+  },
+  "preview": "/assets/blocks/rich-text.png",
+  "component": "RichText"
+}

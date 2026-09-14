@@ -1,0 +1,16 @@
+{
+  "id": "cta-banner",
+  "version": "1.0.0",
+  "name": "Call to Action",
+  "category": "conversion",
+  "schema": "blocks/cta-banner/schema.json",
+  "defaultProps": {
+    "title": "Ready to get started?",
+    "description": "Join thousands of users on EPSX today.",
+    "ctaText": "Sign Up",
+    "ctaLink": "/auth",
+    "background": "gradient"
+  },
+  "preview": "/assets/blocks/cta-banner.png",
+  "component": "CtaBanner"
+}

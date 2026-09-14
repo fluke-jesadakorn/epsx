@@ -1,28 +1,17 @@
 # EPSX Monorepo .gitignore
 
-# Dependencies
-node_modules/
-.pnp/
-.pnp.js
-package-lock.json
-yarn.lock
-.yarn/
-.pnpm-store/
-
 # Build Outputs
 build/
 dist/
-.next/
 out/
 tmp/
 
 # Testing
 coverage/
 .nyc_output/
-test-results/
-playwright-report/
-playwright-synpress-report/
-.cache-synpress/
+e2e/migration/.runtime/
+e2e/migration/artifacts/
+e2e/rust-artifacts/
 
 # Environment Files
 .env
@@ -46,20 +35,11 @@ development.env
 # Logs
 logs/
 *.log
-npm-debug.log*
-yarn-debug.log*
-.pnpm-debug.log*
-
-# TypeScript Build Info
-*.tsbuildinfo
 
 # OS Files
 .DS_Store
 Thumbs.db
 *~
-
-# Build Tools
-.turbo/
 
 # IDE
 .vscode/
@@ -71,6 +51,9 @@ Thumbs.db
 target/
 target-check/
 **/*.rs.bk
+# Vendored crates — track the source, ignore build artifacts
+vendor/**/target/
+vendor/**/Cargo.lock
 
 # Secrets
 *.pem
@@ -84,12 +67,8 @@ secrets/
 
 # Caches
 .cache/
-.swc/
-
-# Deployment
-.vercel/
-.vercel
-.firebase/
+node_modules/
+.playwright-mcp/
 
 # Local Overrides
 *.local
@@ -109,3 +88,18 @@ webDesign/
 infrastructure/kubernetes/base/backend/secret.yaml
 infrastructure/kubernetes/kubeconfig-colima-insecure.yaml
 infrastructure/kubernetes/snapshots/
+
+# Wave 23 — E2E test harness artifacts
+tools/e2e/baselines/
+tools/e2e/diff/
+tools/e2e/logs/
+tools/e2e-admin/baselines/
+tools/e2e-admin/diff-admin/
+tools/e2e-admin/logs/
+tools/e2e-admin/report.md
+
+# Wrangler / Cloudflare local simulators (workerd/miniflare)
+.wrangler/
+.wrangler/state/
+wrangler/.wrangler/
+**/.wrangler/

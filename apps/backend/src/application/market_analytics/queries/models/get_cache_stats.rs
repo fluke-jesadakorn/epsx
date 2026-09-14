@@ -1,8 +1,8 @@
 // Get Cache Statistics Query
 
-use serde::{Deserialize, Serialize};
-use crate::application::shared::Query;
 use crate::application::market_analytics::dtos::CacheStatsResponse;
+use crate::application::shared::Query;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone)]
 pub struct GetCacheStatsQuery {}

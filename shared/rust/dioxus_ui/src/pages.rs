@@ -1,0 +1,456 @@
+//! Page components — one rsx! function per Next.js route.
+
+use crate::auth::wallet_button::ConnectedWalletState;
+use crate::auth::User;
+use crate::i18n::t;
+use dioxus::prelude::*;
+
+pub mod about;
+pub mod access_denied;
+pub mod account;
+pub mod account_credits;
+pub mod admin_pages;
+pub mod analytics;
+pub mod auth_page;
+pub mod chat;
+pub mod chat_conversation;
+pub mod chat_history;
+pub mod contact;
+pub mod dashboard;
+pub mod developer;
+pub mod error_page;
+pub mod home;
+pub mod manual;
+pub mod news;
+pub mod news_detail;
+pub mod not_found;
+pub mod notifications;
+pub mod offline;
+pub mod payment;
+pub mod permissions;
+pub mod plans;
+pub mod portfolio;
+pub mod portfolio_address;
+pub mod privacy;
+pub mod profile;
+pub mod terms;
+
+pub use about::render as About;
+pub use access_denied::render as AccessDeniedPage;
+pub use account::render as Account;
+pub use account_credits::render as AccountCredits;
+pub use admin_pages::*;
+pub use analytics::render as Analytics;
+pub use auth_page::render as AuthPage;
+pub use chat::render as ChatInbox;
+pub use chat_conversation::render as ChatConversation;
+pub use chat_history::render as ChatHistory;
+pub use contact::render as Contact;
+pub use dashboard::render as Dashboard;
+pub use developer::render_docs as DeveloperDocs;
+pub use developer::render_overview as Developer;
+pub use developer::render_usage as DeveloperUsage;
+pub use error_page::render as ErrorPage;
+pub use home::render as Home;
+pub use manual::render as Manual;
+pub use news::render as NewsList;
+pub use news_detail::render as NewsDetail;
+pub use not_found::render as NotFound;
+pub use notifications::render as Notifications;
+pub use offline::render as Offline;
+pub use payment::render as Payment;
+pub use permissions::render as Permissions;
+pub use plans::render as Plans;
+pub use portfolio::render as Portfolio;
+pub use privacy::render as Privacy;
+pub use profile::render as Profile;
+pub use terms::render as Terms;
+
+/// Common page context passed to every page rsx! function.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct PageContext {
+    pub user: Option<User>,
+    pub path: String,
+    pub query: String,
+    pub params: std::collections::HashMap<String, String>,
+    pub api_url: String,
+    pub demo_login_enabled: bool,
+    /// Wave 3a Track B — server-side wallet state plumbed from the BFF.
+    /// The BFF reads the `WalletInfo` cookie (or defaults) via
+    /// `ConnectedWalletState::from_cookies(&headers)` and forwards the
+    /// resulting state to the layout / connect-button cluster. Defaults
+    /// to `Default::default()` so BFFs that don't yet plumb the cookie
+    /// (admin, pay, preview) still compile.
+    pub wallet: ConnectedWalletState,
+}
+
+impl PageContext {
+    pub fn param(&self, key: &str) -> Option<&String> {
+        self.params.get(key)
+    }
+    pub fn query_param(&self, key: &str) -> Option<String> {
+        let key_eq = format!("{}=", key);
+        for pair in self.query.split('&') {
+            if let Some(rest) = pair.strip_prefix(&key_eq) {
+                return Some(rest.to_string());
+            }
+        }
+        None
+    }
+    pub fn is_authed(&self) -> bool {
+        self.user.is_some()
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PageStatus {
+    Ok,
+    NotFound,
+}
+
+pub struct PageMeta {
+    pub title: String,
+    pub description: String,
+    /// Optional comma-separated search keywords supplied by the canonical
+    /// source page. Most routes omit this; consumers must not invent values.
+    pub keywords: Option<String>,
+    /// Explicit render outcome consumed by the Rust BFFs when selecting the
+    /// HTTP status. This avoids inferring a 404 from presentation text.
+    pub status: PageStatus,
+    /// Optional class appended to the `<body>` element by the BFF
+    /// page shell (see `epsx_templates::page_shell_with_body_class`).
+    ///
+    /// **Wave 38c T1** — changed from `String` to `Option<String>`
+    /// so the body class can be scoped per-route. The Wave 38b T2
+    /// change set a prod-EXACT body class on `PageMeta::admin()`
+    /// ("h-screen bg-background text-foreground overflow-hidden
+    /// font-sans") to make the 3 admin outliers' centered
+    /// "Access Denied" panel render correctly. But that body class
+    /// applied to all 22 admin routes and regressed 6 of them
+    /// (~88.5% → ~75.5% match) because their header+sidebar flex
+    /// layout depends on the default `min-h-screen` flow.
+    ///
+    /// Now `PageMeta::admin()` returns `body_class: None` (no
+    /// override — the page shell falls through to the bare
+    /// `min-h-screen` default that the 22 admin routes need). The
+    /// 3 outliers use `PageMeta::admin_with_body_class(...)` to
+    /// keep the prod-EXACT body class ONLY on those 3 routes.
+    pub body_class: Option<String>,
+    /// Default policy for whether a consuming BFF emits the legacy
+    /// templates `footer()` (a 4-column "Platform / Developers /
+    /// Company" block) at the page-shell level.
+    ///
+    /// **All current `PageMeta` variants return `false`.** The admin
+    /// BFF honors this value because admin chrome ships its own
+    /// `<AdminFooter />` inside the layout (`shell::MainLayout` and
+    /// `AdminShell`). The frontend BFF deliberately overrides this
+    /// metadata and enables its SSR-safe templates footer in
+    /// `apps/frontend/src/ssr.rs`; that remains safe because
+    /// `MainLayout` no longer renders a Dioxus `<Footer />`.
+    ///
+    /// Consumers that honor this flag may add an explicit opt-in
+    /// variant. Do not flip a shared default without first auditing
+    /// the full layout chain for duplicate chrome.
+    pub include_footer: bool,
+    pub use_epsx_header: bool,
+}
+
+impl PageMeta {
+    /// Marketing pages (home, about, contact, plans, news, ...).
+    ///
+    /// Defaults to no page-owned footer. Previously this variant set
+    /// `include_footer: true`, which combined with the Dioxus
+    /// `<Footer />` rendered inside `MainLayout` produced a structural
+    /// double-footer on every marketing page. `MainLayout` no longer
+    /// calls `<Footer />`; the frontend BFF may still add its one
+    /// SSR-safe templates footer outside the Dioxus subtree.
+    pub fn marketing(title: &str) -> Self {
+        Self {
+            title: format!("{} — EPSX", title),
+            description:
+                "EPSX — Explore reported company data and organize the companies you follow."
+                    .to_string(),
+            keywords: None,
+            status: PageStatus::Ok,
+            body_class: Some("page-bg".to_string()),
+            include_footer: false,
+            use_epsx_header: true,
+        }
+    }
+    /// App pages (dashboard, profile, account, analytics, ...).
+    ///
+    /// Defaults to no page-owned footer. The frontend BFF may apply
+    /// its outer SSR-safe templates footer as a consumer override.
+    pub fn app(title: &str) -> Self {
+        Self {
+            title: format!("{} — EPSX", title),
+            description: "EPSX".to_string(),
+            keywords: None,
+            status: PageStatus::Ok,
+            // Wave 49 T2 (Plan 13) — switch app pages to the
+            // `page-bg-app` body class so they render with prod's
+            // purple/magenta radial-glow background gradient
+            // instead of plain dark. Sampled prod corners:
+            // /account #13182b → #401c68 → #412148 (top-left →
+            // center → bot-right) — purple/magenta hues. Without
+            // this, dev renders plain dark (warm-neutral #171717)
+            // which diverges from prod by 93%.
+            body_class: Some("page-bg-app".to_string()),
+            include_footer: false,
+            use_epsx_header: false,
+        }
+    }
+    /// Default admin meta — **no** body class override.
+    ///
+    /// Wave 38c T1 — reverts the Wave 38b T2 global body-class
+    /// change. The 22 admin routes depend on the page shell's
+    /// default `min-h-screen` flow for their header+sidebar
+    /// layout. Setting `h-screen overflow-hidden` (the prod-EXACT
+    /// body class) on the body element collapsed the document
+    /// height and broke the flex-flow that positions the sidebar
+    /// + main content.
+    ///
+    /// For the 3 outlier routes that DO need the prod-EXACT
+    /// body class (`/access-denied`, `/unauthorized`,
+    /// `/developer-portal/api-keys/create`), use
+    /// [`PageMeta::admin_with_body_class`] instead.
+    ///
+    /// **No footer at the page-shell level.** Admin chrome is
+    /// rendered by the layout (`shell::MainLayout` for the
+    /// 22 in-skeleton routes, `AdminShell` for the Wave 6B
+    /// pages); both layouts render `<AdminFooter />` in-body so
+    /// the 2-line "EPSX Admin Dashboard / Version 2.0" strip is
+    /// always visible.
+    pub fn admin(title: &str) -> Self {
+        Self {
+            title: format!("{} — Admin", title),
+            description: "EPSX Admin".to_string(),
+            keywords: None,
+            status: PageStatus::Ok,
+            body_class: None,
+            include_footer: false,
+            use_epsx_header: false,
+        }
+    }
+    /// Admin meta with an explicit body-class override.
+    ///
+    /// **Wave 38c T1** — for the 3 admin outlier routes that
+    /// render the centered "Access Denied" panel (the panel needs
+    /// `flex h-screen flex-col` on its outer wrapper which only
+    /// positions correctly when the body itself is
+    /// `h-screen overflow-hidden`). Pass the prod-EXACT body class
+    /// string from `access_denied_panel::render` — kept narrow
+    /// to ONLY the 3 outlier paths so the 22 other admin routes
+    /// are not affected.
+    ///
+    /// Body class mirrors prod's
+    /// `__variable_a460b5 h-screen bg-background text-foreground
+    /// overflow-hidden font-sans`. The `__variable_a460b5` is the
+    /// Next.js font-variable wrapper (CSS-var font family); the
+    /// Tailwind v4 BFF dev uses `font-sans` directly.
+    pub fn admin_with_body_class(title: &str, body_class: impl Into<String>) -> Self {
+        Self {
+            title: format!("{} — Admin", title),
+            description: "EPSX Admin".to_string(),
+            keywords: None,
+            status: PageStatus::Ok,
+            body_class: Some(body_class.into()),
+            include_footer: false,
+            use_epsx_header: false,
+        }
+    }
+
+    pub fn not_found() -> Self {
+        let mut meta = Self::marketing("Not found");
+        meta.status = PageStatus::NotFound;
+        meta
+    }
+}
+
+fn one_segment<'a>(path: &'a str, prefix: &str) -> Option<&'a str> {
+    let segment = path.strip_prefix(prefix)?;
+    (!segment.is_empty() && !segment.contains('/')).then_some(segment)
+}
+
+fn two_segments<'a>(path: &'a str, prefix: &str) -> Option<(&'a str, &'a str)> {
+    let rest = path.strip_prefix(prefix)?;
+    let mut parts = rest.splitn(3, '/');
+    let first = parts.next()?;
+    let second = parts.next()?;
+    (parts.next().is_none() && !first.is_empty() && !second.is_empty()).then_some((first, second))
+}
+
+pub fn is_known_frontend_route(path: &str) -> bool {
+    matches!(
+        path,
+        "/" | "/index"
+            | "/auth"
+            | "/dashboard"
+            | "/profile"
+            | "/account"
+            | "/account/credits"
+            | "/analytics"
+            | "/chat"
+            | "/chat/history"
+            | "/contact"
+            | "/about"
+            | "/news"
+            | "/notifications"
+            | "/payment"
+            | "/permissions"
+            | "/plans"
+            | "/portfolio"
+            | "/developer"
+            | "/developer/usage"
+            | "/developer/docs"
+            | "/manual"
+            | "/access-denied"
+            | "/offline"
+            | "/privacy"
+            | "/terms"
+    ) || one_segment(path, "/portfolio/").is_some()
+        || one_segment(path, "/chat/").is_some()
+        || one_segment(path, "/news/").is_some()
+        || two_segments(path, "/payment/").is_some()
+}
+
+pub fn render_page(ctx: &PageContext, is_admin: bool) -> (PageMeta, Element) {
+    let p = ctx.path.as_str();
+    if is_admin {
+        return admin_pages::dispatch(ctx);
+    }
+    if !is_known_frontend_route(p) {
+        return not_found::render(ctx);
+    }
+    match p {
+        "/" | "/index" => home::render(ctx),
+        "/auth" => auth_page::render(ctx),
+        "/dashboard" => dashboard::render(ctx),
+        "/profile" => profile::render(ctx),
+        "/account" => account::render(ctx),
+        "/account/credits" => account_credits::render(ctx),
+        "/analytics" => analytics::render(ctx),
+        "/chat" => chat::render(ctx),
+        "/chat/history" => chat_history::render(ctx),
+        "/contact" => contact::render(ctx),
+        "/about" => about::render(ctx),
+        "/news" => news::render(ctx),
+        "/notifications" => notifications::render(ctx),
+        "/payment" => payment::render(ctx),
+        "/permissions" => permissions::render(ctx),
+        "/plans" => plans::render(ctx),
+        "/portfolio" => portfolio::render(ctx),
+        "/developer" => developer::render_overview(ctx),
+        "/developer/usage" => developer::render_usage(ctx),
+        "/developer/docs" => developer::render_docs(ctx),
+        "/manual" => manual::render(ctx),
+        "/access-denied" => access_denied::render(ctx),
+        "/offline" => offline::render(ctx),
+        "/privacy" => privacy::render(ctx),
+        "/terms" => terms::render(ctx),
+        _ => {
+            if p.starts_with("/portfolio/") {
+                // T2: per-address portfolio route. Mirrors the OLD
+                // prod 307-to-/portfolio behaviour via inline
+                // meta-refresh (see portfolio_address.rs).
+                let addr = one_segment(p, "/portfolio/").unwrap().to_string();
+                let mut c = ctx.clone();
+                c.params.insert("address".into(), addr);
+                portfolio_address::render(&c)
+            } else if p.starts_with("/chat/") {
+                let id = one_segment(p, "/chat/").unwrap().to_string();
+                let mut c = ctx.clone();
+                c.params.insert("id".into(), id);
+                chat_conversation::render(&c)
+            } else if p.starts_with("/news/") {
+                let slug = one_segment(p, "/news/").unwrap().to_string();
+                let mut c = ctx.clone();
+                c.params.insert("slug".into(), slug);
+                news_detail::render(&c)
+            } else if p.starts_with("/payment/") {
+                let rest = p.trim_start_matches("/payment/").trim_end_matches('/');
+                let mut parts = rest.splitn(2, '/');
+                let ptype = parts.next().unwrap_or("").to_string();
+                let pid = parts.next().unwrap_or("").to_string();
+                let mut c = ctx.clone();
+                c.params.insert("type".into(), ptype);
+                c.params.insert("id".into(), pid);
+                payment::render_dynamic(&c)
+            } else {
+                not_found::render(ctx)
+            }
+        }
+    }
+}
+
+pub fn page_title_for(p: &str) -> String {
+    match p {
+        "/" => t("nav.home"),
+        "/auth" => t("nav.auth"),
+        "/dashboard" => t("nav.dashboard"),
+        "/profile" => t("nav.profile"),
+        "/account" | "/account/credits" => t("nav.account"),
+        "/analytics" => t("nav.analytics"),
+        "/chat" | "/chat/history" => t("nav.chat"),
+        "/contact" => t("nav.contact"),
+        "/about" => t("nav.about"),
+        "/news" => t("nav.news"),
+        "/notifications" => t("nav.notifications"),
+        "/payment" | "/payment/[type]/[id]" => t("nav.payment"),
+        "/permissions" => t("nav.permissions"),
+        "/plans" => t("nav.plans"),
+        "/pricing" => t("nav.plans"),
+        "/portfolio" => t("nav.portfolio"),
+        "/developer" | "/developer/usage" | "/developer/docs" => t("nav.developer"),
+        "/manual" => t("nav.manual"),
+        "/access-denied" => "Access denied".to_string(),
+        "/offline" => "Offline".to_string(),
+        "/privacy" => "Privacy".to_string(),
+        "/terms" => "Terms".to_string(),
+        _ => "EPSX".to_string(),
+    }
+}
+
+#[cfg(test)]
+mod dispatch_tests {
+    use super::*;
+
+    #[test]
+    fn frontend_dynamic_routes_require_exact_nonempty_arity() {
+        for path in [
+            "/portfolio/0xabc",
+            "/chat/conversation-1",
+            "/news/article-1",
+            "/payment/intent/payment-1",
+        ] {
+            let ctx = PageContext {
+                path: path.into(),
+                ..Default::default()
+            };
+            assert_eq!(render_page(&ctx, false).0.status, PageStatus::Ok, "{path}");
+        }
+
+        for path in [
+            "/portfolio/",
+            "/portfolio/a/b",
+            "/chat/",
+            "/chat/a/b",
+            "/news/",
+            "/news/a/b",
+            "/payment/intent",
+            "/payment//id",
+            "/payment/intent/",
+            "/payment/intent/id/extra",
+        ] {
+            let ctx = PageContext {
+                path: path.into(),
+                ..Default::default()
+            };
+            assert_eq!(
+                render_page(&ctx, false).0.status,
+                PageStatus::NotFound,
+                "{path}"
+            );
+        }
+    }
+}

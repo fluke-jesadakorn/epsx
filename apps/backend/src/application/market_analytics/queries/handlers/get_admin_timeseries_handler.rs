@@ -1,9 +1,8 @@
-use crate::prelude::*;
-use crate::application::shared::{QueryHandler, ApplicationResult};
 use crate::application::market_analytics::queries::{
-    GetAdminTimeSeriesQuery, GetAdminTimeSeriesResponse,
-    TimeSeriesSummary,
+    GetAdminTimeSeriesQuery, GetAdminTimeSeriesResponse, TimeSeriesSummary,
 };
+use crate::application::shared::{ApplicationResult, QueryHandler};
+use crate::prelude::*;
 
 /// Query handler for getting admin time-series analytics data
 pub struct GetAdminTimeSeriesQueryHandler {}

@@ -10,13 +10,13 @@ BSC_RPC_URL := https://bsc-dataseed.binance.org/
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%%-20s\033[0m %%s\n", $$1, $$2}'
 
-stop: ## Stop running Anvil node
+stop: ## Stop the running Anvil process
 	@lsof -i :8545 -t | xargs kill -9 2>/dev/null || echo "No Anvil process found."
 
 anvil: ## Start Anvil forking BSC Mainnet (Blocking)
 	@./start-anvil-bsc.sh
 
-deploy: ## Deploy PaymentEscrow to local Anvil node
+deploy: ## Deploy PaymentEscrow to the local Anvil chain
 	@echo "Deploying PaymentEscrow to local fork..."
 	@forge script script/Deploy.s.sol --rpc-url $(RPC_URL) --broadcast --private-key $(PRIVATE_KEY)
 

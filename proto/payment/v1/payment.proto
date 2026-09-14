@@ -1,0 +1,209 @@
+syntax = "proto3";
+
+package epsx.payment.v1;
+
+option rust_module = "payment_v1";
+
+service PaymentService {
+  // Payment Intents
+  rpc CreatePaymentIntent(CreatePaymentIntentRequest) returns (CreatePaymentIntentResponse);
+  rpc GetPaymentIntent(GetPaymentIntentRequest) returns (GetPaymentIntentResponse);
+  rpc ListPaymentIntents(ListPaymentIntentsRequest) returns (ListPaymentIntentsResponse);
+  rpc ExecutePayment(ExecutePaymentRequest) returns (ExecutePaymentResponse);
+  rpc CancelPayment(CancelPaymentRequest) returns (CancelPaymentResponse);
+  
+  // Escrow
+  rpc CreateEscrow(CreateEscrowRequest) returns (CreateEscrowResponse);
+  rpc GetEscrow(GetEscrowRequest) returns (GetEscrowResponse);
+  rpc ReleaseEscrow(ReleaseEscrowRequest) returns (ReleaseEscrowResponse);
+  rpc DisputeEscrow(DisputeEscrowRequest) returns (DisputeEscrowResponse);
+  rpc ResolveDispute(ResolveDisputeRequest) returns (ResolveDisputeResponse);
+  
+  // Webhooks
+  rpc RegisterWebhook(RegisterWebhookRequest) returns (RegisterWebhookResponse);
+  rpc UnregisterWebhook(UnregisterWebhookRequest) returns (UnregisterWebhookResponse);
+}
+
+message CreatePaymentIntentRequest {
+  string user_id = 1;
+  string amount = 2;
+  string currency = 3; // USDT, USDC, BNB
+  string chain_id = 4;
+  string description = 5;
+  map<string, string> metadata = 6;
+  string success_url = 7;
+  string cancel_url = 8;
+  string webhook_url = 9;
+}
+
+message CreatePaymentIntentResponse {
+  PaymentIntent intent = 1;
+  string client_token = 2; // For frontend to complete payment
+}
+
+message GetPaymentIntentRequest {
+  string intent_id = 1;
+}
+
+message GetPaymentIntentResponse {
+  PaymentIntent intent = 1;
+}
+
+message ListPaymentIntentsRequest {
+  string user_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+  string status = 4;
+}
+
+message ListPaymentIntentsResponse {
+  repeated PaymentIntent intents = 1;
+  int64 total = 2;
+}
+
+message ExecutePaymentRequest {
+  string intent_id = 1;
+  string account_id = 2;
+  bytes signed_transaction = 3;
+  string signature = 4;
+}
+
+message ExecutePaymentResponse {
+  PaymentReceipt receipt = 1;
+}
+
+message CancelPaymentRequest {
+  string intent_id = 1;
+}
+
+message CancelPaymentResponse {
+  bool success = 1;
+}
+
+message CreateEscrowRequest {
+  string payment_intent_id = 1;
+  string buyer_address = 2;
+  string seller_address = 3;
+  string arbiter_address = 4;
+  string amount = 5;
+  string currency = 6;
+  string chain_id = 7;
+  int64 timeout = 8; // Seconds until auto-release
+}
+
+message CreateEscrowResponse {
+  Escrow escrow = 1;
+}
+
+message GetEscrowRequest {
+  string escrow_id = 1;
+}
+
+message GetEscrowResponse {
+  Escrow escrow = 1;
+}
+
+message ReleaseEscrowRequest {
+  string escrow_id = 1;
+  string releaser_address = 2;
+  string signature = 3;
+}
+
+message ReleaseEscrowResponse {
+  Escrow escrow = 1;
+}
+
+message DisputeEscrowRequest {
+  string escrow_id = 1;
+  string disputer_address = 2;
+  string reason = 3;
+  string evidence = 4;
+}
+
+message DisputeEscrowResponse {
+  Escrow escrow = 1;
+}
+
+message ResolveDisputeRequest {
+  string escrow_id = 1;
+  string arbiter_address = 2;
+  bool favor_buyer = 3;
+  string reasoning = 4;
+}
+
+message ResolveDisputeResponse {
+  Escrow escrow = 1;
+}
+
+message RegisterWebhookRequest {
+  string user_id = 1;
+  string url = 2;
+  repeated string events = 3;
+  string secret = 4;
+}
+
+message RegisterWebhookResponse {
+  Webhook webhook = 1;
+}
+
+message UnregisterWebhookRequest {
+  string webhook_id = 1;
+}
+
+message UnregisterWebhookResponse {
+  bool success = 1;
+}
+
+message PaymentIntent {
+  string id = 1;
+  string user_id = 2;
+  string amount = 3;
+  string currency = 4;
+  string chain_id = 5;
+  string status = 6; // created, pending, confirmed, failed, cancelled, expired
+  string description = 7;
+  map<string, string> metadata = 8.
+  string client_token = 9;
+  string escrow_id = 10;
+  string tx_hash = 11;
+  int64 created_at = 12;
+  int64 updated_at = 13;
+  int64 expires_at = 14;
+  int64 confirmed_at = 15;
+}
+
+message PaymentReceipt {
+  string intent_id = 1;
+  string tx_hash = 2;
+  string block_number = 3;
+  string amount = 4;
+  string currency = 5.
+  int64 confirmed_at = 6;
+  string escrow_id = 7;
+}
+
+message Escrow {
+  string id = 1;
+  string payment_intent_id = 2;
+  string buyer_address = 3;
+  string seller_address = 4;
+  string arbiter_address = 5;
+  string amount = 6;
+  string currency = 7;
+  string chain_id = 8.
+  string status = 9; // funded, released, disputed, resolved, expired
+  string contract_address = 10;
+  int64 created_at = 11;
+  int64 funded_at = 12;
+  int64 released_at = 13;
+  int64 expires_at = 14.
+}
+
+message Webhook {
+  string id = 1;
+  string user_id = 2;
+  string url = 3;
+  repeated string events = 4.
+  string secret = 5.
+  int64 created_at = 6.
+}

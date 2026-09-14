@@ -1,0 +1,94 @@
+{
+  "initialHttp": 200,
+  "results": [
+    {
+      "country": "america",
+      "http": 200,
+      "apiHttp": 200,
+      "url": "http://localhost:3000/analytics?page=1&limit=10&country=america",
+      "state": "ready",
+      "symbols": [
+        "NOV",
+        "FIEE",
+        "RGS",
+        "ATHM",
+        "SMTC",
+        "BLBD",
+        "AEO",
+        "CDRE",
+        "LSAK",
+        "LADR"
+      ],
+      "matchesBackend": true
+    },
+    {
+      "country": "thailand",
+      "http": 200,
+      "apiHttp": 200,
+      "url": "http://localhost:3000/analytics?page=1&limit=10&country=thailand",
+      "state": "ready",
+      "symbols": [
+        "NETBAY",
+        "UAC",
+        "DOHOME",
+        "TEAMG",
+        "MGT",
+        "CBG",
+        "BOL",
+        "BGC",
+        "XPG",
+        "DITTO"
+      ],
+      "matchesBackend": true
+    },
+    {
+      "country": "japan",
+      "http": 200,
+      "apiHttp": 200,
+      "url": "http://localhost:3000/analytics?page=1&limit=10&country=japan",
+      "state": "ready",
+      "symbols": [
+        "4689",
+        "6036",
+        "6762",
+        "9040",
+        "7523",
+        "2173",
+        "2612",
+        "1435",
+        "160A",
+        "2737"
+      ],
+      "matchesBackend": true
+    },
+    {
+      "country": "germany",
+      "http": 200,
+      "apiHttp": 200,
+      "url": "http://localhost:3000/analytics?page=1&limit=10&country=germany",
+      "state": "empty",
+      "symbols": [],
+      "matchesBackend": true
+    },
+    {
+      "country": "thailand",
+      "http": 200,
+      "apiHttp": 200,
+      "url": "http://localhost:3000/analytics?page=1&limit=10&country=thailand",
+      "state": "ready",
+      "symbols": [
+        "NETBAY",
+        "UAC",
+        "DOHOME",
+        "TEAMG",
+        "MGT",
+        "CBG",
+        "BOL",
+        "BGC",
+        "XPG",
+        "DITTO"
+      ],
+      "matchesBackend": true
+    }
+  ]
+}

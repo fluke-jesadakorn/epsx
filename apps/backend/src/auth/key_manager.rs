@@ -42,6 +42,20 @@ pub struct KeyManager {
 }
 
 impl KeyManager {
+    fn is_production_environment(value: &str) -> bool {
+        matches!(
+            value.trim().to_ascii_lowercase().as_str(),
+            "prod" | "production"
+        )
+    }
+
+    fn is_production_runtime() -> bool {
+        ["ENV", "APP_ENV", "NODE_ENV", "RUST_ENV"]
+            .into_iter()
+            .filter_map(|name| std::env::var(name).ok())
+            .any(|value| Self::is_production_environment(&value))
+    }
+
     /// Generate a new RSA key pair for JWT signing
     pub fn generate_key_pair() -> Result<RSAKeyPair, Box<dyn std::error::Error>> {
         let mut rng = rand::thread_rng();
@@ -114,22 +128,26 @@ impl KeyManager {
             }
         }
         
-        // Generate new keys if environment loading failed
+        if Self::is_production_runtime() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "RSA_PRIVATE_KEY, RSA_PUBLIC_KEY, and RSA_KEY_ID must contain one valid persistent signing key pair in production",
+            )
+            .into());
+        }
+
+        // Generate new keys only for non-production development environments.
         tracing::info!("Generating new RSA key pair for JWT signing");
         let key_manager = Self::new()?;
         
-        // Log the keys for environment setup (in development only)
+        // Key material must never be written to logs, including development
+        // logs. Operators can provision persistent keys through the normal
+        // secret-management workflow.
         if cfg!(debug_assertions) {
-            let private_pem = key_manager.current_key.private_key
-                .to_pkcs8_pem(rsa::pkcs8::LineEnding::LF)?;
-            let public_pem = key_manager.current_key.public_key
-                .to_public_key_pem(rsa::pkcs8::LineEnding::LF)?;
-                
             tracing::info!("Generated RSA Key ID: {}", key_manager.current_key.kid);
-            tracing::info!("To persist these keys, set these environment variables:");
-            tracing::info!("RSA_KEY_ID={}", key_manager.current_key.kid);
-            tracing::info!("RSA_PRIVATE_KEY={}", private_pem.as_str().replace('\n', "\\n"));
-            tracing::info!("RSA_PUBLIC_KEY={}", public_pem.replace('\n', "\\n"));
+            tracing::warn!(
+                "Generated an ephemeral JWT signing key; configure persistent RSA keys through the secret manager when session continuity is required"
+            );
         }
         
         Ok(key_manager)
@@ -268,6 +286,17 @@ mod tests {
         let key_pair = KeyManager::generate_key_pair().unwrap();
         assert!(!key_pair.kid.is_empty());
         assert_eq!(key_pair.private_key.size(), 256); // 2048 bits = 256 bytes
+    }
+
+    #[test]
+    fn production_environment_values_are_recognized() {
+        for value in ["prod", "PROD", "production", "Production"] {
+            assert!(KeyManager::is_production_environment(value));
+        }
+
+        for value in ["dev", "development", "test", ""] {
+            assert!(!KeyManager::is_production_environment(value));
+        }
     }
     
     #[test]

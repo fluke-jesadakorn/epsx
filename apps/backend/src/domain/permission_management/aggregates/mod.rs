@@ -10,14 +10,14 @@ pub mod permission_plan {
 
 // Re-export from new file (plan.rs)
 pub use plan::{
-    Plan,
+    CreatePermissionPlanParams,
     CreatePlanParams,
+    LoadPermissionPlanParams,
     LoadPlanParams,
-    UpdatePlanParams,
     // Backward compatibility aliases
     PermissionPlan,
-    CreatePermissionPlanParams,
-    LoadPermissionPlanParams,
+    Plan,
     UpdatePermissionPlanParams,
+    UpdatePlanParams,
 };
 pub use policy::Policy;

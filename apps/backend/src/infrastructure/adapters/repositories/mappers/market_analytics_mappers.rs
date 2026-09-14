@@ -4,11 +4,15 @@
 use chrono::Utc;
 use tracing::{debug, warn};
 
-use crate::domain::market_analytics::aggregates::eps_ranking::{EPSRanking as DDDEPSRanking, RankingEntry, RankingType, RankingPeriod, RankingStatistics};
+use crate::domain::market_analytics::aggregates::eps_ranking::{
+    EPSRanking as DDDEPSRanking, RankingEntry, RankingPeriod, RankingStatistics, RankingType,
+};
 use crate::domain::market_analytics::aggregates::stock_analysis::StockAnalysis;
 use crate::domain::market_analytics::value_objects::*;
-use crate::domain::shared_kernel::entities::eps_growth::{EPSRanking as LegacyEPSRanking, EPSGrowthData};
-use crate::domain::shared_kernel::entities::stock::{Stock as LegacyStock};
+use crate::domain::shared_kernel::entities::eps_growth::{
+    EPSGrowthData, EPSRanking as LegacyEPSRanking,
+};
+use crate::domain::shared_kernel::entities::stock::Stock as LegacyStock;
 
 /// Mapper for converting between legacy and DDD EPS ranking structures
 pub struct EPSRankingMapper;
@@ -16,7 +20,10 @@ pub struct EPSRankingMapper;
 impl EPSRankingMapper {
     /// Convert legacy EPSRanking to DDD RankingEntry
     pub fn legacy_to_ddd_entry(legacy: &LegacyEPSRanking) -> Result<RankingEntry, String> {
-        debug!("Converting legacy EPS ranking to DDD entry: {}", legacy.symbol);
+        debug!(
+            "Converting legacy EPS ranking to DDD entry: {}",
+            legacy.symbol
+        );
 
         let symbol = StockSymbol::new(legacy.symbol.clone())
             .map_err(|e| format!("Invalid symbol '{}': {}", legacy.symbol, e))?;
@@ -30,9 +37,13 @@ impl EPSRankingMapper {
         let sector = MarketSector::new(legacy.sector.clone())
             .map_err(|e| format!("Invalid sector '{}': {}", legacy.sector, e))?;
 
-        let country_str = if legacy.country.is_empty() { "US".to_string() } else { legacy.country.clone() };
-        let country = Country::new(country_str)
-            .unwrap_or_else(|_| Country::new("US".to_string()).unwrap());
+        let country_str = if legacy.country.is_empty() {
+            "US".to_string()
+        } else {
+            legacy.country.clone()
+        };
+        let country =
+            Country::new(country_str).unwrap_or_else(|_| Country::new("US".to_string()).unwrap());
 
         Ok(RankingEntry {
             symbol,
@@ -48,7 +59,10 @@ impl EPSRankingMapper {
 
     /// Convert DDD RankingEntry to legacy EPSRanking
     pub fn ddd_entry_to_legacy(entry: &RankingEntry, rank: u32) -> LegacyEPSRanking {
-        debug!("Converting DDD entry to legacy EPS ranking: {}", entry.symbol.as_str());
+        debug!(
+            "Converting DDD entry to legacy EPS ranking: {}",
+            entry.symbol.as_str()
+        );
 
         LegacyEPSRanking {
             symbol: entry.symbol.as_str().to_string(),
@@ -69,15 +83,26 @@ impl EPSRankingMapper {
     }
 
     /// Convert DDD RankingStatistics to legacy format
-    pub fn ddd_stats_to_legacy(stats: &RankingStatistics) -> crate::domain::shared_kernel::entities::eps_growth::EPSPagination {
+    pub fn ddd_stats_to_legacy(
+        stats: &RankingStatistics,
+    ) -> crate::domain::shared_kernel::entities::eps_growth::EPSPagination {
         // Since legacy EPSPagination is actually pagination, not statistics,
         // we create a minimal pagination structure
-        crate::domain::shared_kernel::entities::eps_growth::EPSPagination::new(1, stats.total_entries as i32, stats.total_entries as i64)
+        crate::domain::shared_kernel::entities::eps_growth::EPSPagination::new(
+            1,
+            stats.total_entries as i32,
+            stats.total_entries as i64,
+        )
     }
 
     /// Convert legacy EPSGrowthData to DDD RankingEntry
-    pub fn legacy_growth_data_to_ddd_entry(growth_data: &EPSGrowthData) -> Result<RankingEntry, String> {
-        debug!("Converting legacy EPS growth data to DDD entry: {}", growth_data.symbol);
+    pub fn legacy_growth_data_to_ddd_entry(
+        growth_data: &EPSGrowthData,
+    ) -> Result<RankingEntry, String> {
+        debug!(
+            "Converting legacy EPS growth data to DDD entry: {}",
+            growth_data.symbol
+        );
 
         let symbol = StockSymbol::new(growth_data.symbol.clone())
             .map_err(|e| format!("Invalid symbol '{}': {}", growth_data.symbol, e))?;
@@ -88,7 +113,7 @@ impl EPSRankingMapper {
         let growth_factor = GrowthFactor::new(growth_data.growth_factor.unwrap_or(0.0))
             .map_err(|e| format!("Invalid growth factor: {}", e))?;
 
-        let sector = MarketSector::new("Technology".to_string())  // Default sector
+        let sector = MarketSector::new("Technology".to_string()) // Default sector
             .map_err(|e| format!("Invalid sector: {}", e))?;
 
         let country = Country::new("US".to_string()) // Default country as field not available
@@ -101,7 +126,7 @@ impl EPSRankingMapper {
             growth_factor,
             sector,
             country,
-            score: 0.0,  // Default score
+            score: 0.0, // Default score
             added_at: growth_data.created_at.unwrap_or_else(Utc::now),
         })
     }
@@ -113,7 +138,10 @@ impl EPSRankingMapper {
         sector_filter: Option<SectorCategory>,
         country_filter: Option<Country>,
     ) -> Result<DDDEPSRanking, String> {
-        debug!("Building DDD ranking from {} legacy rankings", legacy_rankings.len());
+        debug!(
+            "Building DDD ranking from {} legacy rankings",
+            legacy_rankings.len()
+        );
 
         // Create new DDD ranking
         let mut ddd_ranking = DDDEPSRanking::new(
@@ -140,7 +168,11 @@ impl EPSRankingMapper {
                             debug!("Added {} to DDD ranking", entry.symbol.as_str());
                         }
                         Err(e) => {
-                            warn!("Failed to add {} to DDD ranking: {}", entry.symbol.as_str(), e);
+                            warn!(
+                                "Failed to add {} to DDD ranking: {}",
+                                entry.symbol.as_str(),
+                                e
+                            );
                         }
                     }
                 }
@@ -150,7 +182,10 @@ impl EPSRankingMapper {
             }
         }
 
-        debug!("Built DDD ranking with {} entries", ddd_ranking.total_entries());
+        debug!(
+            "Built DDD ranking with {} entries",
+            ddd_ranking.total_entries()
+        );
         Ok(ddd_ranking)
     }
 }
@@ -167,10 +202,9 @@ impl StockAnalysisMapper {
             .map_err(|e| format!("Invalid symbol: {}", e))?;
 
         // Create basic EPS values (unknown from legacy stock)
-        let current_eps = EPSValue::new(0.0)
-            .map_err(|e| format!("Invalid current EPS: {}", e))?;
-        let previous_eps = EPSValue::new(0.0)
-            .map_err(|e| format!("Invalid previous EPS: {}", e))?;
+        let current_eps = EPSValue::new(0.0).map_err(|e| format!("Invalid current EPS: {}", e))?;
+        let previous_eps =
+            EPSValue::new(0.0).map_err(|e| format!("Invalid previous EPS: {}", e))?;
 
         // Create basic stock analysis (sector and country unknown from legacy stock)
         StockAnalysis::new(
@@ -184,8 +218,13 @@ impl StockAnalysisMapper {
     }
 
     /// Convert legacy EPSRanking to DDD StockAnalysis
-    pub fn legacy_ranking_to_ddd_stock(legacy_ranking: &LegacyEPSRanking) -> Result<StockAnalysis, String> {
-        debug!("Converting legacy EPS ranking to DDD stock analysis: {}", legacy_ranking.symbol);
+    pub fn legacy_ranking_to_ddd_stock(
+        legacy_ranking: &LegacyEPSRanking,
+    ) -> Result<StockAnalysis, String> {
+        debug!(
+            "Converting legacy EPS ranking to DDD stock analysis: {}",
+            legacy_ranking.symbol
+        );
 
         let symbol = StockSymbol::new(legacy_ranking.symbol.clone())
             .map_err(|e| format!("Invalid symbol: {}", e))?;
@@ -193,7 +232,7 @@ impl StockAnalysisMapper {
         // Use EPS values from legacy ranking
         let current_eps = EPSValue::new(legacy_ranking.current_eps.unwrap_or(0.0))
             .map_err(|e| format!("Invalid current EPS: {}", e))?;
-            
+
         // Calculate previous EPS from growth factor
         let growth_rate = legacy_ranking.growth_factor.unwrap_or(0.0);
         let previous_eps_value = if growth_rate != 0.0 {
@@ -222,13 +261,20 @@ impl StockAnalysisMapper {
     }
 
     /// Convert DDD StockAnalysis back to legacy format (for API compatibility)
-    pub fn ddd_stock_to_legacy_ranking(stock_analysis: &StockAnalysis, rank: Option<u32>) -> LegacyEPSRanking {
-        debug!("Converting DDD stock analysis to legacy ranking: {}", stock_analysis.symbol().as_str());
+    pub fn ddd_stock_to_legacy_ranking(
+        stock_analysis: &StockAnalysis,
+        rank: Option<u32>,
+    ) -> LegacyEPSRanking {
+        debug!(
+            "Converting DDD stock analysis to legacy ranking: {}",
+            stock_analysis.symbol().as_str()
+        );
 
         // Calculate growth rate from current and previous EPS
         let growth_rate = if stock_analysis.previous_eps().value() > 0.0 {
-            ((stock_analysis.current_eps().value() - stock_analysis.previous_eps().value()) 
-                / stock_analysis.previous_eps().value()) * 100.0
+            ((stock_analysis.current_eps().value() - stock_analysis.previous_eps().value())
+                / stock_analysis.previous_eps().value())
+                * 100.0
         } else {
             0.0
         };
@@ -309,7 +355,7 @@ mod tests {
         };
 
         let legacy_ranking = EPSRankingMapper::ddd_entry_to_legacy(&entry, 1);
-        
+
         assert_eq!(legacy_ranking.symbol, "AAPL");
         assert_eq!(legacy_ranking.name, "Apple Inc.");
         assert_eq!(legacy_ranking.current_eps, Some(1.52));
@@ -365,8 +411,11 @@ mod tests {
             Ok(ddd_ranking) => {
                 assert_eq!(ddd_ranking.total_entries(), 2);
                 assert_eq!(ddd_ranking.ranking_type(), &RankingType::Combined);
-                assert_eq!(ddd_ranking.sector_filter(), Some(&SectorCategory::Technology));
-                
+                assert_eq!(
+                    ddd_ranking.sector_filter(),
+                    Some(&SectorCategory::Technology)
+                );
+
                 let top_entries = ddd_ranking.top_entries(10);
                 assert_eq!(top_entries.len(), 2);
             }

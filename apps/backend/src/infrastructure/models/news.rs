@@ -1,17 +1,13 @@
 use chrono::{DateTime, Utc};
-use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 use utoipa::ToSchema;
-
-use crate::schemas::primary::news_articles;
-
+use uuid::Uuid;
 // ============================================================================
 // DB MODELS
 // ============================================================================
 
-#[derive(Debug, Queryable, Selectable, Serialize, Clone, ToSchema)]
-#[diesel(table_name = news_articles)]
+#[derive(Debug, Serialize, Clone, ToSchema, sqlx::FromRow)]
+
 pub struct NewsArticleDb {
     pub id: Uuid,
     pub title: String,
@@ -29,16 +25,16 @@ pub struct NewsArticleDb {
     pub pinned_at: Option<DateTime<Utc>>,
 }
 
-#[derive(Debug, AsChangeset)]
-#[diesel(table_name = news_articles)]
+#[derive(Debug, Clone)]
+
 pub struct PinNewsArticle {
     pub is_pinned: bool,
     pub pinned_at: Option<DateTime<Utc>>,
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Insertable)]
-#[diesel(table_name = news_articles)]
+#[derive(Debug, Clone, sqlx::Type)]
+
 pub struct NewNewsArticle {
     pub title: String,
     pub slug: String,
@@ -51,8 +47,8 @@ pub struct NewNewsArticle {
     pub published_at: Option<DateTime<Utc>>,
 }
 
-#[derive(Debug, AsChangeset)]
-#[diesel(table_name = news_articles)]
+#[derive(Debug, Clone)]
+
 pub struct UpdateNewsArticle {
     pub title: Option<String>,
     pub slug: Option<String>,

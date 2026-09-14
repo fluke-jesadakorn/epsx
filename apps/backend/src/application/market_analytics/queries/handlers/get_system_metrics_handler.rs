@@ -1,18 +1,18 @@
-use crate::prelude::*;
-use crate::application::shared::{QueryHandler, ApplicationResult};
 use crate::application::market_analytics::queries::{
-    GetSystemMetricsQuery, GetSystemMetricsResponse, CacheMetrics, DatabaseMetrics, ApiMetrics,
+    ApiMetrics, CacheMetrics, DatabaseMetrics, GetSystemMetricsQuery, GetSystemMetricsResponse,
 };
+use crate::application::shared::{ApplicationResult, QueryHandler};
 use crate::infrastructure::adapters::services::tradingview::TradingViewApiService;
+use crate::prelude::*;
 
 /// Query handler for getting multi-source system metrics
 pub struct GetSystemMetricsQueryHandler {
     tradingview_service: Arc<TradingViewApiService>,
-    db_pool: Arc<&'static TlsPool>,
+    db_pool: Arc<TlsPool>,
 }
 
 impl GetSystemMetricsQueryHandler {
-    pub fn new(tradingview_service: Arc<TradingViewApiService>, db_pool: Arc<&'static TlsPool>) -> Self {
+    pub fn new(tradingview_service: Arc<TradingViewApiService>, db_pool: Arc<TlsPool>) -> Self {
         Self {
             tradingview_service,
             db_pool,
@@ -33,16 +33,15 @@ impl GetSystemMetricsQueryHandler {
 
     /// Collect database metrics from connection pool
     async fn collect_database_metrics(&self) -> Option<DatabaseMetrics> {
-        let status = self.db_pool.status();
-        let pool_size = status.max_size;
-        let available = status.available as usize;
+        let pool_size = self.db_pool.size() as i32;
+        let available = self.db_pool.num_idle() as i32;
         let active = pool_size.saturating_sub(available);
 
         Some(DatabaseMetrics {
             status: "healthy".to_string(),
-            connection_pool_size: pool_size as i32,
-            active_connections: active as i32,
-            idle_connections: available as i32,
+            connection_pool_size: pool_size,
+            active_connections: active,
+            idle_connections: available,
             avg_query_time_ms: 5.0, // Placeholder - would need query monitoring
         })
     }

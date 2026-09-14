@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: epsx-notification
+  labels:
+    app: epsx-notification
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: epsx-notification
+  template:
+    metadata:
+      labels:
+        app: epsx-notification
+    spec:
+      containers:
+        - name: epsx-notification
+          image: epsx-notification:prod
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - secretRef:
+                name: epsx-notification
+          env:
+            - name: HOST
+              value: "0.0.0.0"
+            - name: PORT
+              value: "8106"
+            - name: EPSX_ENV
+              value: "production"
+          ports:
+            - name: http
+              containerPort: 8106
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8106
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8106
+            initialDelaySeconds: 20
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8106
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            limits:
+              memory: 512Mi
+              cpu: "1"
+            requests:
+              memory: 128Mi
+              cpu: "0.25"
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 100Mi

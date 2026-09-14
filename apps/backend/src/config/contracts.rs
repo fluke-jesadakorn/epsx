@@ -103,14 +103,14 @@ impl ChainContractConfig {
         contract_address?;
 
         // WebSocket URLs (with backup)
-        let ws_url = env::var(format!("WS_URL_{}", suffix))
-            .unwrap_or_else(|_| default_ws_url(chain));
+        let ws_url =
+            env::var(format!("WS_URL_{}", suffix)).unwrap_or_else(|_| default_ws_url(chain));
 
         let ws_backup_url = env::var(format!("WS_BACKUP_{}", suffix)).ok();
 
         // HTTP fallback URL
-        let http_url = env::var(format!("{}_RPC_URL", suffix))
-            .unwrap_or_else(|_| default_http_url(chain));
+        let http_url =
+            env::var(format!("{}_RPC_URL", suffix)).unwrap_or_else(|_| default_http_url(chain));
 
         Some(Self {
             chain,
@@ -177,8 +177,8 @@ impl ContractConfig {
             }
         }
 
-        let payment_event_topic = env::var("PAYMENT_EVENT_TOPIC")
-            .unwrap_or_else(|_| PAYMENT_EVENT_TOPIC.to_string());
+        let payment_event_topic =
+            env::var("PAYMENT_EVENT_TOPIC").unwrap_or_else(|_| PAYMENT_EVENT_TOPIC.to_string());
 
         Self {
             chains,

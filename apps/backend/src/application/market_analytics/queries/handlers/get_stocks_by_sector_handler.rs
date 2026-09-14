@@ -1,9 +1,9 @@
-use crate::prelude::*;
-use crate::application::shared::{QueryHandler, ApplicationResult, ApplicationError};
 use crate::application::market_analytics::queries::{
-    GetStocksBySectorQuery, GetStocksBySectorResponse, StockAnalysisSummary
+    GetStocksBySectorQuery, GetStocksBySectorResponse, StockAnalysisSummary,
 };
-use crate::domain::market_analytics::{StockAnalysisRepositoryPort, MarketSector};
+use crate::application::shared::{ApplicationError, ApplicationResult, QueryHandler};
+use crate::domain::market_analytics::{MarketSector, StockAnalysisRepositoryPort};
+use crate::prelude::*;
 
 /// Query handler for getting stocks in a specific sector
 pub struct GetStocksBySectorQueryHandler {
@@ -20,20 +20,25 @@ impl GetStocksBySectorQueryHandler {
 
 #[async_trait]
 impl QueryHandler<GetStocksBySectorQuery> for GetStocksBySectorQueryHandler {
-    async fn handle(&self, query: GetStocksBySectorQuery) -> ApplicationResult<GetStocksBySectorResponse> {
+    async fn handle(
+        &self,
+        query: GetStocksBySectorQuery,
+    ) -> ApplicationResult<GetStocksBySectorResponse> {
         // 1. Validate and parse sector
         let sector = MarketSector::new(query.sector.clone())
             .map_err(|e| ApplicationError::validation("sector", e.to_string()))?;
 
         // 2. Get stocks from repository
-        let analyses = self.stock_analysis_repository
+        let analyses = self
+            .stock_analysis_repository
             .find_by_sector(&sector)
             .await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?;
 
         // 3. Map to summaries
-        let stocks: Vec<StockAnalysisSummary> = analyses.into_iter().map(|analysis| {
-            StockAnalysisSummary {
+        let stocks: Vec<StockAnalysisSummary> = analyses
+            .into_iter()
+            .map(|analysis| StockAnalysisSummary {
                 symbol: analysis.symbol().to_string(),
                 company_name: analysis.company_name().to_string(),
                 current_eps: analysis.current_eps().value(),
@@ -43,8 +48,8 @@ impl QueryHandler<GetStocksBySectorQuery> for GetStocksBySectorQueryHandler {
                 country: analysis.country().name().to_string(),
                 analysis_score: analysis.analysis_score().overall_score,
                 last_updated: analysis.last_updated(),
-            }
-        }).collect();
+            })
+            .collect();
 
         let count = stocks.len();
 

@@ -1,0 +1,21 @@
+{
+  "queue_depth": 12,
+  "queue_age_seconds": 18,
+  "suppressed": 4,
+  "retry_wait": 2,
+  "terminal_failed": 1,
+  "dead_lettered": 0,
+  "provider_accepted": 98,
+  "attempting": 3,
+  "channel_outcomes": { "in_app": 80, "email": 18 },
+  "provider_events": 98,
+  "delivery_attempts": 100,
+  "replay_cursors": 5,
+  "replay_cursor_age_seconds": 20,
+  "active_streams": 4,
+  "stream_connections_total": 30,
+  "stream_reconnects_total": 3,
+  "stream_replayed_events_total": 12,
+  "stream_lag_seconds": 5,
+  "stream_query_failures_total": 0
+}

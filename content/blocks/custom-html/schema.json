@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json.schemastore.org/block-type.json",
+  "type": "custom-html",
+  "name": "Custom HTML",
+  "category": "advanced",
+  "description": "Raw HTML block (admin only)",
+  "props": {
+    "html": { "type": "string", "required": true, "description": "Raw HTML content" },
+    "css": { "type": "string", "description": "Scoped CSS" },
+    "scripts": { "type": "string", "description": "JavaScript code" }
+  }
+}

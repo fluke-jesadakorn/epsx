@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: epsx-backend
+spec:
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: epsx-frontend
+spec:
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: epsx-admin
+spec:
+  replicas: 1
+---
+# wave12(integration): dev runs the new epsx-analytics binary
+# with 1 replica. No HPA in dev (the monolith has 1 too).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: epsx-analytics
+spec:
+  replicas: 1

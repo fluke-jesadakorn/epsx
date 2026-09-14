@@ -2,30 +2,30 @@
 //!
 //! Handlers for credit balance, history, and admin management
 
+use crate::infrastructure::adapters::repositories::credit_repository_adapter::admin::{
+    valid_wallet, AdminCreditError,
+};
+use axum::http::{HeaderMap, StatusCode};
 use axum::{
-    extract::{State, Query, Path},
+    extract::{Path, Query, State},
     response::Json,
     Extension,
 };
-use serde::{Deserialize, Serialize};
+use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
-use tracing::{info, error};
-use bigdecimal::{BigDecimal, ToPrimitive};
+use serde::{Deserialize, Serialize};
+use tracing::{error, info};
 
 use crate::{
-    prelude::*,
-    web::{
-        middleware::UnifiedErrorResponse,
-        auth::AppState,
-    },
     infrastructure::{
         adapters::repositories::CreditRepositoryAdapter,
         models::credit::{
-            CreditBalanceResponse, CreditTransactionResponse,
-            CreditTransactionFilters, CreditStatsResponse,
-            GrantCreditsRequest, RevokeCreditsRequest,
+            CreditBalanceResponse, CreditStatsResponse, CreditTransactionFilters,
+            CreditTransactionResponse, GrantCreditsRequest, RevokeCreditsRequest,
         },
     },
+    prelude::*,
+    web::{auth::AppState, middleware::UnifiedErrorResponse},
 };
 
 // ============================================================================
@@ -43,20 +43,28 @@ pub async fn get_credit_balance(
 
     // Get payments database connection
     use crate::infrastructure::database::get_payments_pool;
-    let payments_pool = get_payments_pool().await
-        .map_err(|e| {
-            error!("Failed to get payments database pool: {}", e);
-            Json(UnifiedErrorResponse::new(500, "Database connection failed", "Failed to get database pool"))
-        })?;
+    let payments_pool = get_payments_pool().await.map_err(|e| {
+        error!("Failed to get payments database pool: {}", e);
+        Json(UnifiedErrorResponse::new(
+            500,
+            "Database connection failed",
+            "Failed to get database pool",
+        ))
+    })?;
 
-    let repo = CreditRepositoryAdapter::new(payments_pool);
+    let repo = CreditRepositoryAdapter::new(std::sync::Arc::new(payments_pool));
 
     // Get or create balance
-    let balance = repo.get_or_create_balance(&wallet_address)
+    let balance = repo
+        .get_or_create_balance(&wallet_address)
         .await
         .map_err(|e| {
             error!("Failed to get credit balance: {}", e);
-            Json(UnifiedErrorResponse::new(500, "Failed to retrieve balance", e.to_string()))
+            Json(UnifiedErrorResponse::new(
+                500,
+                "Failed to retrieve balance",
+                e.to_string(),
+            ))
         })?;
 
     Ok(Json(CreditBalanceResponse::from(balance)))
@@ -92,13 +100,16 @@ pub async fn get_credit_history(
 
     // Get payments database connection
     use crate::infrastructure::database::get_payments_pool;
-    let payments_pool = get_payments_pool().await
-        .map_err(|e| {
-            error!("Failed to get payments database pool: {}", e);
-            Json(UnifiedErrorResponse::new(500, "Database connection failed", "Failed to get database pool"))
-        })?;
+    let payments_pool = get_payments_pool().await.map_err(|e| {
+        error!("Failed to get payments database pool: {}", e);
+        Json(UnifiedErrorResponse::new(
+            500,
+            "Database connection failed",
+            "Failed to get database pool",
+        ))
+    })?;
 
-    let repo = CreditRepositoryAdapter::new(payments_pool);
+    let repo = CreditRepositoryAdapter::new(std::sync::Arc::new(payments_pool));
 
     let filters = CreditTransactionFilters {
         wallet_address: None, // Will be filtered in repository
@@ -109,15 +120,21 @@ pub async fn get_credit_history(
         offset: params.offset,
     };
 
-    let transactions = repo.get_transactions(&wallet_address, Some(filters))
+    let transactions = repo
+        .get_transactions(&wallet_address, Some(filters))
         .await
         .map_err(|e| {
             error!("Failed to get credit history: {}", e);
-            Json(UnifiedErrorResponse::new(500, "Failed to retrieve history", e.to_string()))
+            Json(UnifiedErrorResponse::new(
+                500,
+                "Failed to retrieve history",
+                e.to_string(),
+            ))
         })?;
 
     let count = transactions.len();
-    let data: Vec<CreditTransactionResponse> = transactions.into_iter()
+    let data: Vec<CreditTransactionResponse> = transactions
+        .into_iter()
         .map(CreditTransactionResponse::from)
         .collect();
 
@@ -139,251 +156,174 @@ pub async fn admin_get_user_credits(
     Extension(_admin_context): Extension<crate::web::middleware::OpenIDUserContext>,
     Path(wallet_address): Path<String>,
     Query(params): Query<CreditHistoryQuery>,
-) -> Result<Json<serde_json::Value>, Json<UnifiedErrorResponse>> {
+) -> Result<Json<serde_json::Value>, AdminError> {
     let wallet_address = wallet_address.to_lowercase();
     info!("Admin getting credits for wallet: {}", wallet_address);
 
-    // Get payments database connection
-    use crate::infrastructure::database::get_payments_pool;
-    let payments_pool = get_payments_pool().await
-        .map_err(|e| {
-            error!("Failed to get payments database pool: {}", e);
-            Json(UnifiedErrorResponse::new(500, "Database connection failed", "Failed to get database pool"))
-        })?;
-
-    let repo = CreditRepositoryAdapter::new(payments_pool);
-
-    // Get balance
-    let balance = repo.get_or_create_balance(&wallet_address)
+    if !valid_wallet(&wallet_address) {
+        return Err(admin_error(AdminCreditError::Invalid));
+    }
+    let payments_pool = crate::infrastructure::database::get_payments_pool()
         .await
-        .map_err(|e| {
-            error!("Failed to get credit balance: {}", e);
-            Json(UnifiedErrorResponse::new(500, "Failed to retrieve balance", e.to_string()))
-        })?;
-
-    // Get transactions
+        .map_err(|_| admin_error(AdminCreditError::Unavailable))?;
+    let repo = CreditRepositoryAdapter::new(std::sync::Arc::new(payments_pool));
+    let balance = repo
+        .get_or_create_balance(&wallet_address)
+        .await
+        .map_err(|_| admin_error(AdminCreditError::Unavailable))?;
     let filters = CreditTransactionFilters {
         wallet_address: None,
         tx_type: params.tx_type,
         from_date: params.from_date,
         to_date: params.to_date,
-        limit: params.limit.or(Some(50)),
-        offset: params.offset,
+        limit: Some(params.limit.unwrap_or(50).clamp(1, 100)),
+        offset: Some(params.offset.unwrap_or(0).max(0)),
     };
-
-    let transactions = repo.get_transactions(&wallet_address, Some(filters))
+    let transactions = repo
+        .get_transactions(&wallet_address, Some(filters))
         .await
-        .map_err(|e| {
-            error!("Failed to get credit history: {}", e);
-            Json(UnifiedErrorResponse::new(500, "Failed to retrieve history", e.to_string()))
-        })?;
-
-    let response = serde_json::json!({
-        "success": true,
-        "data": {
-            "balance": CreditBalanceResponse::from(balance),
-            "transactions": transactions.into_iter()
-                .map(CreditTransactionResponse::from)
-                .collect::<Vec<_>>(),
-        }
-    });
-
-    Ok(Json(response))
+        .map_err(|_| admin_error(AdminCreditError::Unavailable))?;
+    Ok(Json(serde_json::json!({"success":true,"data":{
+        "balance":CreditBalanceResponse::from(balance),
+        "transactions":transactions.into_iter().map(CreditTransactionResponse::from).collect::<Vec<_>>()
+    }})))
 }
 
-/// POST /api/admin/credits/grant
-/// Grant credits to a user (admin)
+type AdminError = (StatusCode, Json<UnifiedErrorResponse>);
+fn admin_error(error: AdminCreditError) -> AdminError {
+    let (status, message) = match error {
+        AdminCreditError::Invalid => (
+            StatusCode::BAD_REQUEST,
+            "Invalid wallet, amount, reason, expiry or idempotency key",
+        ),
+        AdminCreditError::Conflict => (
+            StatusCode::CONFLICT,
+            "Idempotency key was already used for a different command",
+        ),
+        AdminCreditError::InsufficientBalance => {
+            (StatusCode::CONFLICT, "Insufficient available credits")
+        }
+        AdminCreditError::Unavailable => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Credit ledger is unavailable",
+        ),
+    };
+    (
+        status,
+        Json(UnifiedErrorResponse::new(status.as_u16(), message, message)),
+    )
+}
+
 pub async fn admin_grant_credits(
-    State(_app_state): State<AppState>,
-    Extension(admin_context): Extension<crate::web::middleware::OpenIDUserContext>,
+    State(state): State<AppState>,
+    Extension(context): Extension<crate::web::middleware::OpenIDUserContext>,
+    headers: HeaderMap,
     Json(request): Json<GrantCreditsRequest>,
-) -> Result<Json<serde_json::Value>, Json<UnifiedErrorResponse>> {
-    let admin_wallet = admin_context.wallet_address.clone();
-    info!("Admin {} granting {} credits to {}", admin_wallet, request.amount, request.wallet_address);
-
-    // Validate amount is positive
-    if request.amount <= 0 {
-        return Err(Json(UnifiedErrorResponse::new(400, "Invalid amount", "Amount must be positive")));
-    }
-
-    let wallet_address = request.wallet_address.to_lowercase();
-
-    // Get payments database connection
-    use crate::infrastructure::database::get_payments_pool;
-    let payments_pool = get_payments_pool().await
-        .map_err(|e| {
-            error!("Failed to get payments database pool: {}", e);
-            Json(UnifiedErrorResponse::new(500, "Database connection failed", "Failed to get database pool"))
-        })?;
-
-    let repo = CreditRepositoryAdapter::new(payments_pool);
-
-    // Add grant transaction
-    let tx_id = repo.add_transaction(
-        &wallet_address,
-        request.amount.clone(),
-        "grant",
-        None,
-        Some("admin_action"),
-        request.reason.as_deref(),
-        Some(&request.granted_by),
+) -> Result<Json<serde_json::Value>, AdminError> {
+    adjust(
+        &state,
+        &context.wallet_address,
+        &headers,
+        &request.wallet_address,
+        request.amount,
+        true,
+        request.reason,
         request.expires_at,
-        None,
     )
     .await
-    .map_err(|e| {
-        error!("Failed to grant credits: {}", e);
-        Json(UnifiedErrorResponse::new(500, "Failed to grant credits", e.to_string()))
-    })?;
-
-    // Get updated balance
-    let balance = repo.get_balance(&wallet_address)
-        .await
-        .map_err(|e| {
-            error!("Failed to get updated balance: {}", e);
-            Json(UnifiedErrorResponse::new(500, "Failed to retrieve balance", e.to_string()))
-        })?
-        .ok_or_else(|| {
-            error!("Balance not found after granting credits");
-            Json(UnifiedErrorResponse::new(500, "Internal error", "Balance not found"))
-        })?;
-
-    // Notify user about credits received
-    let notif_wallet = wallet_address.clone();
-    let notif_amount = request.amount.to_string();
-    let notif_state = _app_state.clone();
-    tokio::spawn(async move {
-        use crate::infrastructure::services::NotificationService;
-        use crate::web::notifications::{NotificationType, NotificationPriority};
-        let _ = NotificationService::send(
-            &notif_state,
-            &notif_wallet,
-            NotificationType::Payment,
-            NotificationPriority::Normal,
-            "Credits Received",
-            &format!("You received {} credits", notif_amount),
-            Some(serde_json::json!({ "amount": notif_amount, "type": "grant" })),
-            None,
-        ).await;
-    });
-
-    Ok(Json(serde_json::json!({
-        "success": true,
-        "message": "Credits granted successfully",
-        "data": {
-            "transaction_id": tx_id,
-            "new_balance": balance.balance.to_f64().unwrap_or(0.0),
-        }
-    })))
 }
 
-/// POST /api/admin/credits/revoke
-/// Revoke credits from a user (admin)
 pub async fn admin_revoke_credits(
-    State(_app_state): State<AppState>,
-    Extension(admin_context): Extension<crate::web::middleware::OpenIDUserContext>,
+    State(state): State<AppState>,
+    Extension(context): Extension<crate::web::middleware::OpenIDUserContext>,
+    headers: HeaderMap,
     Json(request): Json<RevokeCreditsRequest>,
-) -> Result<Json<serde_json::Value>, Json<UnifiedErrorResponse>> {
-    let admin_wallet = admin_context.wallet_address.clone();
-    info!("Admin {} revoking {} credits from {}", admin_wallet, request.amount, request.wallet_address);
-
-    // Validate amount is positive
-    if request.amount <= 0 {
-        return Err(Json(UnifiedErrorResponse::new(400, "Invalid amount", "Amount must be positive")));
-    }
-
-    let wallet_address = request.wallet_address.to_lowercase();
-
-    // Get payments database connection
-    use crate::infrastructure::database::get_payments_pool;
-    let payments_pool = get_payments_pool().await
-        .map_err(|e| {
-            error!("Failed to get payments database pool: {}", e);
-            Json(UnifiedErrorResponse::new(500, "Database connection failed", "Failed to get database pool"))
-        })?;
-
-    let repo = CreditRepositoryAdapter::new(payments_pool);
-
-    // Check if user has sufficient balance
-    let current_balance = repo.get_balance(&wallet_address)
-        .await
-        .map_err(|e| {
-            error!("Failed to get current balance: {}", e);
-            Json(UnifiedErrorResponse::new(500, "Failed to retrieve balance", e.to_string()))
-        })?
-        .map(|b| b.balance)
-        .unwrap_or_else(|| BigDecimal::from(0));
-
-    if current_balance < request.amount {
-        return Err(Json(UnifiedErrorResponse::new(400, "Insufficient balance",
-            format!("User only has {} credits available", current_balance))));
-    }
-
-    // Add revoke transaction (negative amount)
-    let negative_amount = -request.amount.clone();
-    let tx_id = repo.add_transaction(
-        &wallet_address,
-        negative_amount,
-        "revoke",
-        None,
-        Some("admin_action"),
-        request.reason.as_deref(),
-        Some(&request.granted_by),
-        None,
+) -> Result<Json<serde_json::Value>, AdminError> {
+    adjust(
+        &state,
+        &context.wallet_address,
+        &headers,
+        &request.wallet_address,
+        request.amount,
+        false,
+        request.reason,
         None,
     )
     .await
-    .map_err(|e| {
-        error!("Failed to revoke credits: {}", e);
-        Json(UnifiedErrorResponse::new(500, "Failed to revoke credits", e.to_string()))
-    })?;
+}
 
-    // Get updated balance
-    let balance = repo.get_balance(&wallet_address)
+async fn adjust(
+    state: &AppState,
+    actor: &str,
+    headers: &HeaderMap,
+    wallet: &str,
+    amount: BigDecimal,
+    grant: bool,
+    reason: Option<String>,
+    expires_at: Option<DateTime<Utc>>,
+) -> Result<Json<serde_json::Value>, AdminError> {
+    let key = headers
+        .get("idempotency-key")
+        .and_then(|v| v.to_str().ok())
+        .ok_or_else(|| admin_error(AdminCreditError::Invalid))?;
+    let pool = crate::infrastructure::database::get_payments_pool()
         .await
-        .map_err(|e| {
-            error!("Failed to get updated balance: {}", e);
-            Json(UnifiedErrorResponse::new(500, "Failed to retrieve balance", e.to_string()))
-        })?
-        .ok_or_else(|| {
-            error!("Balance not found after revoking credits");
-            Json(UnifiedErrorResponse::new(500, "Internal error", "Balance not found"))
-        })?;
-
-    Ok(Json(serde_json::json!({
-        "success": true,
-        "message": "Credits revoked successfully",
-        "data": {
-            "transaction_id": tx_id,
-            "new_balance": balance.balance.to_f64().unwrap_or(0.0),
-        }
-    })))
+        .map_err(|_| admin_error(AdminCreditError::Unavailable))?;
+    let result = CreditRepositoryAdapter::new(std::sync::Arc::new(pool))
+        .admin_adjust(
+            actor,
+            key,
+            wallet,
+            amount.clone(),
+            grant,
+            reason.as_deref(),
+            expires_at,
+        )
+        .await
+        .map_err(admin_error)?;
+    if grant && !result.replayed {
+        let state = state.clone();
+        let wallet = wallet.to_ascii_lowercase();
+        let amount = amount.to_string();
+        let transaction_id = result.transaction_id;
+        tokio::spawn(async move {
+            use epsx_contracts::notification_port::SendNotificationRequest;
+            if let Some(port) = state.notification_port.as_ref() {
+                let _ = port
+                    .send_with_event_id_retry(
+                        &format!("payment.credit.grant:{transaction_id}"),
+                        SendNotificationRequest {
+                            recipient_wallet_address: wallet,
+                            notification_type: "payment".into(),
+                            priority: "normal".into(),
+                            title: "Credits Received".into(),
+                            message: format!("You received {amount} credits"),
+                            data: Some(serde_json::json!({"amount":amount,"type":"grant"})),
+                            action_url: None,
+                            expires_at: None,
+                        },
+                    )
+                    .await;
+            }
+        });
+    }
+    Ok(Json(serde_json::json!({"success":true,"data":{
+        "transaction_id":result.transaction_id,"new_balance":result.balance_after.to_string(),"replayed":result.replayed
+    }})))
 }
 
 /// GET /api/admin/credits/stats
 /// Get credit system statistics (admin)
 pub async fn admin_get_credit_stats(
-    State(_app_state): State<AppState>,
-    Extension(_admin_context): Extension<crate::web::middleware::OpenIDUserContext>,
-) -> Result<Json<CreditStatsResponse>, Json<UnifiedErrorResponse>> {
-    info!("Admin getting credit statistics");
-
-    // Get payments database connection
-    use crate::infrastructure::database::get_payments_pool;
-    let payments_pool = get_payments_pool().await
-        .map_err(|e| {
-            error!("Failed to get payments database pool: {}", e);
-            Json(UnifiedErrorResponse::new(500, "Database connection failed", "Failed to get database pool"))
-        })?;
-
-    let repo = CreditRepositoryAdapter::new(payments_pool);
-
-    let stats = repo.get_stats()
+    State(_state): State<AppState>,
+    Extension(_context): Extension<crate::web::middleware::OpenIDUserContext>,
+) -> Result<Json<CreditStatsResponse>, AdminError> {
+    let pool = crate::infrastructure::database::get_payments_pool()
         .await
-        .map_err(|e| {
-            error!("Failed to get credit stats: {}", e);
-            Json(UnifiedErrorResponse::new(500, "Failed to retrieve stats", e.to_string()))
-        })?;
-
-    Ok(Json(stats))
+        .map_err(|_| admin_error(AdminCreditError::Unavailable))?;
+    CreditRepositoryAdapter::new(std::sync::Arc::new(pool))
+        .get_stats()
+        .await
+        .map(Json)
+        .map_err(|_| admin_error(AdminCreditError::Unavailable))
 }

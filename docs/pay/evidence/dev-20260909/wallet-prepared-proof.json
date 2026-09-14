@@ -1,0 +1,16 @@
+{
+  "order_id": "bdf1a757-424d-4328-a7a7-e8990ef262b3",
+  "payment_id": "pi_47ed546bdf854722ae1b2fd460f15662",
+  "token": "USDC",
+  "amount": "5",
+  "chain_id": 31337,
+  "transaction_hash": "0x93640ec616367d32df8a49ff807c7a626f41b36bf37ee3af480960ab9eec0c37",
+  "payment_status": "succeeded",
+  "fulfillment_status": "granted",
+  "transport": "HTTPS prepare-transfer API, generated test buyer signs exact returned transaction via CLI",
+  "admin_verified": true,
+  "webhook_status": "delivered",
+  "webhook_http_status": 200,
+  "webhook_attempts": 1,
+  "service_restart_preserved": true
+}

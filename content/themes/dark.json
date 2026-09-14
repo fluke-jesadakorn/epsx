@@ -1,0 +1,46 @@
+{
+  "name": "EPSX Dark",
+  "colors": {
+    "primary": "#3b82f6",
+    "primary-hover": "#2563eb",
+    "secondary": "#8b5cf6",
+    "background": "#030712",
+    "surface": "#111827",
+    "surface-2": "#1f2937",
+    "border": "#374151",
+    "text": "#f9fafb",
+    "text-muted": "#9ca3af",
+    "success": "#10b981",
+    "warning": "#f59e0b",
+    "error": "#ef4444"
+  },
+  "fonts": {
+    "heading": "Inter, system-ui, sans-serif",
+    "body": "Inter, system-ui, sans-serif",
+    "mono": "JetBrains Mono, ui-monospace, monospace"
+  },
+  "spacing": {
+    "unit": "4px",
+    "xs": "4px",
+    "sm": "8px",
+    "md": "16px",
+    "lg": "24px",
+    "xl": "32px",
+    "2xl": "48px",
+    "3xl": "64px"
+  },
+  "breakpoints": {
+    "sm": "640px",
+    "md": "768px",
+    "lg": "1024px",
+    "xl": "1280px",
+    "2xl": "1536px"
+  },
+  "radius": {
+    "sm": "4px",
+    "md": "8px",
+    "lg": "12px",
+    "xl": "16px",
+    "full": "9999px"
+  }
+}

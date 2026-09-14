@@ -1,0 +1,15 @@
+{
+  "menus": {
+    "main": [
+      { "id": "home", "label": "Home", "url": "/", "order": 1, "visible": true },
+      { "id": "pricing", "label": "Pricing", "url": "/pricing", "order": 2, "visible": true },
+      { "id": "blog", "label": "Blog", "url": "/blog", "order": 3, "visible": true },
+      { "id": "about", "label": "About", "url": "/about", "order": 4, "visible": true }
+    ],
+    "footer": [
+      { "id": "terms", "label": "Terms", "url": "/terms", "order": 1, "visible": true },
+      { "id": "privacy", "label": "Privacy", "url": "/privacy", "order": 2, "visible": true },
+      { "id": "contact", "label": "Contact", "url": "/contact", "order": 3, "visible": true }
+    ]
+  }
+}

@@ -1,16 +1,19 @@
 // TradingView REST - Focused Module for HTTP API Communication
 // Handles HTTP requests, headers, retry logic, and request building
 
-use std::time::Duration;
 use reqwest::{Client, ClientBuilder};
 use serde_json::json;
+use std::time::Duration;
 use tokio_retry::{
+    strategy::{jitter, ExponentialBackoff},
     Retry,
-    strategy::{ExponentialBackoff, jitter},
 };
 use tracing::{debug, error, info, warn};
 
-use super::types::{TradingViewConfig, TradingViewResponse, MarketDataError};
+use super::types::{MarketDataError, TradingViewConfig, TradingViewResponse};
+
+const MAX_CUSTOM_RESPONSE_BYTES: usize = 2 * 1024 * 1024;
+const RESPONSE_TOO_LARGE_MESSAGE: &str = "TradingView response exceeded the configured limit";
 
 /// REST API client for TradingView integration
 pub struct TradingViewRestClient {
@@ -34,31 +37,72 @@ impl TradingViewRestClient {
     /// Build request headers for TradingView API using exact format from capture
     pub fn get_request_headers(&self) -> reqwest::header::HeaderMap {
         let mut headers = reqwest::header::HeaderMap::new();
-        
+
         // Exact headers from TradingView capture
-        headers.insert("accept", reqwest::header::HeaderValue::from_static("application/json"));
-        headers.insert("accept-language", reqwest::header::HeaderValue::from_static("th-TH,th;q=0.9,en;q=0.8"));
-        headers.insert("cache-control", reqwest::header::HeaderValue::from_static("no-cache"));
-        headers.insert("content-type", reqwest::header::HeaderValue::from_static("text/plain;charset=UTF-8"));
-        headers.insert("pragma", reqwest::header::HeaderValue::from_static("no-cache"));
-        headers.insert("priority", reqwest::header::HeaderValue::from_static("u=1, i"));
-        
+        headers.insert(
+            "accept",
+            reqwest::header::HeaderValue::from_static("application/json"),
+        );
+        headers.insert(
+            "accept-language",
+            reqwest::header::HeaderValue::from_static("th-TH,th;q=0.9,en;q=0.8"),
+        );
+        headers.insert(
+            "cache-control",
+            reqwest::header::HeaderValue::from_static("no-cache"),
+        );
+        headers.insert(
+            "content-type",
+            reqwest::header::HeaderValue::from_static("text/plain;charset=UTF-8"),
+        );
+        headers.insert(
+            "pragma",
+            reqwest::header::HeaderValue::from_static("no-cache"),
+        );
+        headers.insert(
+            "priority",
+            reqwest::header::HeaderValue::from_static("u=1, i"),
+        );
+
         // Security headers from capture
-        headers.insert("sec-ch-ua", reqwest::header::HeaderValue::from_static(r#""Not;A=Brand";v="99", "Google Chrome";v="139", "Chromium";v="139""#));
-        headers.insert("sec-ch-ua-mobile", reqwest::header::HeaderValue::from_static("?0"));
-        headers.insert("sec-ch-ua-platform", reqwest::header::HeaderValue::from_static(r#""macOS""#));
-        headers.insert("sec-fetch-dest", reqwest::header::HeaderValue::from_static("empty"));
-        headers.insert("sec-fetch-mode", reqwest::header::HeaderValue::from_static("cors"));
-        headers.insert("sec-fetch-site", reqwest::header::HeaderValue::from_static("same-site"));
-        
+        headers.insert(
+            "sec-ch-ua",
+            reqwest::header::HeaderValue::from_static(
+                r#""Not;A=Brand";v="99", "Google Chrome";v="139", "Chromium";v="139""#,
+            ),
+        );
+        headers.insert(
+            "sec-ch-ua-mobile",
+            reqwest::header::HeaderValue::from_static("?0"),
+        );
+        headers.insert(
+            "sec-ch-ua-platform",
+            reqwest::header::HeaderValue::from_static(r#""macOS""#),
+        );
+        headers.insert(
+            "sec-fetch-dest",
+            reqwest::header::HeaderValue::from_static("empty"),
+        );
+        headers.insert(
+            "sec-fetch-mode",
+            reqwest::header::HeaderValue::from_static("cors"),
+        );
+        headers.insert(
+            "sec-fetch-site",
+            reqwest::header::HeaderValue::from_static("same-site"),
+        );
+
         // Referer from configuration or default
         let referer = self.config.referer_url.clone();
         if let Ok(referer_header) = reqwest::header::HeaderValue::from_str(&referer) {
             headers.insert("referer", referer_header);
         } else {
-            headers.insert("referer", reqwest::header::HeaderValue::from_static("https://www.tradingview.com/"));
+            headers.insert(
+                "referer",
+                reqwest::header::HeaderValue::from_static("https://www.tradingview.com/"),
+            );
         }
-        
+
         headers
     }
 
@@ -67,11 +111,9 @@ impl TradingViewRestClient {
         &self,
         payload: serde_json::Value,
     ) -> Result<TradingViewResponse, MarketDataError> {
-        let retry_strategy = ExponentialBackoff::from_millis(100)
-            .map(jitter)
-            .take(3);
+        let retry_strategy = ExponentialBackoff::from_millis(100).map(jitter).take(3);
 
-        Retry::spawn(retry_strategy, || async {
+        Retry::start(retry_strategy, || async {
             info!("Making request to TradingView API");
             debug!("Attempting to fetch data from TradingView");
 
@@ -88,20 +130,23 @@ impl TradingViewRestClient {
                 })?;
 
             if !response.status().is_success() {
-                let error_msg = format!("TradingView API returned status code: {}", response.status());
+                let error_msg = format!(
+                    "TradingView API returned status code: {}",
+                    response.status()
+                );
                 error!("{}", error_msg);
                 return Err(MarketDataError::ExternalApiError(error_msg));
             }
 
-            let trading_view_resp: TradingViewResponse = response.json().await
-                .map_err(|e| {
-                    error!("Failed to parse TradingView response: {}", e);
-                    MarketDataError::NetworkError(e.to_string())
-                })?;
+            let trading_view_resp: TradingViewResponse = response.json().await.map_err(|e| {
+                error!("Failed to parse TradingView response: {}", e);
+                MarketDataError::NetworkError(e.to_string())
+            })?;
 
             debug!("Successfully fetched and parsed data from TradingView");
             Ok(trading_view_resp)
-        }).await
+        })
+        .await
     }
 
     /// Execute custom HTTP request with detailed error handling
@@ -115,45 +160,89 @@ impl TradingViewRestClient {
             .take(max_retries)
             .map(jitter);
 
-        Retry::spawn(retry_strategy, || {
-            let headers = self.get_request_headers();
-            let body = payload.clone();
-            
-            async move {
-                let response = self.client
-                    .post(&self.config.scanner_api_url)
-                    .headers(headers)
-                    .body(serde_json::to_string(&body).map_err(|e| {
-                        error!("Failed to serialize request body: {:?}", e);
-                        MarketDataError::SerializationError(e.to_string())
-                    })?)
-                    .send()
-                    .await
-                    .map_err(|e| {
-                        error!("TradingView API request failed: {:?}", e);
-                        MarketDataError::NetworkError(e.to_string())
-                    })?;
-
-                if !response.status().is_success() {
-                    let status = response.status();
-                    let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
-                    error!("TradingView API error {}: {}", status, error_text);
-                    return Err(MarketDataError::ExternalApiError(format!("API error {}: {}", status, error_text)));
-                }
-
-                let response_text = response.text().await.map_err(|e| {
-                    error!("Failed to read response text: {:?}", e);
-                    MarketDataError::NetworkError(e.to_string())
-                })?;
-
-                serde_json::from_str::<TradingViewResponse>(&response_text).map_err(|e| {
-                    error!("Failed to parse TradingView response: {:?}", e);
-                    debug!("Response text (first 500 chars): {}", &response_text[..response_text.len().min(500)]);
-                    MarketDataError::ParsingError(e.to_string())
-                })
-            }
+        Retry::start(retry_strategy, || {
+            self.execute_custom_request_once(payload.clone())
         })
         .await
+    }
+
+    /// Execute exactly one custom HTTP request. Rankings retry ownership lives
+    /// in the process-shared bounded provider, so this path must not retry.
+    pub async fn execute_custom_request_once(
+        &self,
+        payload: serde_json::Value,
+    ) -> Result<TradingViewResponse, MarketDataError> {
+        let mut response = self
+            .client
+            .post(&self.config.scanner_api_url)
+            .headers(self.get_request_headers())
+            .body(serde_json::to_string(&payload).map_err(|e| {
+                error!("Failed to serialize TradingView request");
+                MarketDataError::SerializationError(e.to_string())
+            })?)
+            .send()
+            .await
+            .map_err(|e| {
+                let category = if e.is_timeout() {
+                    "timeout"
+                } else if e.is_connect() {
+                    "connect"
+                } else {
+                    "transport"
+                };
+                error!("TradingView API request failed ({})", category);
+                MarketDataError::NetworkError(category.to_string())
+            })?;
+
+        let status = response.status();
+        if !status.is_success() && status != reqwest::StatusCode::BAD_REQUEST {
+            error!("TradingView API returned status {}", status);
+            return Err(MarketDataError::HttpStatus(status.as_u16()));
+        }
+
+        if response
+            .content_length()
+            .is_some_and(|length| length > MAX_CUSTOM_RESPONSE_BYTES as u64)
+        {
+            error!("TradingView API response exceeded configured byte limit");
+            return Err(MarketDataError::ExternalApiError(
+                RESPONSE_TOO_LARGE_MESSAGE.to_string(),
+            ));
+        }
+
+        let mut response_body = Vec::with_capacity(
+            response
+                .content_length()
+                .unwrap_or(0)
+                .min(MAX_CUSTOM_RESPONSE_BYTES as u64) as usize,
+        );
+        while let Some(chunk) = response.chunk().await.map_err(|e| {
+            let category = if e.is_timeout() {
+                "timeout"
+            } else {
+                "response"
+            };
+            error!("Failed to read TradingView response ({})", category);
+            MarketDataError::NetworkError(category.to_string())
+        })? {
+            append_bounded_response_chunk(&mut response_body, &chunk, MAX_CUSTOM_RESPONSE_BYTES)?;
+        }
+
+        if status == reqwest::StatusCode::BAD_REQUEST {
+            if let Some(total) = exhausted_range_total(&payload, &response_body) {
+                return Ok(TradingViewResponse {
+                    data: Vec::new(),
+                    total_count: Some(total),
+                });
+            }
+            error!("TradingView API returned status {}", status);
+            return Err(MarketDataError::HttpStatus(status.as_u16()));
+        }
+
+        serde_json::from_slice::<TradingViewResponse>(&response_body).map_err(|e| {
+            error!("Failed to parse TradingView response: {}", e);
+            MarketDataError::ParsingError(e.to_string())
+        })
     }
 
     /// Execute batch requests with rate limiting
@@ -162,25 +251,26 @@ impl TradingViewRestClient {
         payloads: Vec<serde_json::Value>,
     ) -> Vec<Result<TradingViewResponse, MarketDataError>> {
         use tokio::time::{sleep, Duration};
-        
+
         let mut results = Vec::new();
         let concurrent_limit = super::types::constants::MAX_CONCURRENT_REQUESTS;
         let delay_between_batches = Duration::from_millis(super::types::constants::BATCH_DELAY_MS);
-        
+
         for batch in payloads.chunks(concurrent_limit) {
-            let batch_futures: Vec<_> = batch.iter()
+            let batch_futures: Vec<_> = batch
+                .iter()
                 .map(|payload| self.execute_request_with_retry(payload.clone()))
                 .collect();
-            
+
             let batch_results = futures::future::join_all(batch_futures).await;
             results.extend(batch_results);
-            
+
             // Add delay between batches to respect rate limits
             if batch.len() == concurrent_limit {
                 sleep(delay_between_batches).await;
             }
         }
-        
+
         results
     }
 
@@ -213,26 +303,90 @@ impl TradingViewRestClient {
     }
 }
 
+/// The scanner reports an exhausted range as HTTP 400 (including totalCount: 0
+/// even when the market has matches). Accept only its exact range error for the
+/// range we sent; unrelated query errors must remain failures. The total is used
+/// for pagination only, and never resets the wallet's entitlement offset.
+fn exhausted_range_total(payload: &serde_json::Value, body: &[u8]) -> Option<i32> {
+    let range = payload.get("range")?.as_array()?;
+    if range.len() != 2 {
+        return None;
+    }
+    let start = i32::try_from(range[0].as_i64()?).ok()?;
+    let end = i32::try_from(range[1].as_i64()?).ok()?;
+    if start < 0 || end <= start {
+        return None;
+    }
+    let response: serde_json::Value = serde_json::from_slice(body).ok()?;
+    if !response.get("data")?.is_null() {
+        return None;
+    }
+    let prefix = format!(
+        "could not write scan response: interval [{start}:{end}] is out of available range [:"
+    );
+    let total = response
+        .get("error")?
+        .as_str()?
+        .strip_prefix(&prefix)?
+        .strip_suffix(']')?;
+    if total.is_empty() || !total.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+    let total: i32 = total.parse().ok()?;
+    (start >= total).then_some(total)
+}
+
+fn append_bounded_response_chunk(
+    response_body: &mut Vec<u8>,
+    chunk: &[u8],
+    max_bytes: usize,
+) -> Result<(), MarketDataError> {
+    let next_len = response_body
+        .len()
+        .checked_add(chunk.len())
+        .filter(|length| *length <= max_bytes)
+        .ok_or_else(|| {
+            error!("TradingView API response exceeded configured byte limit");
+            MarketDataError::ExternalApiError(RESPONSE_TOO_LARGE_MESSAGE.to_string())
+        })?;
+
+    response_body.reserve(next_len.saturating_sub(response_body.len()));
+    response_body.extend_from_slice(chunk);
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::config::Config;
 
+    // wave 10 prep: dummy DATABASE_URL so Config::from_env() doesn't fail.
+    fn ensure_dummy_db_url() {
+        if std::env::var("DATABASE_URL").is_err() {
+            // SAFETY: see scanner.rs tests::ensure_dummy_db_url — same rationale.
+            unsafe {
+                std::env::set_var("DATABASE_URL", "postgres://test:test@localhost:5432/test");
+            }
+        }
+    }
+
     #[tokio::test]
     async fn test_rest_client_creation() {
+        ensure_dummy_db_url();
         let config = Config::from_env().unwrap();
         let tv_config = TradingViewConfig::from(&config);
         let client = TradingViewRestClient::new(tv_config);
-        
+
         assert!(!client.get_config().scanner_api_url.is_empty());
     }
 
     #[test]
     fn test_request_headers() {
+        ensure_dummy_db_url();
         let config = Config::from_env().unwrap();
         let tv_config = TradingViewConfig::from(&config);
         let client = TradingViewRestClient::new(tv_config);
-        
+
         let headers = client.get_request_headers();
         assert!(headers.contains_key("accept"));
         assert!(headers.contains_key("content-type"));
@@ -245,7 +399,7 @@ mod tests {
         let config = Config::from_env().unwrap();
         let tv_config = TradingViewConfig::from(&config);
         let client = TradingViewRestClient::new(tv_config);
-        
+
         // This test requires actual TradingView API access
         let result = client.test_connection().await;
         match result {
@@ -260,5 +414,78 @@ mod tests {
     #[test]
     fn test_batch_size_constants() {
         // Constants are verified at compile time
+    }
+
+    #[test]
+    fn a2_5_provider_response_body_is_bounded() {
+        let mut response_body = vec![1, 2];
+        append_bounded_response_chunk(&mut response_body, &[3, 4], 4)
+            .expect("response at the exact limit should be accepted");
+        assert_eq!(response_body, vec![1, 2, 3, 4]);
+
+        let error = append_bounded_response_chunk(&mut response_body, &[5], 4)
+            .expect_err("response above the limit must fail closed");
+        assert!(matches!(error, MarketDataError::ExternalApiError(_)));
+        assert_eq!(response_body, vec![1, 2, 3, 4]);
+    }
+    #[test]
+    fn country_range_exhaustion_keeps_the_provider_total() {
+        let payload = json!({"range": [99, 109]});
+        for total in [0, 12, 77, 99] {
+            let body = json!({"totalCount": 0, "data": null, "error": format!(
+                "could not write scan response: interval [99:109] is out of available range [:{total}]"
+            )});
+            assert_eq!(
+                exhausted_range_total(&payload, &serde_json::to_vec(&body).unwrap()),
+                Some(total)
+            );
+        }
+    }
+
+    #[test]
+    fn country_range_exhaustion_does_not_hide_other_provider_errors() {
+        let payload = json!({"range": [99, 109]});
+        for error in [
+            "Unknown field country",
+            "could not write scan response: interval [0:10] is out of available range [:12]",
+            "could not write scan response: interval [99:109] is out of available range [:100]",
+            "could not write scan response: interval [99:109] is out of available range [:-1]",
+            "could not write scan response: interval [99:109] is out of available range [:2147483648]",
+        ] {
+            let body = json!({"data": null, "error": error});
+            assert_eq!(exhausted_range_total(&payload, &serde_json::to_vec(&body).unwrap()), None);
+        }
+        assert_eq!(exhausted_range_total(&payload, b"invalid json"), None);
+    }
+
+    #[tokio::test]
+    async fn country_range_http_400_becomes_empty_page_without_retry() {
+        use axum::{routing::post, Json, Router};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let app = Router::new().route("/scan", post(|body: String| async move {
+            let request: serde_json::Value = serde_json::from_str(&body).unwrap();
+            assert_eq!(request["range"], json!([99, 109]));
+            (axum::http::StatusCode::BAD_REQUEST, Json(json!({
+                "totalCount": 0, "data": null,
+                "error": "could not write scan response: interval [99:109] is out of available range [:12]"
+            })))
+        }));
+        let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        let client = TradingViewRestClient::new(TradingViewConfig {
+            scanner_api_url: format!("http://{address}/scan"),
+            websocket_url: String::new(),
+            origin_url: String::new(),
+            referer_url: "http://localhost/".into(),
+            http_timeout_seconds: 3,
+            auth_token: String::new(),
+        });
+        let result = client
+            .execute_custom_request_once(json!({"range": [99, 109]}))
+            .await;
+        server.abort();
+        let page = result.expect("exhausted country should be an empty successful page");
+        assert!(page.data.is_empty());
+        assert_eq!(page.total_count, Some(12));
     }
 }

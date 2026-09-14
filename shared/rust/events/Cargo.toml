@@ -1,0 +1,17 @@
+[package]
+name = "epsx-events"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+epsx-kernel = { path = "../kernel" }
+serde.workspace = true
+serde_json.workspace = true
+redis.workspace = true
+chrono.workspace = true
+uuid.workspace = true
+tracing.workspace = true
+thiserror.workspace = true
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tokio.workspace = true

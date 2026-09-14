@@ -1,5 +1,5 @@
-use crate::prelude::*;
 use crate::application::shared::Query;
+use crate::prelude::*;
 use std::collections::HashMap;
 
 /// Query to get resource usage for a wallet

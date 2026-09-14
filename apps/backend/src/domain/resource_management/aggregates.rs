@@ -1,11 +1,11 @@
 // Resource Management Aggregates
 // Domain aggregates for resource management bounded context
 
+use crate::domain::shared_kernel::{AggregateBase, AggregateRoot, DomainEvent};
 use crate::prelude::*;
-use crate::domain::shared_kernel::{AggregateRoot, AggregateBase, DomainEvent};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use chrono::{DateTime, Utc};
 
 /// Unique identifier for resource usage aggregate
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -128,14 +128,15 @@ impl UserResourceUsage {
         // Raise event if limit exceeded
         if self.is_limit_exceeded(&resource_type) {
             let quota = *self.quota_limits.get(&resource_type).unwrap_or(&0);
-            self.base.add_event(Box::new(super::events::ResourceUsageExceeded::new(
-                self.wallet_address.clone(),
-                self.plan_id,
-                resource_type.clone(),
-                current_value,
-                quota,
-                self.access_context.clone(),
-            )));
+            self.base
+                .add_event(Box::new(super::events::ResourceUsageExceeded::new(
+                    self.wallet_address.clone(),
+                    self.plan_id,
+                    resource_type.clone(),
+                    current_value,
+                    quota,
+                    self.access_context.clone(),
+                )));
         }
 
         Ok(())

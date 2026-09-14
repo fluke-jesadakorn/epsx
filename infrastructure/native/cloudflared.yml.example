@@ -1,0 +1,14 @@
+# A dedicated locally managed named EPSX tunnel. Do not apply to unrelated tunnels.
+# For a remotely managed tunnel, enter these routes in its existing dashboard.
+tunnel: REPLACE_WITH_EPSX_TUNNEL_UUID
+credentials-file: /etc/epsx/tunnel/REPLACE_WITH_EPSX_TUNNEL_UUID.json
+ingress:
+  - hostname: epsx.io
+    service: http://127.0.0.1:4700
+  - hostname: admin.epsx.io
+    service: http://127.0.0.1:4701
+  - hostname: api.epsx.io
+    service: http://127.0.0.1:9180
+  - hostname: pay.epsx.io
+    service: http://127.0.0.1:4752
+  - service: http_status:404

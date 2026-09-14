@@ -1,0 +1,198 @@
+[
+  {
+    "country": "america",
+    "status": 200,
+    "n": 10,
+    "pagination": {
+      "page": 1,
+      "limit": 10,
+      "total": 1331,
+      "totalPages": 134,
+      "hasNext": true,
+      "hasPrev": false
+    },
+    "symbols": [
+      "NOV",
+      "FIEE",
+      "RGS"
+    ],
+    "message": "Fetched 10 card dashboard rankings successfully from TradingView API"
+  },
+  {
+    "country": "thailand",
+    "status": 200,
+    "n": 10,
+    "pagination": {
+      "page": 1,
+      "limit": 10,
+      "total": 93,
+      "totalPages": 10,
+      "hasNext": true,
+      "hasPrev": false
+    },
+    "symbols": [
+      "NETBAY",
+      "UAC",
+      "DOHOME"
+    ],
+    "message": "Fetched 10 card dashboard rankings successfully from TradingView API"
+  },
+  {
+    "country": "japan",
+    "status": 200,
+    "n": 10,
+    "pagination": {
+      "page": 1,
+      "limit": 10,
+      "total": 1197,
+      "totalPages": 120,
+      "hasNext": true,
+      "hasPrev": false
+    },
+    "symbols": [
+      "4689",
+      "6036",
+      "6762"
+    ],
+    "message": "Fetched 10 card dashboard rankings successfully from TradingView API"
+  },
+  {
+    "country": "china",
+    "status": 200,
+    "n": 10,
+    "pagination": {
+      "page": 1,
+      "limit": 10,
+      "total": 1426,
+      "totalPages": 143,
+      "hasNext": true,
+      "hasPrev": false
+    },
+    "symbols": [
+      "300638",
+      "000718",
+      "300690"
+    ],
+    "message": "Fetched 10 card dashboard rankings successfully from TradingView API"
+  },
+  {
+    "country": "uk",
+    "status": 200,
+    "n": 0,
+    "pagination": {
+      "page": 1,
+      "limit": 10,
+      "total": 0,
+      "totalPages": 0,
+      "hasNext": false,
+      "hasPrev": false
+    },
+    "symbols": [],
+    "message": "Fetched 0 card dashboard rankings successfully from TradingView API"
+  },
+  {
+    "country": "germany",
+    "status": 200,
+    "n": 0,
+    "pagination": {
+      "page": 1,
+      "limit": 10,
+      "total": 0,
+      "totalPages": 0,
+      "hasNext": false,
+      "hasPrev": false
+    },
+    "symbols": [],
+    "message": "Fetched 0 card dashboard rankings successfully from TradingView API"
+  },
+  {
+    "country": "singapore",
+    "status": 200,
+    "n": 0,
+    "pagination": {
+      "page": 1,
+      "limit": 10,
+      "total": 0,
+      "totalPages": 0,
+      "hasNext": false,
+      "hasPrev": false
+    },
+    "symbols": [],
+    "message": "Fetched 0 card dashboard rankings successfully from TradingView API"
+  },
+  {
+    "country": "hongkong",
+    "status": 200,
+    "n": 0,
+    "pagination": {
+      "page": 1,
+      "limit": 10,
+      "total": 0,
+      "totalPages": 0,
+      "hasNext": false,
+      "hasPrev": false
+    },
+    "symbols": [],
+    "message": "Fetched 0 card dashboard rankings successfully from TradingView API"
+  },
+  {
+    "country": "vietnam",
+    "status": 200,
+    "n": 0,
+    "pagination": {
+      "page": 1,
+      "limit": 10,
+      "total": 0,
+      "totalPages": 0,
+      "hasNext": false,
+      "hasPrev": false
+    },
+    "symbols": [],
+    "message": "Fetched 0 card dashboard rankings successfully from TradingView API"
+  },
+  {
+    "country": "australia",
+    "status": 200,
+    "n": 0,
+    "pagination": {
+      "page": 1,
+      "limit": 10,
+      "total": 0,
+      "totalPages": 0,
+      "hasNext": false,
+      "hasPrev": false
+    },
+    "symbols": [],
+    "message": "Fetched 0 card dashboard rankings successfully from TradingView API"
+  },
+  {
+    "country": "bahrain",
+    "status": 200,
+    "n": 0,
+    "pagination": {
+      "page": 1,
+      "limit": 10,
+      "total": 0,
+      "totalPages": 0,
+      "hasNext": false,
+      "hasPrev": false
+    },
+    "symbols": [],
+    "message": "Fetched 0 card dashboard rankings successfully from TradingView API"
+  },
+  {
+    "country": "iceland",
+    "status": 200,
+    "n": 0,
+    "pagination": {
+      "page": 1,
+      "limit": 10,
+      "total": 0,
+      "totalPages": 0,
+      "hasNext": false,
+      "hasPrev": false
+    },
+    "symbols": [],
+    "message": "Fetched 0 card dashboard rankings successfully from TradingView API"
+  }
+]

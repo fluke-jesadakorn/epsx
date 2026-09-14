@@ -1,5 +1,5 @@
-use uuid::Uuid;
 use chrono::{DateTime, Utc};
+use uuid::Uuid;
 
 use crate::domain::notification::*;
 use crate::domain::shared_kernel::aggregate_root::AggregateRoot;
@@ -55,7 +55,8 @@ impl NotificationRecord {
             expires_at: notification.schedule().expires_at(),
             status: notification.status().as_str().to_string(),
             send_started_at: notification.delivery_tracking().send_started_at(),
-            channel_status: serde_json::to_value(notification.delivery_tracking()).unwrap_or_default(),
+            channel_status: serde_json::to_value(notification.delivery_tracking())
+                .unwrap_or_default(),
             total_attempts: notification.delivery_tracking().total_attempts() as i32,
             created_by: notification.metadata().created_by().map(String::from),
             image_url: notification.metadata().image_url().map(String::from),

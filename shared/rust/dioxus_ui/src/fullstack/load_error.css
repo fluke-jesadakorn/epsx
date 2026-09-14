@@ -1,0 +1,60 @@
+.epsx-session-card {
+  --session-bg: var(--fe-surface, var(--surface-solid, #fff));
+  --session-text: var(--fe-text, var(--text, #172033));
+  --session-muted: var(--fe-muted, var(--text-muted, #647084));
+  --session-border: var(--fe-border, var(--epsx-border, #dce3ee));
+  --session-accent: var(--fe-primary, #3562b6);
+  --session-tint: var(--fe-tint, #edf2fb);
+  box-sizing: border-box;
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+  max-width: 760px;
+  width: 100%;
+  margin: 28px auto;
+  padding: 36px;
+  border: 1px solid var(--session-border);
+  border-radius: 20px;
+  background: var(--session-bg);
+  color: var(--session-text);
+  text-align: left;
+  box-shadow: 0 8px 32px #10204005;
+}
+.dark .epsx-session-card, [data-theme=dark] .epsx-session-card {
+  --session-bg: var(--fe-surface, #182231);
+  --session-text: var(--fe-text, #edf2fa);
+  --session-muted: var(--fe-muted, #adbcd0);
+  --session-border: var(--fe-border, #33445d);
+  --session-accent: var(--fe-primary, #92baff);
+  --session-tint: var(--fe-tint, #223653);
+}
+.epsx-session-card .epsx-session-symbol {
+  display: grid;
+  place-items: center;
+  flex: 0 0 56px;
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: var(--session-tint);
+  color: var(--session-accent);
+}
+.epsx-session-card .epsx-session-copy { min-width: 0; }
+.epsx-session-card .epsx-session-eyebrow { font-size: 10px; font-weight: 700; letter-spacing: .14em; color: var(--session-muted); }
+.epsx-session-card h2 { margin: 10px 0 12px; font-size: clamp(23px, 3vw, 30px); line-height: 1.2; font-weight: 600; letter-spacing: -.04em; color: var(--session-text); }
+.epsx-session-card p { margin: 0; max-width: 480px; font-size: 14px; line-height: 1.75; color: var(--session-muted); }
+.epsx-session-card .epsx-session-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; margin: 24px 0 16px; }
+.epsx-session-card .epsx-session-primary { display: inline-flex; align-items: center; justify-content: center; gap: 20px; min-height: 44px; padding: 11px 18px; border: 1px solid transparent; border-radius: 9px; font-size: 14px; font-weight: 650; text-decoration: none; background: var(--session-accent); color: var(--fe-on-primary, #fff); }
+.dark .epsx-session-card .epsx-session-primary, [data-theme=dark] .epsx-session-card .epsx-session-primary { color: var(--fe-on-primary, #10213d); }
+.epsx-session-card .epsx-session-secondary { display: inline-flex; align-items: center; min-height: 44px; font-size: 13px; font-weight: 550; color: var(--session-muted); text-decoration: none; }
+.epsx-session-card a:hover { filter: brightness(.94); text-decoration: underline; }
+.epsx-session-card a:focus-visible, .epsx-session-card button:focus-visible { outline: 2px solid var(--session-accent); outline-offset: 4px; }
+.epsx-session-card p.epsx-session-footnote { font-size: 11px; }
+@media (max-width: 600px) {
+  .epsx-session-card { flex-direction: column; gap: 20px; padding: 24px; margin: 20px auto; border-radius: 16px; }
+  .epsx-session-card .epsx-session-actions { gap: 8px 20px; }
+}
+
+.epsx-session-inline { display: inline-flex; margin: 6px 0; max-width: 100%; }
+.epsx-session-inline a { display: inline-flex; align-items: center; min-height: 44px; padding: 8px 12px; border: 1px solid var(--fe-border, #7d8da5); border-radius: 8px; background: var(--fe-tint, #edf2fb); color: var(--fe-primary, #244f98); font-size: 12px; font-weight: 600; line-height: 1.5; text-decoration: none; }
+.epsx-session-inline a:hover { text-decoration: underline; }
+.epsx-session-inline a:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }

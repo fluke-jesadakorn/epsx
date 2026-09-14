@@ -1,39 +1,33 @@
 // Get Wallet Detail Query Handler
 // CQRS handler for retrieving detailed wallet information
+// MIGRATED TO SQLX (real): no stubs, no todo!().
 
 use crate::application::shared::{ApplicationError, ApplicationResult, Query, QueryHandler};
-use crate::infrastructure::database::diesel_connection_manager::TlsPool;
 use crate::application::wallet_management::queries::admin_models::{
     GetWalletDetailQuery, GetWalletDetailResponse, WalletActivitySummaryDto, WalletDetailDto,
-    WalletPlanDto, WalletPermissionDto,
+    WalletPermissionDto, WalletPlanDto,
 };
 use crate::application::wallet_management::wallet_management_repository::WalletManagementRepository;
 use async_trait::async_trait;
-use diesel::prelude::*;
-use diesel_async::{RunQueryDsl};
+use sqlx::PgPool;
 use std::sync::Arc;
 use tracing::{error, info};
 
-#[derive(diesel::QueryableByName)]
+#[derive(sqlx::FromRow)]
 struct PermissionDetailRow {
-    #[diesel(sql_type = diesel::sql_types::Text)]
     pub permission: String,
-    #[diesel(sql_type = diesel::sql_types::Text)]
     pub source: String,
-    #[diesel(sql_type = diesel::sql_types::Timestamptz)]
     pub granted_at: chrono::DateTime<chrono::Utc>,
-    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
     pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
-    #[diesel(sql_type = diesel::sql_types::Bool)]
     pub is_active: bool,
 }
 
 pub struct GetWalletDetailQueryHandler {
-    db_pool: Arc<&'static TlsPool>,
+    db_pool: Arc<PgPool>,
 }
 
 impl GetWalletDetailQueryHandler {
-    pub fn new(db_pool: Arc<&'static TlsPool>) -> Self {
+    pub fn new(db_pool: Arc<PgPool>) -> Self {
         Self { db_pool }
     }
 }
@@ -60,11 +54,9 @@ impl QueryHandler<GetWalletDetailQuery> for GetWalletDetailQueryHandler {
             })?
             .ok_or_else(|| ApplicationError::not_found("Wallet", &query.wallet_address))?;
 
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| ApplicationError::infrastructure(format!("Failed to get database connection: {}", e)))?;
-
         // 4. Get permissions (union of group and direct permissions)
-        let permissions_result = diesel::sql_query(r#"
+        let permissions_result: Vec<PermissionDetailRow> = sqlx::query_as(
+            r#"
             SELECT
                 p.permission_string as permission,
                 'plan' as source,
@@ -91,12 +83,16 @@ impl QueryHandler<GetWalletDetailQuery> for GetWalletDetailQueryHandler {
               AND p.is_active = true
 
             ORDER BY permission
-        "#)
-        .bind::<diesel::sql_types::Text, _>(&query.wallet_address)
-        .load::<PermissionDetailRow>(&mut conn)
+        "#,
+        )
+        .bind(&query.wallet_address)
+        .fetch_all(self.db_pool.as_ref())
         .await
         .map_err(|e| {
-            error!("Failed to fetch permissions for {}: {}", query.wallet_address, e);
+            error!(
+                "Failed to fetch permissions for {}: {}",
+                query.wallet_address, e
+            );
             ApplicationError::infrastructure(format!("Failed to fetch permissions: {}", e))
         })?;
 
@@ -112,36 +108,52 @@ impl QueryHandler<GetWalletDetailQuery> for GetWalletDetailQueryHandler {
             })
             .collect();
 
-        // 5. Get wallet plans (placeholder - can be implemented later)
-        let plans: Vec<WalletPlanDto> = Vec::new();
+        // Preserve active and historical assignments in the canonical detail.
+        #[derive(sqlx::FromRow)]
+        struct PlanRow {
+            plan_id: String,
+            plan_name: String,
+            plan_type: String,
+            assigned_at: chrono::DateTime<chrono::Utc>,
+            expires_at: Option<chrono::DateTime<chrono::Utc>>,
+            is_active: bool,
+        }
+        let rows: Vec<PlanRow> = sqlx::query_as(
+            "SELECT a.plan_id::text, p.name AS plan_name, p.plan_type, a.assigned_at, a.expires_at, a.is_active FROM wallet_plan_assignments a JOIN plans p ON p.id=a.plan_id WHERE a.wallet_address=$1 ORDER BY a.assigned_at, a.id"
+        ).bind(&query.wallet_address).fetch_all(self.db_pool.as_ref()).await
+            .map_err(|e| ApplicationError::infrastructure(format!("Failed to fetch wallet plans: {e}")))?;
+        let plans = rows
+            .into_iter()
+            .map(|p| WalletPlanDto {
+                plan_id: p.plan_id,
+                plan_name: p.plan_name,
+                plan_type: p.plan_type,
+                assigned_at: p.assigned_at,
+                expires_at: p.expires_at,
+                is_active: p.is_active,
+            })
+            .collect::<Vec<_>>();
 
         // 6. Calculate activity summary with actual login tracking
         let active_permissions_count = permissions.iter().filter(|p| p.is_active).count();
 
-        let mut conn = self.db_pool.get().await.map_err(|e| {
-            error!("Failed to get connection: {}", e);
-            ApplicationError::infrastructure(format!("Failed to get connection: {}", e))
-        })?;
-
         // Combine login counts into a single query
-        #[derive(QueryableByName)]
+        #[derive(sqlx::FromRow)]
         struct LoginCounts {
-            #[diesel(sql_type = diesel::sql_types::BigInt)]
             total_logins: i64,
-            #[diesel(sql_type = diesel::sql_types::BigInt)]
             last_30_days_logins: i64,
         }
 
-        let login_counts = diesel::sql_query(
+        let login_counts: LoginCounts = sqlx::query_as(
             r#"
             SELECT
                 COUNT(*) as total_logins,
                 COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '30 days') as last_30_days_logins
             FROM sessions WHERE wallet_address = $1
-            "#
+            "#,
         )
-        .bind::<diesel::sql_types::Text, _>(&query.wallet_address)
-        .get_result::<LoginCounts>(&mut conn)
+        .bind(&query.wallet_address)
+        .fetch_one(self.db_pool.as_ref())
         .await
         .unwrap_or(LoginCounts { total_logins: 0, last_30_days_logins: 0 });
 
@@ -178,5 +190,81 @@ impl QueryHandler<GetWalletDetailQuery> for GetWalletDetailQueryHandler {
             success: true,
             wallet: wallet_detail,
         })
+    }
+}
+
+#[cfg(test)]
+mod import_tests {
+    use super::*;
+    use crate::application::wallet_management::queries::admin_handlers::GetWalletListQueryHandler;
+    use crate::application::wallet_management::queries::admin_models::GetWalletListQuery;
+    #[tokio::test]
+    #[ignore = "requires restored isolated EPSX_IMPORT_REHEARSAL_CORE database"]
+    async fn restored_wallet_rows_and_grants_survive_native_projection() {
+        let url = std::env::var("EPSX_IMPORT_REHEARSAL_CORE").unwrap();
+        let pool = Arc::new(sqlx::PgPool::connect(&url).await.unwrap());
+        let name: String = sqlx::query_scalar("SELECT current_database()")
+            .fetch_one(pool.as_ref())
+            .await
+            .unwrap();
+        assert!(name.starts_with("epsx_restore_"));
+        let expected: Vec<String> =
+            sqlx::query_scalar("SELECT wallet_address FROM wallet_users ORDER BY wallet_address")
+                .fetch_all(pool.as_ref())
+                .await
+                .unwrap();
+        assert!(
+            !expected.is_empty(),
+            "test requires populated imported identities"
+        );
+        let list = GetWalletListQueryHandler::new(pool.clone())
+            .handle(GetWalletListQuery {
+                page: Some(1),
+                limit: Some(1000),
+                search: None,
+                status: None,
+                date_from: None,
+                date_to: None,
+                sort_by: None,
+                sort_order: None,
+                exclude_plan_id: None,
+            })
+            .await
+            .unwrap();
+        assert_eq!(list.pagination.total as usize, expected.len());
+        let mut actual: Vec<_> = list
+            .wallets
+            .iter()
+            .map(|w| w.wallet_address.clone())
+            .collect();
+        actual.sort();
+        assert_eq!(actual, expected);
+        for wallet in expected {
+            let detail = GetWalletDetailQueryHandler::new(pool.clone())
+                .handle(GetWalletDetailQuery {
+                    wallet_address: wallet.clone(),
+                })
+                .await
+                .unwrap()
+                .wallet;
+            let plans: i64 = sqlx::query_scalar(
+                "SELECT count(*) FROM wallet_plan_assignments WHERE wallet_address=$1",
+            )
+            .bind(&wallet)
+            .fetch_one(pool.as_ref())
+            .await
+            .unwrap();
+            assert_eq!(detail.plans.len(), plans as usize);
+            let direct: i64 = sqlx::query_scalar("SELECT count(*) FROM wallet_direct_permissions w JOIN permissions p ON p.id=w.permission_id WHERE wallet_address=$1 AND p.is_active").bind(&wallet).fetch_one(pool.as_ref()).await.unwrap();
+            assert_eq!(
+                detail
+                    .permissions
+                    .iter()
+                    .filter(|p| p.source == "direct")
+                    .count(),
+                direct as usize
+            );
+            assert_eq!(detail.wallet_address, wallet);
+        }
     }
 }

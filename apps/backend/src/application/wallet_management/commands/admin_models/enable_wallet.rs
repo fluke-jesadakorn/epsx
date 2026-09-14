@@ -19,7 +19,7 @@ impl Command for EnableWalletCommand {
 
     fn validate(&self) -> ApplicationResult<()> {
         if self.wallet_address.trim().is_empty() {
-             return Err(crate::application::shared::ApplicationError::validation(
+            return Err(crate::application::shared::ApplicationError::validation(
                 "wallet_address",
                 "Wallet address cannot be empty",
             ));

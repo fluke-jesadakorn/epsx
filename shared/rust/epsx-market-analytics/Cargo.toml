@@ -1,0 +1,17 @@
+[package]
+name = "epsx-market-analytics"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Market analytics domain — extracted from apps/backend (big-bang scaffold). Next phase will move EPSRanking, MarketRankingsProvider, EPSCacheService here and remove epsx dep from apps/analytics."
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+async-trait = { workspace = true }
+epsx-contracts = { path = "../epsx-contracts" }
+epsx-analytics-protocol = { path = "../epsx-analytics-protocol" }

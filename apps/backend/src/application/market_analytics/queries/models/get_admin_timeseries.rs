@@ -1,8 +1,8 @@
 // Get Admin Time Series Query
 // Time-bucketed analytics data for admin dashboards
 
-use serde::{Deserialize, Serialize};
 use crate::application::shared::Query;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone)]
 pub struct GetAdminTimeSeriesQuery {

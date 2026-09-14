@@ -17,10 +17,29 @@ echo "  Setting up Colima for EPSX ($PROFILE)"
 echo "  CPU: $CPU | Memory: ${MEMORY}GB | Disk: ${DISK}GB"
 echo "============================================"
 
-if ! command -v colima &> /dev/null; then
-  echo "❌ Colima is not installed. Please install it first:"
-  echo "   brew install colima docker docker-buildx kubernetes-cli"
+# A fresh developer machine may not have the Colima toolchain yet. Install only
+# the missing Homebrew packages so this setup remains idempotent on machines
+# that already have Docker/Kubernetes configured. Never replace an existing
+# installation or change a user's unrelated Homebrew packages.
+if ! command -v brew &> /dev/null; then
+  echo "❌ Homebrew is required to install Colima automatically."
+  echo "   Install Homebrew from https://brew.sh and rerun this script."
   exit 1
+fi
+
+missing_packages=()
+command -v colima &> /dev/null || missing_packages+=(colima)
+command -v docker &> /dev/null || missing_packages+=(docker)
+if command -v docker &> /dev/null; then
+  docker buildx version &> /dev/null || missing_packages+=(docker-buildx)
+else
+  missing_packages+=(docker-buildx)
+fi
+command -v kubectl &> /dev/null || missing_packages+=(kubernetes-cli)
+
+if [ "${#missing_packages[@]}" -gt 0 ]; then
+  echo "📦 Installing missing Colima dependencies: ${missing_packages[*]}"
+  brew install "${missing_packages[@]}"
 fi
 
 # Detect architecture to enable Rosetta if on Apple Silicon (arm64)

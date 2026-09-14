@@ -1,0 +1,3 @@
+# Preserve the exact audited upstream bundle and its legal notice.
+apps/pay/vendor/walletconnect-2.24.0.js -whitespace
+apps/pay/vendor/walletconnect-2.24.0.js.LEGAL.txt -whitespace

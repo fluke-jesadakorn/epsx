@@ -1,6 +1,6 @@
-use crate::prelude::*;
 use crate::application::shared::Command;
-use crate::domain::subscription_management::{PlanId, BillingCycle, PlanFeatures};
+use crate::domain::subscription_management::{BillingCycle, PlanFeatures, PlanId};
+use crate::prelude::*;
 
 /// Command to update an existing plan
 #[derive(Debug, Clone)]

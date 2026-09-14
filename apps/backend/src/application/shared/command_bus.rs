@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
 use super::ApplicationResult;
@@ -9,7 +9,7 @@ use super::ApplicationResult;
 pub trait Command: Send + Sync + Debug + Clone {
     /// The type of response this command produces
     type Response: Send + Sync;
-    
+
     /// Validate the command before execution
     fn validate(&self) -> ApplicationResult<()> {
         Ok(())
@@ -46,12 +46,12 @@ impl CommandMetadata {
             correlation_id: None,
         }
     }
-    
+
     pub fn with_user(mut self, wallet_address: impl Into<String>) -> Self {
         self.initiated_by = Some(wallet_address.into());
         self
     }
-    
+
     pub fn with_correlation_id(mut self, correlation_id: impl Into<String>) -> Self {
         self.correlation_id = Some(correlation_id.into());
         self

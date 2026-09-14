@@ -1,7 +1,6 @@
-use crate::prelude::*;
-use crate::domain::notification::{Notification, NotificationStatus};
 use crate::domain::notification::value_objects::user_preferences::NotificationType;
-
+use crate::domain::notification::{Notification, NotificationStatus};
+use crate::prelude::*;
 
 /// Search criteria for notifications
 #[derive(Debug, Clone, Default)]

@@ -1,8 +1,8 @@
 use crate::prelude::*;
 
-use crate::application::shared::{Query, QueryHandler, ApplicationResult, ApplicationError};
+use crate::application::shared::{ApplicationError, ApplicationResult, Query, QueryHandler};
 use crate::application::wallet_management::queries::models::{
-    ListWalletsQuery, ListWalletsResponse, WalletSummary
+    ListWalletsQuery, ListWalletsResponse, WalletSummary,
 };
 use crate::domain::wallet_management::WalletUserRepositoryPort;
 
@@ -24,10 +24,16 @@ impl QueryHandler<ListWalletsQuery> for ListWalletsQueryHandler {
         query.validate()?;
 
         // 2. Create search criteria from query
-        let has_permissions = query.permission_filter
-            .map(|perms| perms.iter()
-                .filter_map(|p| crate::domain::wallet_management::value_objects::Permission::new(p).ok())
-                .collect())
+        let has_permissions = query
+            .permission_filter
+            .map(|perms| {
+                perms
+                    .iter()
+                    .filter_map(|p| {
+                        crate::domain::wallet_management::value_objects::Permission::new(p).ok()
+                    })
+                    .collect()
+            })
             .unwrap_or_default();
 
         let criteria = crate::domain::wallet_management::WalletUserSearchCriteria {
@@ -46,19 +52,25 @@ impl QueryHandler<ListWalletsQuery> for ListWalletsQueryHandler {
         };
 
         // 3. Query repository
-        let result = self.wallet_repository
+        let result = self
+            .wallet_repository
             .find_by_criteria(&criteria, query.limit as u32, query.offset as u32)
             .await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?;
 
         // 4. Map domain models to DTOs
-        let summaries: Vec<WalletSummary> = result.users
+        let summaries: Vec<WalletSummary> = result
+            .users
             .into_iter()
             .map(|wallet| {
                 // Derive group from permissions
                 let group = if wallet.permissions().iter().any(|p| p.platform() == "admin") {
                     "admin".to_string()
-                } else if wallet.permissions().iter().any(|p| p.platform() == "premium") {
+                } else if wallet
+                    .permissions()
+                    .iter()
+                    .any(|p| p.platform() == "premium")
+                {
                     "premium".to_string()
                 } else {
                     "user".to_string()
@@ -72,13 +84,16 @@ impl QueryHandler<ListWalletsQuery> for ListWalletsQueryHandler {
                 };
 
                 // Permission group - use first group or "none"
-                let permission_plan = wallet.plans()
+                let permission_plan = wallet
+                    .plans()
                     .iter()
-                    .next().cloned()
+                    .next()
+                    .cloned()
                     .unwrap_or_else(|| "none".to_string());
 
                 // Try to get display_name from wallet metadata custom_data
-                let display_name = wallet.wallet_metadata()
+                let display_name = wallet
+                    .wallet_metadata()
                     .custom_data
                     .get("display_name")
                     .and_then(|v| v.as_str())
@@ -99,6 +114,9 @@ impl QueryHandler<ListWalletsQuery> for ListWalletsQueryHandler {
             })
             .collect();
 
-        Ok(ListWalletsResponse::new(summaries, result.total_count as usize))
+        Ok(ListWalletsResponse::new(
+            summaries,
+            result.total_count as usize,
+        ))
     }
 }

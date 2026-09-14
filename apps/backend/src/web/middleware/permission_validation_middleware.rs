@@ -96,7 +96,7 @@ pub async fn perm_guard(
     next: Next,
 ) -> Response {
     match request.extensions().get::<OpenIDUserContext>() {
-        Some(ctx) if crate::core::permissions::has_permission(&ctx.permissions, required) => {
+        Some(ctx) if epsx_contracts::permissions::has_permission(&ctx.permissions, required) => {
             next.run(request).await
         }
         Some(ctx) => {
@@ -123,7 +123,7 @@ pub async fn perm_guard(
 
 /// Check if user has permission using ONLY JWT claims (NO DATABASE!)
 fn check_jwt_permission(user_context: &OpenIDUserContext, required: &str) -> bool {
-    crate::core::permissions::has_permission(&user_context.permissions, required)
+    epsx_contracts::permissions::has_permission(&user_context.permissions, required)
 }
 
 fn is_payment_admin_path(path: &str) -> bool {
@@ -178,8 +178,14 @@ fn get_required_permission(method: &str, path: &str) -> Option<String> {
         ("GET", p) if is_payment_admin_path(p) => Some("admin:payments:view".to_string()),
         (_, p) if is_payment_admin_path(p) => Some("admin:payments:manage".to_string()),
 
-        // Settings routes (/api/admin/settings — unified_router.rs, not create_admin_routes)
-        (_, p) if p.contains("/admin/settings") => Some("admin:settings:manage".to_string()),
+        // Settings routes (/api/admin/settings — unified_router.rs, not
+        // create_admin_routes). Reads and mutations are separate grants.
+        ("GET", p) if p == "/api/admin/settings" || p.starts_with("/api/admin/settings/") => {
+            Some("admin:settings:read".to_string())
+        }
+        (_, p) if p == "/api/admin/settings" || p.starts_with("/api/admin/settings/") => {
+            Some("admin:settings:manage".to_string())
+        }
 
         // Analytics routes (user-facing, no permission required)
         ("GET", p) if p.starts_with("/api/auth/analytics") => None,
@@ -276,6 +282,8 @@ mod tests {
             sub: "0x123".to_string(),
             wallet_address: "0x123".to_string(),
             permissions,
+            token_audiences: Some(vec!["epsx-admin".to_string()]),
+            api_key: None,
             auth_method: "web3_siwe".to_string(),
             jti: "test".to_string(),
             exp: 9999999999,
@@ -369,6 +377,10 @@ mod tests {
         // Settings routes (unified_router.rs, not create_admin_routes)
         assert_eq!(
             get_required_permission("GET", "/api/admin/settings"),
+            Some("admin:settings:read".to_string())
+        );
+        assert_eq!(
+            get_required_permission("PUT", "/api/admin/settings"),
             Some("admin:settings:manage".to_string())
         );
 

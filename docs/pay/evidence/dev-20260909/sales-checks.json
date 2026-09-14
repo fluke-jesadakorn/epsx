@@ -1,0 +1,41 @@
+{
+  "pricing": {
+    "passed": true,
+    "result": "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 588 filtered out; finished in 0.01s"
+  },
+  "hosted_prices": {
+    "passed": true,
+    "result": "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 589 filtered out; finished in 0.01s"
+  },
+  "admin_metadata": {
+    "passed": true,
+    "result": "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 588 filtered out; finished in 0.00s"
+  },
+  "plan_ui": {
+    "passed": true,
+    "result": "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 835 filtered out; finished in 0.04s"
+  },
+  "payment_ui": {
+    "passed": true,
+    "result": "test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 824 filtered out; finished in 0.04s"
+  },
+  "native_clippy": {
+    "passed": true,
+    "result": "    Finished `dev` profile [unoptimized + debuginfo] target(s) in 15m 57s"
+  },
+  "wasm_clippy": {
+    "passed": true,
+    "result": "    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.71s"
+  },
+  "assets": {
+    "passed": true,
+    "result": "assets verify: PASS \u2014 required=5, bytes=659922, sha256=2626289e244770749fe5b74384d1e93270ab829f75664993212d96eea572a98c"
+  },
+  "no_node": {
+    "passed": true,
+    "result": "no-node-audit: scripts=0 manifests=0 active_refs=0 inline_runtimes=0"
+  },
+  "formatting": {
+    "passed": true
+  }
+}

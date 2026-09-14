@@ -4,9 +4,8 @@
 //! Includes all endpoints: public, user, and admin management.
 
 use utoipa::{
-    OpenApi,
-    Modify,
     openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme},
+    Modify, OpenApi,
 };
 
 /// Admin OpenAPI documentation
@@ -59,8 +58,6 @@ use utoipa::{
         // ANALYTICS ENDPOINTS
         // ============================================================================
         crate::web::analytics::eps::cache::get_unified_analytics_rankings_cached,
-        crate::web::analytics::eps::cache::get_cache_stats,
-        crate::web::analytics::eps::cache::force_cache_refresh,
         crate::web::analytics::eps::metadata::get_available_countries,
         crate::web::analytics::eps::metadata::get_all_valid_countries,
         crate::web::analytics::eps::metadata::get_sectors_by_country,

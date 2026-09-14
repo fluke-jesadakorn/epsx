@@ -1,0 +1,409 @@
+//! `/contact` — PancakeSwap-style gradient page with an email CTA
+//! and 3 info cards.
+//!
+//! Source of truth: `apps-old/frontend/app/contact/page.tsx` +
+//! `apps-old/frontend/app/contact/contact-form.tsx`. The port
+//! keeps:
+//! - the gradient + orb background (uses the existing `.orb-*`
+//!   utility classes from `templates/src/lib.rs` — the same
+//!   "inline `hero-bg` fallback" pattern the design doc permits
+//!   for the case where Track A's `<MarketingBackground>` hasn't
+//!   landed yet)
+//! - the gradient-text "Contact Us" hero
+//! - the email CTA card with `MailtoBtn` + `CopyEmailBtn`
+//! - the 3 info cards (General, Support, Response time)
+//!
+//! No submission form is rendered until a real contact endpoint with
+//! validation, rate limiting, and complete outcome feedback exists. The
+//! source-compatible email and copy controls remain usable without one.
+
+use crate::primitives::*;
+
+use super::PageContext;
+use super::PageMeta;
+use crate::layout::main_layout::MainLayout;
+use dioxus::prelude::*;
+
+const SUPPORT_EMAIL: &str = "info@epsx.io";
+const CONTACT_COPY_STATUS_ID: &str = "contact-copy-email-status";
+
+pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
+    let mut meta = PageMeta::marketing("Contact");
+    meta.description = "Contact EPSX for account, data access, and payment support.".into();
+    (
+        meta,
+        rsx! { MainLayout { ctx: ctx.clone(), HydratedContact {} } },
+    )
+}
+
+#[component]
+pub fn HydratedContact() -> Element {
+    rsx! {
+        document::Title { "Contact — EPSX" }
+        document::Meta { name: "description", content: "Contact EPSX for account, data access, and payment support." }
+
+                ContactBackground {}
+                div { class: "contact-page",
+                    ContactHero {}
+                    ContactEmailCard {}
+                    ContactInfoCards {}
+                }
+    }
+}
+
+/// PancakeSwap-style gradient background with 3 floating orbs.
+///
+/// The design doc says: "PancakeSwap-style gradient background
+/// (use `<MarketingBackground>` from Track A — coordinate via the
+/// design doc)". Track A's `MarketingBackground` may not have
+/// landed on the integration worktree by the time this track
+/// ships, so the port uses the same inline pattern the design doc
+/// permits as a fallback: the existing `.orb`, `.orb-purple`,
+/// `.orb-orange`, `.orb-yellow`, `.orb-blue` utility classes
+/// already emitted by `epsx_templates::design_system_head`. When
+/// Track A lands, the integration agent can swap this for
+/// `use crate::layout::marketing_bg::MarketingBackground;` with
+/// the same visual result.
+#[component]
+fn ContactBackground() -> Element {
+    rsx! {
+        div { class: "contact-bg", "aria-hidden": "true",
+            div { class: "orb orb-purple contact-bg-orb contact-bg-orb-1" }
+            div { class: "orb orb-orange contact-bg-orb contact-bg-orb-2" }
+            div { class: "orb orb-blue contact-bg-orb contact-bg-orb-3" }
+            div { class: "orb orb-yellow contact-bg-orb contact-bg-orb-4" }
+        }
+    }
+}
+
+#[component]
+fn ContactHero() -> Element {
+    rsx! {
+        section { class: "contact-hero",
+            div { class: "container fe-page-layout",
+                div { class: "contact-hero-inner",
+                    h1 { class: "contact-hero-title fe-type-title", "Contact Us" }
+                    p { class: "contact-hero-subtitle",
+                        "Have a question or need support? We'd love to hear from you."
+                    }
+                    div { class: "contact-hero-divider" }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn ContactEmailCard() -> Element {
+    rsx! {
+        section { class: "contact-email-section",
+            div { class: "container fe-page-layout",
+                div { class: "contact-email-card",
+                    div { class: "contact-email-icon",
+                        Icon { name: "mail".to_string(), size: Some(32), class_name: Some("text-white".to_string()) }
+                    }
+                    h2 { class: "contact-email-title", "Send us an email" }
+                    p { class: "contact-email-subtitle text-muted-foreground fe-tone-muted",
+                        "Click below to open your email app"
+                    }
+                    MailtoBtn {}
+                    div { class: "contact-email-divider" }
+                    CopyEmailBtn {}
+                }
+            }
+        }
+    }
+}
+
+/// Mailto button. SSR-only — renders an `<a href="mailto:…">` that
+/// works without JavaScript. Mirrors the source's
+/// `MailtoBtn` component.
+#[component]
+fn MailtoBtn() -> Element {
+    let href = format!("mailto:{SUPPORT_EMAIL}");
+    rsx! {
+        crate::navigation::AppLink {
+            class: "btn btn-gradient contact-mailto-btn",
+            href: "{href}",
+            Icon { name: "mail".to_string(), size: Some(16) }
+            span { "{SUPPORT_EMAIL}" }
+        }
+    }
+}
+
+/// Copy email button. The raw button emitted by the shared template
+/// keeps the accessible name and visible label stable while reporting
+/// clipboard outcomes through the dedicated polite status region.
+/// `data-copy-status-target` and `aria-describedby` both point at
+/// `CONTACT_COPY_STATUS_ID`, giving the shared script and assistive
+/// technology the same explicit association without hydration.
+#[component]
+fn CopyEmailBtn() -> Element {
+    let mut status = use_signal(String::new);
+    let mut pending = use_signal(|| false);
+    rsx! {
+        button {
+            r#type: "button", class: "btn btn-outline", disabled: pending(),
+            id: "contact-copy-email-button", aria_label: "Copy email address",
+            aria_describedby: CONTACT_COPY_STATUS_ID,
+            onclick: move |_| {
+                if *pending.peek() { return; }
+                pending.set(true);
+                spawn(async move {
+                    let copied = document::eval("try { await navigator.clipboard.writeText('info@epsx.io'); dioxus.send(true); } catch (_) { dioxus.send(false); }").recv::<bool>().await.unwrap_or(false);
+                    status.set(if copied { "Email copied." } else { "Could not copy. Select and copy info@epsx.io manually." }.into());
+                    pending.set(false);
+                });
+            },
+            Icon { name: "copy".to_string(), size: Some(16) }
+            span { "Copy" }
+        }
+        span {
+            id: CONTACT_COPY_STATUS_ID,
+            class: "contact-copy-status text-sm text-muted-foreground fe-tone-muted",
+            role: "status", aria_live: "polite", aria_atomic: "true",
+            "data-copy-status": "true",
+            "{status}"
+        }
+    }
+}
+
+/// 3 info cards: General Inquiries / Technical Support /
+/// Response Time. Source uses lucide icons (MessageSquare,
+/// Shield, Clock); the port uses the design-system lucide set
+/// ("message-circle", "shield", "info" — the closest matches
+/// already wired into `epsx_templates::lucide`).
+#[component]
+fn ContactInfoCards() -> Element {
+    let cards = [
+        ContactInfoCard {
+            icon: "message-square",
+            title: "General Inquiries",
+            desc: "Questions about our platform, features, or pricing plans.",
+            tone: ContactCardTone::Purple,
+        },
+        ContactInfoCard {
+            icon: "shield",
+            title: "Technical Support",
+            desc: "Need help with your account, API access, or integrations.",
+            tone: ContactCardTone::Orange,
+        },
+        ContactInfoCard {
+            icon: "clock",
+            title: "Helpful details",
+            desc: "Include the page you were using and a description of the issue.",
+            tone: ContactCardTone::Blue,
+        },
+    ];
+    rsx! {
+        section { class: "contact-info-section",
+            div { class: "container fe-page-layout",
+                div { class: "contact-info-grid",
+                    for c in cards.iter() {
+                        ContactInfoCardView { card: c.clone() }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum ContactCardTone {
+    Purple,
+    Orange,
+    Blue,
+}
+
+impl ContactCardTone {
+    fn class(&self) -> &'static str {
+        match self {
+            ContactCardTone::Purple => "contact-info-card contact-info-card-purple",
+            ContactCardTone::Orange => "contact-info-card contact-info-card-orange",
+            ContactCardTone::Blue => "contact-info-card contact-info-card-blue",
+        }
+    }
+    fn icon_bg(&self) -> &'static str {
+        match self {
+            ContactCardTone::Purple => "contact-info-icon contact-info-icon-purple",
+            ContactCardTone::Orange => "contact-info-icon contact-info-icon-orange",
+            ContactCardTone::Blue => "contact-info-icon contact-info-icon-blue",
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct ContactInfoCard {
+    icon: &'static str,
+    title: &'static str,
+    desc: &'static str,
+    tone: ContactCardTone,
+}
+
+#[component]
+fn ContactInfoCardView(card: ContactInfoCard) -> Element {
+    rsx! {
+        div { class: "{card.tone.class()}",
+            div { class: "card-body",
+                div { class: "contact-info-row",
+                    div { class: "{card.tone.icon_bg()}",
+                        Icon { name: card.icon.to_string(), size: Some(20), class_name: Some("text-white".to_string()) }
+                    }
+                    div {
+                        h3 { class: "contact-info-title", "{card.title}" }
+                        p { class: "contact-info-desc text-muted-foreground text-sm fe-tone-muted", "{card.desc}" }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// === wave5-page-depth-track-b ===
+// Unit tests for the contact page. The design doc requires:
+//   - test_render_smoke: render() returns a non-empty Element
+//   - test_section_markers: the rendered HTML contains the
+//     contact-hero / contact-email / contact-info section class names.
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::pages::PageContext;
+
+    fn empty_ctx() -> PageContext {
+        PageContext {
+            path: "/contact".to_string(),
+            ..Default::default()
+        }
+    }
+
+    fn render_to_string(ctx: &PageContext) -> String {
+        let (_meta, el) = render(ctx);
+        dioxus_ssr::render_element(el)
+    }
+
+    #[test]
+    fn contact_renders_smoke() {
+        let ctx = empty_ctx();
+        let (_meta, el) = render(&ctx);
+        let html = dioxus_ssr::render_element(el);
+        assert!(
+            !html.trim().is_empty(),
+            "contact page should render non-empty HTML"
+        );
+    }
+
+    #[test]
+    fn contact_section_markers() {
+        let html = render_to_string(&empty_ctx());
+        for marker in &[
+            "contact-page",
+            "contact-bg",
+            "contact-hero",
+            "contact-email-section",
+            "contact-info-section",
+        ] {
+            assert!(
+                html.contains(marker),
+                "contact page should contain section marker `{marker}`. Got: {}",
+                html
+            );
+        }
+    }
+
+    #[test]
+    fn contact_info_has_three_cards() {
+        // Render the cards section and grep for the 3 card titles.
+        let html = render_to_string(&empty_ctx());
+        for title in &["General Inquiries", "Technical Support", "Helpful details"] {
+            assert!(
+                html.contains(title),
+                "contact page should mention `{title}`. Got: {}",
+                html
+            );
+        }
+    }
+
+    #[test]
+    fn contact_exposes_only_working_email_actions() {
+        let html = render_to_string(&empty_ctx());
+
+        assert!(html.contains("href=\"mailto:info@epsx.io\""));
+        assert!(html.contains("aria-label=\"Copy email address\""));
+        assert!(html.contains("id=\"contact-copy-email-button\""));
+        assert!(html.contains("aria-describedby=\"contact-copy-email-status\""));
+        assert!(!html.contains("data-copy-status-target="));
+        assert!(!html.contains("data-copy="));
+        assert!(html.contains("type=\"button\""));
+        assert!(!html.contains("data-epsx-action="));
+        assert!(!html.contains("onclick=\""));
+        assert!(html.contains("<span>Copy</span>"));
+
+        for forbidden in [
+            "<form",
+            "</form>",
+            "type=\"submit\"",
+            "<input",
+            "<textarea",
+            "/api/v1/contact",
+            "contact-form-section",
+            "progressive-auth-banner",
+            "Sign in to support requests",
+            "you need a wallet to act",
+        ] {
+            assert!(
+                !html.contains(forbidden),
+                "unsupported contact submission control leaked: {forbidden}"
+            );
+        }
+    }
+
+    #[test]
+    fn contact_copy_email_has_stable_accessible_status_contract() {
+        let html = render_to_string(&empty_ctx());
+
+        assert_eq!(
+            html.matches("id=\"contact-copy-email-button\"").count(),
+            1,
+            "copy button id must be unique"
+        );
+        assert_eq!(
+            html.matches("id=\"contact-copy-email-status\"").count(),
+            1,
+            "copy status id must be unique"
+        );
+        assert!(html.contains("aria-label=\"Copy email address\""));
+        assert!(html.contains("aria-describedby=\"contact-copy-email-status\""));
+        assert!(!html.contains("data-copy-status-target="));
+        assert!(html.contains("role=\"status\""));
+        assert!(html.contains("aria-live=\"polite\""));
+        assert!(html.contains("aria-atomic=\"true\""));
+        assert!(html.contains("data-copy-status=\"true\""));
+        assert!(
+            html.contains("<span>Copy</span>"),
+            "the button's visible label must remain the stable action label"
+        );
+
+        let status_start = html
+            .find("id=\"contact-copy-email-status\"")
+            .expect("copy status region should render");
+        let status_tail = &html[status_start..];
+        let opening_end = status_tail
+            .find('>')
+            .expect("copy status region should have an opening tag");
+        let closing_start = status_tail
+            .find("</span>")
+            .expect("copy status region should have a closing tag");
+        assert_eq!(
+            &status_tail[opening_end + 1..closing_start],
+            "",
+            "copy status must be neutral and empty before an outcome"
+        );
+        assert!(
+            !html.contains("aria-label=\"Copied")
+                && !html.contains("aria-label=\"Copy failed")
+                && !html.contains("<form")
+                && !html.contains("/api/v1/contact"),
+            "SSR must not invent a clipboard result or contact mutation"
+        );
+    }
+}

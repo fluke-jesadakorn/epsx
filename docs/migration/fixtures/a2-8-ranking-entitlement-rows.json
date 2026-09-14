@@ -1,0 +1,369 @@
+{
+  "schemaVersion": 1,
+  "description": "A2.8 hermetic raw SQL-row grouping ledger. Every timestamp is Unix epoch microseconds; no database is opened by the tests.",
+  "normalizedWallet": "0xabcdef",
+  "observedAtMicros": 1784808000000001,
+  "cases": [
+    {
+      "id": "sentinel-empty",
+      "rows": [
+        {
+          "normalizedWallet": "0xabcdef", "observedAtMicros": 1784808000000001,
+          "assignmentWallet": null, "assignmentId": null, "assignmentPlanId": null,
+          "assignmentActive": null, "expiresAtMicros": null, "joinedPlanId": null,
+          "planActive": null, "planMetadata": null, "planPermissionLinkId": null,
+          "linkedPermissionId": null, "permissionId": null, "permissionActive": null,
+          "permissionString": null
+        }
+      ]
+    },
+    {
+      "id": "grouping-stable-permissions",
+      "rows": [
+        {
+          "normalizedWallet": "0xabcdef", "observedAtMicros": 1784808000000001,
+          "assignmentWallet": "0xAbCdEf", "assignmentId": "assignment-b", "assignmentPlanId": "plan-b",
+          "assignmentActive": true, "expiresAtMicros": null, "joinedPlanId": "plan-b",
+          "planActive": true, "planMetadata": {}, "planPermissionLinkId": null,
+          "linkedPermissionId": null, "permissionId": null, "permissionActive": null,
+          "permissionString": null
+        },
+        {
+          "normalizedWallet": "0xabcdef", "observedAtMicros": 1784808000000001,
+          "assignmentWallet": "0xabcdef", "assignmentId": "assignment-a", "assignmentPlanId": "plan-a",
+          "assignmentActive": true, "expiresAtMicros": 1784808000000100, "joinedPlanId": "plan-a",
+          "planActive": true, "planMetadata": {"ranking_offset": 5}, "planPermissionLinkId": "link-z",
+          "linkedPermissionId": "permission-z", "permissionId": "permission-z", "permissionActive": true,
+          "permissionString": "epsx:rankings:offset:9"
+        },
+        {
+          "normalizedWallet": "0xabcdef", "observedAtMicros": 1784808000000001,
+          "assignmentWallet": "0xabcdef", "assignmentId": "assignment-a", "assignmentPlanId": "plan-a",
+          "assignmentActive": true, "expiresAtMicros": 1784808000000100, "joinedPlanId": "plan-a",
+          "planActive": true, "planMetadata": {"ranking_offset": 5}, "planPermissionLinkId": "link-a",
+          "linkedPermissionId": "permission-a", "permissionId": "permission-a", "permissionActive": false,
+          "permissionString": "epsx:rankings:view:5"
+        }
+      ]
+    },
+    {
+      "id": "equivalent-duplicates",
+      "rows": [
+        {
+          "normalizedWallet": "0xabcdef", "observedAtMicros": 1784808000000001,
+          "assignmentWallet": "0xabcdef", "assignmentId": "assignment-duplicate", "assignmentPlanId": "plan-duplicate",
+          "assignmentActive": true, "expiresAtMicros": null, "joinedPlanId": "plan-duplicate",
+          "planActive": true, "planMetadata": {}, "planPermissionLinkId": "link-duplicate",
+          "linkedPermissionId": "permission-duplicate", "permissionId": "permission-duplicate", "permissionActive": true,
+          "permissionString": "epsx:rankings:offset:5"
+        },
+        {
+          "normalizedWallet": "0xabcdef", "observedAtMicros": 1784808000000001,
+          "assignmentWallet": "0xabcdef", "assignmentId": "assignment-duplicate", "assignmentPlanId": "plan-duplicate",
+          "assignmentActive": true, "expiresAtMicros": null, "joinedPlanId": "plan-duplicate",
+          "planActive": true, "planMetadata": {}, "planPermissionLinkId": "link-duplicate",
+          "linkedPermissionId": "permission-duplicate", "permissionId": "permission-duplicate", "permissionActive": true,
+          "permissionString": "epsx:rankings:offset:5"
+        }
+      ]
+    },
+    {
+      "id": "conflicting-assignment-duplicates",
+      "rows": [
+        {
+          "normalizedWallet": "0xabcdef", "observedAtMicros": 1784808000000001,
+          "assignmentWallet": "0xabcdef", "assignmentId": "assignment-conflict", "assignmentPlanId": "plan-conflict",
+          "assignmentActive": true, "expiresAtMicros": null, "joinedPlanId": "plan-conflict",
+          "planActive": true, "planMetadata": {}, "planPermissionLinkId": null,
+          "linkedPermissionId": null, "permissionId": null, "permissionActive": null,
+          "permissionString": null
+        },
+        {
+          "normalizedWallet": "0xabcdef", "observedAtMicros": 1784808000000001,
+          "assignmentWallet": "0xabcdef", "assignmentId": "assignment-conflict", "assignmentPlanId": "plan-conflict",
+          "assignmentActive": false, "expiresAtMicros": null, "joinedPlanId": "plan-conflict",
+          "planActive": true, "planMetadata": {}, "planPermissionLinkId": null,
+          "linkedPermissionId": null, "permissionId": null, "permissionActive": null,
+          "permissionString": null
+        }
+      ]
+    },
+    {
+      "id": "conflicting-permission-duplicates",
+      "rows": [
+        {
+          "normalizedWallet": "0xabcdef", "observedAtMicros": 1784808000000001,
+          "assignmentWallet": "0xabcdef", "assignmentId": "assignment-permission-conflict", "assignmentPlanId": "plan-permission-conflict",
+          "assignmentActive": true, "expiresAtMicros": null, "joinedPlanId": "plan-permission-conflict",
+          "planActive": true, "planMetadata": {}, "planPermissionLinkId": "link-permission-conflict",
+          "linkedPermissionId": "permission-conflict", "permissionId": "permission-conflict", "permissionActive": true,
+          "permissionString": "epsx:rankings:offset:5"
+        },
+        {
+          "normalizedWallet": "0xabcdef", "observedAtMicros": 1784808000000001,
+          "assignmentWallet": "0xabcdef", "assignmentId": "assignment-permission-conflict", "assignmentPlanId": "plan-permission-conflict",
+          "assignmentActive": true, "expiresAtMicros": null, "joinedPlanId": "plan-permission-conflict",
+          "planActive": true, "planMetadata": {}, "planPermissionLinkId": "link-permission-conflict",
+          "linkedPermissionId": "permission-conflict", "permissionId": "permission-conflict", "permissionActive": true,
+          "permissionString": "epsx:rankings:offset:6"
+        }
+      ]
+    },
+    {
+      "id": "missing-plan",
+      "rows": [
+        {
+          "normalizedWallet": "0xabcdef", "observedAtMicros": 1784808000000001,
+          "assignmentWallet": "0xabcdef", "assignmentId": "assignment-missing-plan", "assignmentPlanId": "plan-missing",
+          "assignmentActive": true, "expiresAtMicros": null, "joinedPlanId": null,
+          "planActive": null, "planMetadata": null, "planPermissionLinkId": null,
+          "linkedPermissionId": null, "permissionId": null, "permissionActive": null,
+          "permissionString": null
+        }
+      ]
+    },
+    {
+      "id": "inactive-expired-facts",
+      "rows": [
+        {
+          "normalizedWallet": "0xabcdef", "observedAtMicros": 1784808000000001,
+          "assignmentWallet": "0xabcdef", "assignmentId": "assignment-inactive-expired", "assignmentPlanId": "plan-inactive",
+          "assignmentActive": false, "expiresAtMicros": 1784807999999999, "joinedPlanId": "plan-inactive",
+          "planActive": false, "planMetadata": {"ranking_offset": 7}, "planPermissionLinkId": "link-inactive",
+          "linkedPermissionId": "permission-inactive", "permissionId": "permission-inactive", "permissionActive": false,
+          "permissionString": "epsx:rankings:offset:5"
+        }
+      ]
+    },
+    {
+      "id": "metadata-lossless-shapes",
+      "rows": [
+        {
+          "normalizedWallet": "0xabcdef", "observedAtMicros": 1784808000000001,
+          "assignmentWallet": "0xabcdef", "assignmentId": "assignment-metadata-a-missing", "assignmentPlanId": "plan-metadata-a",
+          "assignmentActive": true, "expiresAtMicros": null, "joinedPlanId": "plan-metadata-a",
+          "planActive": true, "planMetadata": {}, "planPermissionLinkId": null,
+          "linkedPermissionId": null, "permissionId": null, "permissionActive": null,
+          "permissionString": null
+        },
+        {
+          "normalizedWallet": "0xabcdef", "observedAtMicros": 1784808000000001,
+          "assignmentWallet": "0xabcdef", "assignmentId": "assignment-metadata-b-integer", "assignmentPlanId": "plan-metadata-b",
+          "assignmentActive": true, "expiresAtMicros": null, "joinedPlanId": "plan-metadata-b",
+          "planActive": true, "planMetadata": {"ranking_offset": 5}, "planPermissionLinkId": null,
+          "linkedPermissionId": null, "permissionId": null, "permissionActive": null,
+          "permissionString": null
+        },
+        {
+          "normalizedWallet": "0xabcdef", "observedAtMicros": 1784808000000001,
+          "assignmentWallet": "0xabcdef", "assignmentId": "assignment-metadata-c-invalid", "assignmentPlanId": "plan-metadata-c",
+          "assignmentActive": true, "expiresAtMicros": null, "joinedPlanId": "plan-metadata-c",
+          "planActive": true, "planMetadata": {"ranking_offset": "5"}, "planPermissionLinkId": null,
+          "linkedPermissionId": null, "permissionId": null, "permissionActive": null,
+          "permissionString": null
+        },
+        {
+          "normalizedWallet": "0xabcdef", "observedAtMicros": 1784808000000001,
+          "assignmentWallet": "0xabcdef", "assignmentId": "assignment-metadata-d-non-object", "assignmentPlanId": "plan-metadata-d",
+          "assignmentActive": true, "expiresAtMicros": null, "joinedPlanId": "plan-metadata-d",
+          "planActive": true, "planMetadata": ["not", "an", "object"], "planPermissionLinkId": null,
+          "linkedPermissionId": null, "permissionId": null, "permissionActive": null,
+          "permissionString": null
+        }
+      ]
+    },
+    {
+      "id": "dangling-permission",
+      "rows": [
+        {
+          "normalizedWallet": "0xabcdef", "observedAtMicros": 1784808000000001,
+          "assignmentWallet": "0xabcdef", "assignmentId": "assignment-dangling", "assignmentPlanId": "plan-dangling",
+          "assignmentActive": true, "expiresAtMicros": null, "joinedPlanId": "plan-dangling",
+          "planActive": true, "planMetadata": {}, "planPermissionLinkId": "link-dangling",
+          "linkedPermissionId": "permission-missing", "permissionId": null, "permissionActive": null,
+          "permissionString": null
+        }
+      ]
+    },
+    {
+      "id": "partial-assignment",
+      "rows": [
+        {
+          "normalizedWallet": "0xabcdef", "observedAtMicros": 1784808000000001,
+          "assignmentWallet": null, "assignmentId": "assignment-partial", "assignmentPlanId": "plan-partial",
+          "assignmentActive": true, "expiresAtMicros": null, "joinedPlanId": "plan-partial",
+          "planActive": true, "planMetadata": {}, "planPermissionLinkId": null,
+          "linkedPermissionId": null, "permissionId": null, "permissionActive": null,
+          "permissionString": null
+        }
+      ]
+    },
+    {
+      "id": "partial-plan",
+      "rows": [
+        {
+          "normalizedWallet": "0xabcdef", "observedAtMicros": 1784808000000001,
+          "assignmentWallet": "0xabcdef", "assignmentId": "assignment-partial-plan", "assignmentPlanId": "plan-partial",
+          "assignmentActive": true, "expiresAtMicros": null, "joinedPlanId": "plan-partial",
+          "planActive": null, "planMetadata": {}, "planPermissionLinkId": null,
+          "linkedPermissionId": null, "permissionId": null, "permissionActive": null,
+          "permissionString": null
+        }
+      ]
+    },
+    {
+      "id": "mismatched-joined-plan",
+      "rows": [
+        {
+          "normalizedWallet": "0xabcdef", "observedAtMicros": 1784808000000001,
+          "assignmentWallet": "0xabcdef", "assignmentId": "assignment-plan-mismatch", "assignmentPlanId": "plan-expected",
+          "assignmentActive": true, "expiresAtMicros": null, "joinedPlanId": "plan-other",
+          "planActive": true, "planMetadata": {}, "planPermissionLinkId": null,
+          "linkedPermissionId": null, "permissionId": null, "permissionActive": null,
+          "permissionString": null
+        }
+      ]
+    },
+    {
+      "id": "permission-fields-without-link",
+      "rows": [
+        {
+          "normalizedWallet": "0xabcdef", "observedAtMicros": 1784808000000001,
+          "assignmentWallet": "0xabcdef", "assignmentId": "assignment-permission-without-link", "assignmentPlanId": "plan-permission-without-link",
+          "assignmentActive": true, "expiresAtMicros": null, "joinedPlanId": "plan-permission-without-link",
+          "planActive": true, "planMetadata": {}, "planPermissionLinkId": null,
+          "linkedPermissionId": "permission-without-link", "permissionId": "permission-without-link", "permissionActive": true,
+          "permissionString": "epsx:rankings:offset:5"
+        }
+      ]
+    },
+    {
+      "id": "linked-permission-mismatch",
+      "rows": [
+        {
+          "normalizedWallet": "0xabcdef", "observedAtMicros": 1784808000000001,
+          "assignmentWallet": "0xabcdef", "assignmentId": "assignment-linked-permission-mismatch", "assignmentPlanId": "plan-linked-permission-mismatch",
+          "assignmentActive": true, "expiresAtMicros": null, "joinedPlanId": "plan-linked-permission-mismatch",
+          "planActive": true, "planMetadata": {}, "planPermissionLinkId": "link-permission-mismatch",
+          "linkedPermissionId": "permission-linked", "permissionId": "permission-joined", "permissionActive": true,
+          "permissionString": "epsx:rankings:offset:5"
+        }
+      ]
+    },
+    {
+      "id": "null-present-plan-metadata",
+      "rows": [
+        {
+          "normalizedWallet": "0xabcdef", "observedAtMicros": 1784808000000001,
+          "assignmentWallet": "0xabcdef", "assignmentId": "assignment-null-plan-metadata", "assignmentPlanId": "plan-null-metadata",
+          "assignmentActive": true, "expiresAtMicros": null, "joinedPlanId": "plan-null-metadata",
+          "planActive": true, "planMetadata": null, "planPermissionLinkId": null,
+          "linkedPermissionId": null, "permissionId": null, "permissionActive": null,
+          "permissionString": null
+        }
+      ]
+    },
+    {
+      "id": "missing-assignment-plan-id",
+      "rows": [
+        {
+          "normalizedWallet": "0xabcdef", "observedAtMicros": 1784808000000001,
+          "assignmentWallet": "0xabcdef", "assignmentId": "assignment-missing-plan-id", "assignmentPlanId": null,
+          "assignmentActive": true, "expiresAtMicros": null, "joinedPlanId": null,
+          "planActive": null, "planMetadata": null, "planPermissionLinkId": null,
+          "linkedPermissionId": null, "permissionId": null, "permissionActive": null,
+          "permissionString": null
+        }
+      ]
+    },
+    {
+      "id": "missing-assignment-active",
+      "rows": [
+        {
+          "normalizedWallet": "0xabcdef", "observedAtMicros": 1784808000000001,
+          "assignmentWallet": "0xabcdef", "assignmentId": "assignment-missing-active", "assignmentPlanId": "plan-missing-active",
+          "assignmentActive": null, "expiresAtMicros": null, "joinedPlanId": "plan-missing-active",
+          "planActive": true, "planMetadata": {}, "planPermissionLinkId": null,
+          "linkedPermissionId": null, "permissionId": null, "permissionActive": null,
+          "permissionString": null
+        }
+      ]
+    },
+    {
+      "id": "duplicate-sentinel",
+      "rows": [
+        {
+          "normalizedWallet": "0xabcdef", "observedAtMicros": 1784808000000001,
+          "assignmentWallet": null, "assignmentId": null, "assignmentPlanId": null,
+          "assignmentActive": null, "expiresAtMicros": null, "joinedPlanId": null,
+          "planActive": null, "planMetadata": null, "planPermissionLinkId": null,
+          "linkedPermissionId": null, "permissionId": null, "permissionActive": null,
+          "permissionString": null
+        },
+        {
+          "normalizedWallet": "0xabcdef", "observedAtMicros": 1784808000000001,
+          "assignmentWallet": null, "assignmentId": null, "assignmentPlanId": null,
+          "assignmentActive": null, "expiresAtMicros": null, "joinedPlanId": null,
+          "planActive": null, "planMetadata": null, "planPermissionLinkId": null,
+          "linkedPermissionId": null, "permissionId": null, "permissionActive": null,
+          "permissionString": null
+        }
+      ]
+    },
+    {
+      "id": "mixed-sentinel-and-assignment",
+      "rows": [
+        {
+          "normalizedWallet": "0xabcdef", "observedAtMicros": 1784808000000001,
+          "assignmentWallet": null, "assignmentId": null, "assignmentPlanId": null,
+          "assignmentActive": null, "expiresAtMicros": null, "joinedPlanId": null,
+          "planActive": null, "planMetadata": null, "planPermissionLinkId": null,
+          "linkedPermissionId": null, "permissionId": null, "permissionActive": null,
+          "permissionString": null
+        },
+        {
+          "normalizedWallet": "0xabcdef", "observedAtMicros": 1784808000000001,
+          "assignmentWallet": "0xabcdef", "assignmentId": "assignment-mixed-sentinel", "assignmentPlanId": "plan-mixed-sentinel",
+          "assignmentActive": true, "expiresAtMicros": null, "joinedPlanId": "plan-mixed-sentinel",
+          "planActive": true, "planMetadata": {}, "planPermissionLinkId": null,
+          "linkedPermissionId": null, "permissionId": null, "permissionActive": null,
+          "permissionString": null
+        }
+      ]
+    },
+    {
+      "id": "inconsistent-wallet",
+      "rows": [
+        {
+          "normalizedWallet": "0xother", "observedAtMicros": 1784808000000001,
+          "assignmentWallet": null, "assignmentId": null, "assignmentPlanId": null,
+          "assignmentActive": null, "expiresAtMicros": null, "joinedPlanId": null,
+          "planActive": null, "planMetadata": null, "planPermissionLinkId": null,
+          "linkedPermissionId": null, "permissionId": null, "permissionActive": null,
+          "permissionString": null
+        }
+      ]
+    },
+    {
+      "id": "inconsistent-observation",
+      "rows": [
+        {
+          "normalizedWallet": "0xabcdef", "observedAtMicros": 1784808000000001,
+          "assignmentWallet": "0xabcdef", "assignmentId": "assignment-observation", "assignmentPlanId": "plan-observation",
+          "assignmentActive": true, "expiresAtMicros": null, "joinedPlanId": "plan-observation",
+          "planActive": true, "planMetadata": {}, "planPermissionLinkId": null,
+          "linkedPermissionId": null, "permissionId": null, "permissionActive": null,
+          "permissionString": null
+        },
+        {
+          "normalizedWallet": "0xabcdef", "observedAtMicros": 1784808000000002,
+          "assignmentWallet": "0xabcdef", "assignmentId": "assignment-observation", "assignmentPlanId": "plan-observation",
+          "assignmentActive": true, "expiresAtMicros": null, "joinedPlanId": "plan-observation",
+          "planActive": true, "planMetadata": {}, "planPermissionLinkId": null,
+          "linkedPermissionId": null, "permissionId": null, "permissionActive": null,
+          "permissionString": null
+        }
+      ]
+    }
+  ]
+}

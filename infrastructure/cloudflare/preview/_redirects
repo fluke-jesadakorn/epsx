@@ -1,0 +1,4 @@
+# EPSX preview _redirects — limit: 2,000 static + 100 dynamic = 2,100 total
+# Use Bulk Redirects when exceeding. Isolated preview only.
+/api/*  https://api.epsx.io/api/:splat  200
+/pay/*  https://pay.epsx.io/:splat      200

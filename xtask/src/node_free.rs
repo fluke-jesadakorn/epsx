@@ -1,0 +1,3477 @@
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
+use reqwest::blocking::Client;
+use serde::Deserialize;
+use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    env,
+    ffi::OsStr,
+    fs,
+    path::{Component, Path, PathBuf},
+    process::{Child, Command, Stdio},
+    thread,
+    time::{Duration, Instant},
+};
+use url::Url;
+
+const JS_EXTENSIONS: &[&str] = &["js", "jsx", "ts", "tsx", "mjs", "cjs"];
+const NODE_MANIFESTS: &[&str] = &[
+    "package.json",
+    "package-lock.json",
+    "bun.lock",
+    "bun.lockb",
+    "yarn.lock",
+    "pnpm-lock.yaml",
+    "turbo.json",
+    ".npmrc",
+];
+const ACTIVE_NODE_COMMANDS: &[&str] = &["node", "bun", "bunx", "npm", "npx", "yarn", "pnpm"];
+const INLINE_RUNTIME_MARKERS: &[&str] = &[
+    "document::eval",
+    "dangerous_inner_html: AUTH_REDIRECT_SCRIPT",
+];
+const W3C_ELEMENT_KEY: &str = "element-6066-11e4-a52e-4f735466cecf";
+const PRODUCTION_ACCESS_COOKIE: &str = "__Host-epsx.access_token";
+
+const ALLOWED_ROOT_MANIFESTS: &[&str] = &["package.json", "bun.lock", "bun.lockb"];
+const ALLOWED_CSS_MANIFESTS: &[&str] = &[
+    "apps/frontend/package.json",
+    "apps/frontend/package-lock.json",
+    "apps/admin/package.json",
+    "apps/admin/package-lock.json",
+];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum E2eRuntimeProfile {
+    Local,
+    ProductionShaped,
+}
+
+impl E2eRuntimeProfile {
+    fn parse(value: &str) -> Result<Self, String> {
+        match value {
+            "local" => Ok(Self::Local),
+            "production-shaped" => Ok(Self::ProductionShaped),
+            _ => Err("E2E runtime profile must be local or production-shaped".into()),
+        }
+    }
+
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::Local => "local",
+            Self::ProductionShaped => "production-shaped",
+        }
+    }
+
+    fn access_cookie(self, surface: &str) -> Result<(&'static str, bool), String> {
+        match (self, surface) {
+            (Self::ProductionShaped, "frontend" | "admin") => Ok((PRODUCTION_ACCESS_COOKIE, true)),
+            (Self::Local, "frontend") => Ok(("epsx.frontend.access_token", false)),
+            (Self::Local, "admin") => Ok(("epsx.admin.access_token", false)),
+            (_, _) => Err("unsupported scenario surface for access cookie".into()),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct ScenarioManifest {
+    #[serde(rename = "schemaVersion")]
+    schema_version: u64,
+    #[serde(rename = "baselineLock")]
+    baseline_lock: String,
+    #[serde(rename = "routeContract")]
+    route_contract: String,
+    matrices: BTreeMap<String, Vec<Matrix>>,
+    groups: Vec<ScenarioGroup>,
+}
+
+#[derive(Debug, Deserialize)]
+struct Matrix {
+    id: String,
+    viewport: Viewport,
+    #[serde(rename = "colorScheme")]
+    color_scheme: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct Viewport {
+    width: u64,
+    height: u64,
+}
+
+#[derive(Debug, Deserialize)]
+struct ScenarioGroup {
+    id: u8,
+    slug: String,
+    matrix: String,
+    repeat: u8,
+    scenarios: Vec<Scenario>,
+}
+
+#[derive(Debug, Deserialize)]
+struct Scenario {
+    id: String,
+    surface: String,
+    path: String,
+    #[serde(default, rename = "expectedTargetPath")]
+    expected_target_path: Option<String>,
+    #[serde(default)]
+    actions: Vec<Value>,
+    #[serde(default)]
+    outcomes: Vec<Value>,
+    #[serde(default)]
+    state: Value,
+    #[serde(default, rename = "fixtureRequirements")]
+    fixture_requirements: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct BaselineLock {
+    #[serde(rename = "schemaVersion")]
+    schema_version: u64,
+    immutable: bool,
+    commit: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct EvidenceManifest {
+    #[serde(rename = "schemaVersion")]
+    schema_version: u64,
+    #[serde(rename = "hashAlgorithm")]
+    hash_algorithm: String,
+    entries: Vec<EvidenceEntry>,
+}
+
+#[derive(Debug, Deserialize)]
+struct EvidenceEntry {
+    path: String,
+    sha256: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct FixtureCapabilities {
+    schema_version: u64,
+    authority: String,
+    session_algorithm: String,
+    key_id: String,
+    supported_groups: Vec<u8>,
+    supported_modes: Vec<String>,
+    reset_proof: bool,
+}
+
+struct StateProvisioner<'a> {
+    client: &'a Client,
+    endpoint: String,
+    token: String,
+    capabilities: FixtureCapabilities,
+}
+
+// Reviewed exact adapter blocks include dynamic script construction. New evals
+// in the same file are still rejected; update this manifest only after review.
+#[derive(Deserialize)]
+struct BrowserAdapter {
+    path: String,
+    purpose: String,
+    source: String,
+}
+
+fn browser_adapters() -> Vec<BrowserAdapter> {
+    serde_json::from_str(include_str!("browser_adapters.json"))
+        .expect("reviewed browser adapter manifest must be valid")
+}
+
+fn inline_runtime_source(path: &Path, source: &str) -> String {
+    let mut source = source.to_string();
+    for adapter in browser_adapters() {
+        if path == Path::new(&adapter.path) {
+            debug_assert!(!adapter.purpose.is_empty());
+            source = source.replace(&adapter.source, "REVIEWED_BROWSER_ADAPTER");
+        }
+    }
+    source
+}
+
+fn is_browser_adapter_asset(path: &Path, bytes: &[u8]) -> bool {
+    // Browser APIs only: wallet transport, disconnect, and the chain-31337
+    // deployment console. Exact hashes require review when any source changes.
+    let expected = match path.to_str().unwrap_or("") {
+        "shared/rust/dioxus_ui/src/fullstack/pay/wallet_adapter.js" => {
+            "fe66cbdc8da7447b1c286064828565b77c6826e26b3209f3ddd828555a1a6b18"
+        }
+        "shared/rust/dioxus_ui/src/fullstack/wallet_disconnect.js" => {
+            "925b85698c5e7d851a7812ae9c97c6926b15641a85ace4bc5df0399600bb9d35"
+        }
+        "shared/rust/dioxus_ui/src/navigation_lifecycle.js" => {
+            "3d978b7c983de83d5738ecc6ac5842f66f4ad17256c004463ac2c81eb4d0abba"
+        }
+        "infrastructure/native/local-deploy.js" => {
+            "3363765b1095a9bfb84a7c4aa57e3592740e788fc9c41137df7d41f26ef31497"
+        }
+        "infrastructure/native/dev-live-css.js" => {
+            "64c845d1ae706aa23327474ddd892b6531719bd9dafb4f2b8abbf98554d48ce2"
+        }
+        _ => return false,
+    };
+    format!("{:x}", Sha256::digest(bytes)) == expected
+}
+
+pub fn audit(flags: &[String]) -> Result<(), String> {
+    let Some(kind) = flags.first() else {
+        return Err("audit requires a target; supported target: no-node".into());
+    };
+    if kind != "no-node" {
+        return Err(format!("unsupported audit target {kind}"));
+    }
+    if flags
+        .iter()
+        .skip(1)
+        .any(|flag| flag != "--strict" && flag != "--report")
+    {
+        return Err("audit no-node accepts only --strict and --report".into());
+    }
+    let strict = flags.iter().any(|flag| flag == "--strict");
+    let root = repo_root()?;
+    verify_walletconnect_vendor(&root).map_err(|e| e.to_string())?;
+    let files = audit_files(&root)?;
+    let mut scripts = Vec::new();
+    let mut manifests = Vec::new();
+    let mut active_refs = Vec::new();
+    let mut inline_runtimes = Vec::new();
+
+    for relative in &files {
+        let name = relative.file_name().and_then(OsStr::to_str).unwrap_or("");
+        let extension = relative.extension().and_then(OsStr::to_str).unwrap_or("");
+        if JS_EXTENSIONS.contains(&extension)
+            && !is_browser_adapter_asset(
+                relative,
+                &fs::read(root.join(relative)).unwrap_or_default(),
+            )
+            && !matches!(
+                relative.to_str(),
+                Some("apps/pay/vendor/bridge.mjs" | "apps/pay/vendor/walletconnect-2.24.0.js")
+            )
+        {
+            scripts.push(relative.clone());
+        }
+        let is_node_manifest = NODE_MANIFESTS.contains(&name)
+            || name.starts_with("tsconfig")
+            || name.starts_with("eslint.config")
+            || name.starts_with("jest.config")
+            || name.starts_with("playwright.config")
+            || name.starts_with("postcss.config");
+        if is_node_manifest && !is_allowed_manifest(relative) {
+            manifests.push(relative.clone());
+        }
+        let absolute = root.join(relative);
+        let Ok(contents) = fs::read_to_string(&absolute) else {
+            continue;
+        };
+        if is_active_automation_path(relative) && contains_node_command(&contents) {
+            active_refs.push(relative.clone());
+        }
+        if extension == "rs"
+            && relative != Path::new("xtask/src/node_free.rs")
+            && INLINE_RUNTIME_MARKERS
+                .iter()
+                .any(|marker| inline_runtime_source(relative, &contents).contains(marker))
+        {
+            inline_runtimes.push(relative.clone());
+        }
+    }
+
+    scripts.sort();
+    manifests.sort();
+    active_refs.sort();
+    inline_runtimes.sort();
+    println!(
+        "no-node-audit: scripts={} manifests={} active_refs={} inline_runtimes={}",
+        scripts.len(),
+        manifests.len(),
+        active_refs.len(),
+        inline_runtimes.len()
+    );
+    print_paths("script", &scripts);
+    print_paths("manifest", &manifests);
+    print_paths("active-node-reference", &active_refs);
+    print_paths("inline-runtime", &inline_runtimes);
+    if strict
+        && (!scripts.is_empty()
+            || !manifests.is_empty()
+            || !active_refs.is_empty()
+            || !inline_runtimes.is_empty())
+    {
+        return Err("strict no-node audit failed".into());
+    }
+    Ok(())
+}
+
+fn verify_walletconnect_vendor(root: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    let dir = root.join("apps/pay/vendor");
+    let manifest: Value = serde_json::from_slice(&fs::read(dir.join("manifest.json"))?)?;
+    for name in [
+        "bridge.mjs",
+        "walletconnect-2.24.0.js",
+        "walletconnect-2.24.0.js.LEGAL.txt",
+        "dependencies.lock.json",
+        "LICENSE.walletconnect",
+    ] {
+        let digest = format!("{:x}", Sha256::digest(fs::read(dir.join(name))?));
+        if manifest["files"][name].as_str() != Some(&digest) {
+            return Err(format!("WalletConnect vendor checksum mismatch: {name}").into());
+        }
+    }
+    Ok(())
+}
+
+pub fn e2e(flags: &[String]) -> Result<(), String> {
+    let Some(command) = flags.first().map(String::as_str) else {
+        return Err("e2e requires doctor, run, report, or verify-artifacts".into());
+    };
+    let args = &flags[1..];
+    match command {
+        "doctor" => e2e_doctor(args),
+        "run" => e2e_run(args),
+        "fixture-serve" => crate::e2e_fixture::serve(args),
+        "report" => e2e_report(args),
+        "verify-artifacts" => e2e_verify_artifacts(args),
+        _ => Err(format!("unknown e2e command {command}")),
+    }
+}
+
+pub fn design(flags: &[String]) -> Result<(), String> {
+    if flags.first().map(String::as_str) != Some("capture") {
+        return Err("design accepts only: design capture --group 0..9".into());
+    }
+    e2e_run(&flags[1..])
+}
+
+pub fn env_command(flags: &[String]) -> Result<(), String> {
+    if flags.len() != 1 || flags[0] != "validate" {
+        return Err("env accepts only: env validate".into());
+    }
+    let root = repo_root()?;
+    let env_name = environment_name();
+    let mut merged = BTreeMap::new();
+    let explicit = env::var_os("ROOT_ENV_FILE").map(PathBuf::from);
+    let env_files = explicit.map_or_else(
+        || {
+            vec![
+                root.join(".env"),
+                root.join(format!(".env.{env_name}")),
+                root.join(".env.local"),
+                root.join(format!(".env.{env_name}.local")),
+            ]
+        },
+        |path| vec![path],
+    );
+    for path in env_files.iter().filter(|path| path.is_file()) {
+        merged.extend(parse_env_file(path)?);
+    }
+    merged.extend(env::vars());
+    let example = parse_env_file(&root.join(".env.example"))?;
+    let missing = example
+        .keys()
+        .filter(|key| merged.get(*key).is_none_or(String::is_empty))
+        .cloned()
+        .collect::<Vec<_>>();
+    if !missing.is_empty() {
+        return Err(format!(
+            "missing required environment variables for {env_name}: {}",
+            missing.join(", ")
+        ));
+    }
+    println!(
+        "env validate: PASS — environment={env_name}, required={}",
+        example.len()
+    );
+    Ok(())
+}
+
+pub fn setup_local(flags: &[String]) -> Result<(), String> {
+    if !flags.is_empty() {
+        return Err("setup-local accepts no arguments".into());
+    }
+    run_status(
+        Command::new("sh")
+            .arg("apps/contracts/scripts/setup-local.sh")
+            .current_dir(repo_root()?),
+        "Foundry local setup",
+    )
+}
+
+pub fn dev(flags: &[String]) -> Result<(), String> {
+    let root = repo_root()?;
+    match flags.first().map(String::as_str) {
+        Some("--all") => dev_all(&root),
+        Some("--all-hmr") => dev_all_hmr(&root),
+        Some("--frontend") => {
+            build_browser_runtime(&root)?;
+            cargo_watch_run(&root, "epsx-frontend", "bff-frontend")
+        }
+        Some("--frontend-once") => {
+            build_browser_runtime(&root)?;
+            cargo_run(&root, "epsx-frontend", "bff-frontend")
+        }
+        Some("--frontend-watch") => {
+            build_browser_runtime(&root)?;
+            cargo_watch_run(&root, "epsx-frontend", "bff-frontend")
+        }
+        Some("--frontend-dx") => {
+            build_browser_runtime(&root)?;
+            dx_serve_run(&root, "epsx-frontend", "bff-frontend")
+        }
+        Some("--admin") => {
+            build_browser_runtime(&root)?;
+            cargo_watch_run(&root, "epsx-admin", "bff-admin")
+        }
+        Some("--admin-once") => {
+            build_browser_runtime(&root)?;
+            cargo_run(&root, "epsx-admin", "bff-admin")
+        }
+        Some("--admin-watch") => {
+            build_browser_runtime(&root)?;
+            cargo_watch_run(&root, "epsx-admin", "bff-admin")
+        }
+        Some("--admin-dx") => {
+            build_browser_runtime(&root)?;
+            dx_serve_run(&root, "epsx-admin", "bff-admin")
+        }
+        Some("--pay") => {
+            build_browser_runtime(&root)?;
+            cargo_run(&root, "epsx-pay-bff", "bff-pay")
+        }
+        Some("--backend") => cargo_run(&root, "epsx", "epsx"),
+        _ => Err("dev requires --all, --all-hmr, --frontend, --frontend-once, --frontend-watch, --frontend-dx, --admin, --admin-once, --admin-watch, --admin-dx, or --backend".into()),
+    }
+}
+
+/// Run the local applications together with every extracted service consumed
+/// by the Admin BFF. The previous implementation delegated to a Compose file
+/// that does not exist, so `dev --all` could never establish the topology its
+/// command name promised.
+fn dev_all(root: &Path) -> Result<(), String> {
+    const SERVICES: &[(&str, &str)] = &[
+        ("epsx", "epsx"),
+        ("epsx-wallet", "wallet"),
+        ("epsx-pay-svc", "pay-service"),
+        ("epsx-subscription", "subscription"),
+        ("epsx-notification", "notification"),
+        ("epsx-analytics", "analytics"),
+        ("epsx-frontend", "bff-frontend"),
+        ("epsx-admin", "bff-admin"),
+        ("epsx-pay-bff", "bff-pay"),
+    ];
+
+    build_service_worker(root)?;
+    for (package, binary) in SERVICES {
+        fullstack_build(root, package, binary, false)?;
+    }
+    let mut build = Command::new("cargo");
+    build.current_dir(root).args(["build", "--locked"]);
+    for (package, binary) in SERVICES {
+        build.args(["-p", package, "--bin", binary]);
+    }
+    run_status(&mut build, "native development binaries")?;
+    let target = std::env::var_os("CARGO_TARGET_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| root.join("target"));
+    let mut children = Vec::with_capacity(SERVICES.len());
+    for (package, binary) in SERVICES {
+        let mut command = Command::new(target.join("debug").join(binary));
+        command
+            .current_dir(root)
+            .stdin(Stdio::inherit())
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit());
+        for (key, value) in local_dev_environment(binary) {
+            command.env(key, value);
+        }
+        fullstack_environment(&mut command, root, binary);
+        match command.spawn() {
+            Ok(child) => children.push((*package, child)),
+            Err(error) => {
+                stop_dev_children(&mut children, None);
+                return Err(format!("could not start {package}: {error}"));
+            }
+        }
+    }
+
+    println!(
+        "dev --all: backend=:8080 admin=:3001 frontend=:3000 pay-bff=:3002 wallet=:8102 pay=:8103 subscription=:8104 notification=:8106 analytics=:8107"
+    );
+    loop {
+        for index in 0..children.len() {
+            let Some(status) = children[index]
+                .1
+                .try_wait()
+                .map_err(|error| format!("could not inspect {}: {error}", children[index].0))?
+            else {
+                continue;
+            };
+            let label = children[index].0;
+            stop_dev_children(&mut children, Some(index));
+            return Err(format!("{label} exited unexpectedly with {status}"));
+        }
+        thread::sleep(Duration::from_millis(250));
+    }
+}
+
+fn dev_all_hmr(root: &Path) -> Result<(), String> {
+    const BACKEND_SERVICES: &[(&str, &str)] = &[
+        ("epsx", "epsx"),
+        ("epsx-wallet", "wallet"),
+        ("epsx-pay-svc", "pay-service"),
+        ("epsx-subscription", "subscription"),
+        ("epsx-notification", "notification"),
+        ("epsx-analytics", "analytics"),
+    ];
+    build_browser_runtime(root)?;
+    let mut children = Vec::with_capacity(12);
+    for (package, binary) in BACKEND_SERVICES {
+        children.push(spawn_cargo_run(root, package, binary)?);
+    }
+    children.push(spawn_dx_serve(root, "epsx-frontend", "bff-frontend")?);
+    children.push(spawn_dx_serve(root, "epsx-admin", "bff-admin")?);
+    children.push(spawn_dx_serve(root, "epsx-pay-bff", "bff-pay")?);
+    children.push(spawn_wasm_watch(root)?);
+    println!(
+        "dev --all-hmr: gateway=:8080 frontend=:3000 (dx HMR <500ms) admin=:3001 (dx HMR) wallet=:8102 pay=:8103 sub=:8104 notif=:8106 analytics=:8107 + recovery worker watch"
+    );
+    loop {
+        for index in 0..children.len() {
+            let Some(status) = children[index]
+                .1
+                .try_wait()
+                .map_err(|error| format!("could not inspect {}: {error}", children[index].0))?
+            else {
+                continue;
+            };
+            let label = children[index].0;
+            stop_dev_children(&mut children, Some(index));
+            return Err(format!("{label} exited unexpectedly with {status}"));
+        }
+        thread::sleep(Duration::from_millis(250));
+    }
+}
+
+fn spawn_dx_serve(
+    root: &Path,
+    package: &'static str,
+    binary: &'static str,
+) -> Result<(&'static str, Child), String> {
+    let app_dir = match binary {
+        "bff-frontend" => root.join("apps/frontend"),
+        "bff-admin" => root.join("apps/admin"),
+        "bff-pay" => root.join("apps/pay"),
+        _ => return spawn_cargo_run(root, package, binary),
+    };
+    let label = match binary {
+        "bff-frontend" => "dx-frontend",
+        "bff-admin" => "dx-admin",
+        _ => package,
+    };
+    let mut command = Command::new("dx");
+    command
+        .args([
+            "serve",
+            "--hot-reload",
+            "true",
+            "--port",
+            fullstack_port(binary),
+            "--fullstack",
+            "true",
+            "--web",
+            "--package",
+            package,
+            "--bin",
+            fullstack_binary(binary).expect("UI binary"),
+            "--no-default-features",
+        ])
+        .current_dir(&app_dir)
+        .stdin(Stdio::inherit())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit());
+    for (key, value) in local_dev_environment(binary) {
+        command.env(key, value);
+    }
+    command.env(
+        "EPSX_BROWSER_RUNTIME_DIR",
+        root.join("target/epsx-service-worker"),
+    );
+    command
+        .spawn()
+        .map(|child| (label, child))
+        .map_err(|error| format!("could not start {label}: {error}"))
+}
+
+fn spawn_wasm_watch(root: &Path) -> Result<(&'static str, Child), String> {
+    let mut command = Command::new("cargo");
+    command
+        .args([
+            "watch",
+            "--why",
+            "-w",
+            "shared/rust/service-worker",
+            "-x",
+            "cargo xtask browser-runtime build",
+        ])
+        .current_dir(root)
+        .stdin(Stdio::inherit())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit());
+    command
+        .spawn()
+        .map(|child| ("wasm-watch", child))
+        .map_err(|error| format!("could not start wasm-watch: {error}"))
+}
+
+fn spawn_cargo_run(
+    root: &Path,
+    package: &'static str,
+    binary: &'static str,
+) -> Result<(&'static str, Child), String> {
+    let mut command = Command::new("cargo");
+    command
+        .args(["run", "-p", package, "--bin", binary])
+        .current_dir(root)
+        .stdin(Stdio::inherit())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit());
+    for (key, value) in local_dev_environment(binary) {
+        command.env(key, value);
+    }
+    fullstack_environment(&mut command, root, binary);
+    command
+        .spawn()
+        .map(|child| (package, child))
+        .map_err(|error| format!("could not start {package}: {error}"))
+}
+
+fn stop_dev_children(children: &mut [(&'static str, Child)], skip: Option<usize>) {
+    for (index, (_, child)) in children.iter_mut().enumerate() {
+        if skip != Some(index) {
+            let _ = child.kill();
+        }
+    }
+    for (index, (_, child)) in children.iter_mut().enumerate() {
+        if skip != Some(index) {
+            let _ = child.wait();
+        }
+    }
+}
+
+pub fn build(flags: &[String]) -> Result<(), String> {
+    let profile = flag_value(flags, "--profile").unwrap_or("development");
+    if flags.len() != 2 || !matches!(profile, "development" | "production") {
+        return Err("build requires --profile development|production".into());
+    }
+    let root = repo_root()?;
+    build_service_worker(&root)?;
+    for (package, binary) in [
+        ("epsx-frontend", "bff-frontend"),
+        ("epsx-admin", "bff-admin"),
+        ("epsx-pay-bff", "bff-pay"),
+    ] {
+        fullstack_build(&root, package, binary, profile == "production")?;
+    }
+    let mut command = Command::new("cargo");
+    command.args(["build", "--workspace", "--locked"]);
+    if profile == "production" {
+        command.arg("--release");
+    }
+    command.current_dir(root);
+    run_status(&mut command, "Rust workspace build")
+}
+
+pub fn browser_runtime(flags: &[String]) -> Result<(), String> {
+    if flags != ["build"] {
+        return Err("browser-runtime accepts only: browser-runtime build".into());
+    }
+    build_browser_runtime(&repo_root()?)
+}
+
+/// Compatibility command name; UI events now belong exclusively to Dioxus.
+pub(crate) fn build_browser_runtime(root: &Path) -> Result<(), String> {
+    build_service_worker(root)
+}
+
+pub(crate) fn build_service_worker(root: &Path) -> Result<(), String> {
+    run_status(
+        Command::new("cargo")
+            .args([
+                "build",
+                "--locked",
+                "--release",
+                "--target",
+                "wasm32-unknown-unknown",
+                "-p",
+                "epsx-service-worker",
+            ])
+            .current_dir(root),
+        "Recovery service worker",
+    )?;
+    let output = root.join("target/epsx-service-worker");
+    fs::create_dir_all(&output)
+        .map_err(|error| format!("could not create {}: {error}", output.display()))?;
+    {
+        let crate_name = "epsx_service_worker";
+        let input = cargo_target_directory(root)?
+            .join(format!("wasm32-unknown-unknown/release/{crate_name}.wasm"));
+        run_status(
+            Command::new("wasm-bindgen")
+                .args(["--target", "web", "--no-typescript", "--out-dir"])
+                .arg(&output)
+                .arg(&input)
+                .current_dir(root),
+            &format!("wasm-bindgen for {crate_name}"),
+        )?;
+    }
+    // These loaders are build output, never repository source. The worker
+    // bridge captures `install` synchronously because service workers reject
+    // module graphs with top-level await; the event then owns the asynchronous
+    // Rust/WASM initialization and install work.
+    {
+        let crate_name = "epsx_service_worker";
+        let bootstrap_name = if crate_name == "epsx_service_worker" {
+            format!("{crate_name}_bootstrap.v3.js")
+        } else {
+            format!("{crate_name}_bootstrap.js")
+        };
+        let bootstrap = output.join(bootstrap_name);
+        // A JS/Wasm pair must never be assembled from different releases by a
+        // browser or CDN cache. Both imports share a content-derived revision.
+        let mut digest = Sha256::new();
+        for extension in [".js", "_bg.wasm"] {
+            digest.update(
+                fs::read(output.join(format!("{crate_name}{extension}")))
+                    .map_err(|e| e.to_string())?,
+            );
+        }
+        let revision = format!("{:x}", digest.finalize());
+        let loader = runtime_bootstrap(crate_name).replace("?rev=3", &format!("?rev={revision}"));
+        fs::write(&bootstrap, loader)
+            .map_err(|error| format!("could not write {}: {error}", bootstrap.display()))?;
+        if crate_name == "epsx_service_worker" {
+            let legacy = output.join(format!("{crate_name}_bootstrap.js"));
+            fs::write(&legacy, legacy_service_worker_bootstrap())
+                .map_err(|error| format!("could not write {}: {error}", legacy.display()))?;
+        }
+    }
+    println!(
+        "service-worker: PASS — generated untracked assets in {}",
+        output.display()
+    );
+    Ok(())
+}
+
+fn legacy_service_worker_bootstrap() -> &'static str {
+    "self.addEventListener('install', (event) => {\n\
+       event.waitUntil(self.skipWaiting());\n\
+     });\n\
+     self.addEventListener('activate', (event) => {\n\
+       event.waitUntil((async () => {\n\
+         await self.registration.unregister();\n\
+         const clients = await self.clients.matchAll({ type: 'window' });\n\
+         await Promise.all(clients.map((client) => client.navigate(client.url)));\n\
+       })());\n\
+     });\n\
+     //# sourceURL=epsx-service-worker-legacy-cleanup\n"
+}
+
+fn runtime_bootstrap(crate_name: &str) -> String {
+    if crate_name == "epsx_service_worker" {
+        return format!(
+            "import init, {{ activate, fetch_navigation, fetch_public_style, install, notification_click, push }} from './{crate_name}.js?rev=3';\n\
+             const isDev = ['dev.epsx.io', 'dev-admin.epsx.io', 'dev-pay.epsx.io'].includes(self.location.hostname);\n\
+             const runtime = isDev ? Promise.resolve() : init({{ module_or_path: new URL('./{crate_name}_bg.wasm?rev=3', import.meta.url) }});\n\
+             self.addEventListener('install', (event) => {{\n\
+               event.waitUntil(isDev ? self.skipWaiting() : runtime.then(() => install()).then(() => self.skipWaiting()));\n\
+             }});\n\
+             self.addEventListener('activate', (event) => {{\n\
+               event.waitUntil(isDev ? self.registration.unregister().then(() => self.clients.matchAll({{type:'window',includeUncontrolled:true}})).then(clients => Promise.all(clients.map(client => client.navigate(client.url)))) : runtime.then(() => activate()));\n\
+             }});\n\
+             self.addEventListener('fetch', (event) => {{\n\
+               if (!isDev && event.request.method === 'GET' && event.request.mode === 'navigate') {{\n\
+                 event.respondWith(runtime.then(() => fetch_navigation(event.request)));\n\
+               }} else if (!isDev && event.request.method === 'GET' && new URL(event.request.url).origin === self.location.origin && ['/public/dist/tailwind.css'].includes(new URL(event.request.url).pathname + new URL(event.request.url).search)) {{\n\
+                 event.respondWith(runtime.then(() => fetch_public_style(event.request)));\n\
+               }}\n\
+             }});\n\
+             self.addEventListener('push', (event) => {{\n\
+               event.waitUntil(runtime.then(() => push(event)));\n\
+             }});\n\
+             self.addEventListener('notificationclick', (event) => {{\n\
+               event.waitUntil(runtime.then(() => notification_click(event)));\n\
+             }});\n\
+             //# sourceURL=wasm-bindgen:{crate_name}\n"
+        );
+    }
+    format!(
+        "import init from './{crate_name}.js?rev=3';\n\
+         await init({{ module_or_path: new URL('./{crate_name}_bg.wasm?rev=3', import.meta.url) }});\n\
+         //# sourceURL=wasm-bindgen:{crate_name}\n"
+    )
+}
+
+pub fn test(flags: &[String]) -> Result<(), String> {
+    if flags.len() != 1 || flags[0] != "--all" {
+        return Err("test accepts only --all".into());
+    }
+    let root = repo_root()?;
+    run_status(
+        Command::new("cargo")
+            .args(["test", "--workspace", "--locked"])
+            .current_dir(root),
+        "Rust workspace tests",
+    )
+}
+
+fn e2e_doctor(flags: &[String]) -> Result<(), String> {
+    validate_group_flag(flags)?;
+    let root = repo_root()?;
+    let manifest = load_manifest(&root)?;
+    let lock: BaselineLock = read_json(&root.join(&manifest.baseline_lock))?;
+    if manifest.schema_version != 2
+        || lock.schema_version != 1
+        || !lock.immutable
+        || !is_hex(&lock.commit, 40)
+    {
+        return Err("migration manifest or immutable baseline lock is invalid".into());
+    }
+    if !root.join(&manifest.route_contract).is_file() {
+        return Err("route contract referenced by the manifest is missing".into());
+    }
+    let ids = manifest
+        .groups
+        .iter()
+        .map(|group| group.id)
+        .collect::<BTreeSet<_>>();
+    if ids != (0_u8..=9).collect() {
+        return Err("migration groups must be the exact set 0 through 9".into());
+    }
+    if manifest.matrices.values().flatten().any(|matrix| {
+        matrix.viewport.width == 0
+            || matrix.viewport.height == 0
+            || !matches!(matrix.color_scheme.as_str(), "light" | "dark")
+    }) {
+        return Err("migration matrices require a positive viewport and light/dark scheme".into());
+    }
+    let mut scenario_ids = BTreeSet::new();
+    let mut action_count = 0usize;
+    let mut outcome_count = 0usize;
+    for group in &manifest.groups {
+        if group.repeat == 0
+            || !manifest.matrices.contains_key(&group.matrix)
+            || group.scenarios.is_empty()
+        {
+            return Err(format!(
+                "group {} has an incomplete execution contract",
+                group.id
+            ));
+        }
+        for scenario in &group.scenarios {
+            if !scenario.path.starts_with('/')
+                || scenario.outcomes.is_empty()
+                || !scenario_ids.insert(scenario.id.clone())
+            {
+                return Err(format!("invalid or duplicate scenario {}", scenario.id));
+            }
+            validate_scenario_contract(
+                scenario,
+                manifest
+                    .matrices
+                    .get(&group.matrix)
+                    .ok_or("group matrix is missing")?,
+            )?;
+            action_count += scenario.actions.len();
+            outcome_count += scenario.outcomes.len();
+        }
+    }
+    if let Some(group) = group_id(flags)? {
+        require_group(&manifest, group)?;
+    }
+    let workflow = fs::read_to_string(root.join(".github/workflows/migration-e2e.yml"))
+        .map_err(|error| format!("could not read migration E2E workflow: {error}"))?;
+    let edge = fs::read_to_string(root.join("e2e/production-shape/nginx.conf"))
+        .map_err(|error| format!("could not read production-shaped edge config: {error}"))?;
+    validate_production_shape_contract(&workflow, &edge)?;
+    let matrix_count = manifest.matrices.values().map(Vec::len).sum::<usize>();
+    println!(
+        "rust e2e doctor: PASS — baseline={}, groups=0-9, scenarios={}, actions={action_count}, asserted_outcomes={outcome_count}, matrices={matrix_count}, production_shape=pass",
+        lock.commit, scenario_ids.len()
+    );
+    Ok(())
+}
+
+fn validate_production_shape_contract(workflow: &str, edge: &str) -> Result<(), String> {
+    let workflow_markers = [
+        "cargo build --release -p epsx-frontend -p epsx-admin",
+        "--issuer https://api.epsx.test:4443",
+        "EPSX_ENV=production SSL_CERT_FILE=/tmp/epsx-e2e-ca.crt",
+        "API_URL=https://api.epsx.test:4443",
+        "target/release/bff-frontend",
+        "target/release/bff-admin",
+        "openssl verify -CAfile /tmp/epsx-e2e-ca.crt",
+        "E2E_RUNTIME_PROFILE: production-shaped",
+        "E2E_TARGET_FRONTEND_URL: https://epsx.e2e.localhost:4443",
+        "E2E_TARGET_ADMIN_URL: https://admin.e2e.localhost:4443",
+        "curl --cacert /tmp/epsx-e2e-ca.crt -fsS https://api.epsx.test:4443/api/health",
+        "curl --cacert /tmp/epsx-e2e-ca.crt -fsS https://epsx.e2e.localhost:4443/api/health",
+        "curl --cacert /tmp/epsx-e2e-ca.crt -fsS https://admin.e2e.localhost:4443/api/health",
+    ];
+    let edge_markers = [
+        "ssl_protocols TLSv1.2 TLSv1.3;",
+        "server_name api.epsx.test;",
+        "server_name epsx.e2e.localhost;",
+        "server_name admin.e2e.localhost;",
+        "proxy_pass http://127.0.0.1:48080;",
+        "proxy_pass http://127.0.0.1:4200;",
+        "proxy_pass http://127.0.0.1:4201;",
+        "proxy_set_header Host $http_host;",
+        "proxy_set_header X-Forwarded-Proto https;",
+    ];
+    if let Some(missing) = workflow_markers
+        .iter()
+        .find(|marker| !workflow.contains(**marker))
+    {
+        return Err(format!(
+            "migration E2E workflow lost production-shaped marker: {missing}"
+        ));
+    }
+    for forbidden in [
+        "EPSX_PRODUCTION_SHAPED_E2E",
+        "target/debug/bff-frontend",
+        "target/debug/bff-admin",
+        "curl -k",
+    ] {
+        if workflow.contains(forbidden) {
+            return Err(format!(
+                "migration E2E workflow contains forbidden production-shaped bypass: {forbidden}"
+            ));
+        }
+    }
+    if let Some(missing) = edge_markers.iter().find(|marker| !edge.contains(**marker)) {
+        return Err(format!(
+            "migration E2E edge lost production-shaped marker: {missing}"
+        ));
+    }
+    Ok(())
+}
+
+fn validate_scenario_contract(scenario: &Scenario, matrices: &[Matrix]) -> Result<(), String> {
+    let state = scenario
+        .state
+        .as_object()
+        .ok_or_else(|| format!("{} state must be an object", scenario.id))?;
+    let session = state
+        .get("session")
+        .and_then(Value::as_str)
+        .filter(|session| matches!(*session, "signed-out" | "authenticated"))
+        .ok_or_else(|| format!("{} state has an invalid session", scenario.id))?;
+    state
+        .get("id")
+        .and_then(Value::as_str)
+        .filter(|id| !id.trim().is_empty())
+        .ok_or_else(|| format!("{} state omitted id", scenario.id))?;
+    if session == "authenticated" {
+        state
+            .get("audience")
+            .and_then(Value::as_str)
+            .filter(|audience| matches!(*audience, "epsx-frontend" | "epsx-admin"))
+            .ok_or_else(|| format!("{} authenticated state omitted audience", scenario.id))?;
+        let permissions = state
+            .get("permissions")
+            .and_then(Value::as_array)
+            .ok_or_else(|| format!("{} authenticated state omitted permissions", scenario.id))?;
+        if permissions
+            .iter()
+            .any(|permission| permission.as_str().is_none_or(str::is_empty))
+        {
+            return Err(format!(
+                "{} state contains an invalid permission",
+                scenario.id
+            ));
+        }
+    }
+    if state
+        .get("fixtureModeSide")
+        .and_then(Value::as_str)
+        .is_some_and(|side| !matches!(side, "source" | "target"))
+    {
+        return Err(format!("{} state has an invalid fixture side", scenario.id));
+    }
+    if state
+        .get("fixtureMode")
+        .is_some_and(|mode| mode.as_str().is_none_or(str::is_empty))
+    {
+        return Err(format!("{} state has an invalid fixture mode", scenario.id));
+    }
+    if scenario
+        .fixture_requirements
+        .iter()
+        .any(|requirement| requirement.trim().is_empty())
+    {
+        return Err(format!("{} has an empty fixture requirement", scenario.id));
+    }
+
+    let matrix_ids = matrices
+        .iter()
+        .map(|matrix| matrix.id.as_str())
+        .collect::<BTreeSet<_>>();
+    for action in &scenario.actions {
+        validate_contract_scope(&scenario.id, action, &matrix_ids)?;
+        match action_type(action) {
+            Some("reload" | "clear-cookies") => {}
+            Some("navigate") => {
+                let path = require_string(action, "path", &scenario.id, "navigate action")?;
+                if !path.starts_with('/') {
+                    return Err(format!("{} navigate path must be absolute", scenario.id));
+                }
+            }
+            Some("wait-for" | "click") => {
+                validate_selector_syntax(action_selector(action)?)?;
+            }
+            Some("fill") => {
+                validate_selector_syntax(action_selector(action)?)?;
+                require_string(action, "value", &scenario.id, "fill action")?;
+            }
+            Some("set-input-files") => {
+                validate_selector_syntax(action_selector(action)?)?;
+                let name = require_string(action, "name", &scenario.id, "file action")?;
+                if Path::new(name).components().count() != 1 || !safe_relative_path(Path::new(name))
+                {
+                    return Err(format!("{} file action has an unsafe name", scenario.id));
+                }
+                let mime = require_string(action, "mimeType", &scenario.id, "file action")?;
+                if !mime.contains('/') || mime.bytes().any(|byte| byte.is_ascii_whitespace()) {
+                    return Err(format!(
+                        "{} file action has an invalid MIME type",
+                        scenario.id
+                    ));
+                }
+                let content = require_string(action, "contentBase64", &scenario.id, "file action")?;
+                BASE64.decode(content).map_err(|error| {
+                    format!("{} file action has invalid base64: {error}", scenario.id)
+                })?;
+            }
+            Some(other) => {
+                return Err(format!("{} has unsupported action {other}", scenario.id));
+            }
+            None => return Err(format!("{} action omitted type", scenario.id)),
+        }
+    }
+
+    for outcome in &scenario.outcomes {
+        validate_contract_scope(&scenario.id, outcome, &matrix_ids)?;
+        match action_type(outcome) {
+            Some("path") => {
+                let path = require_string(outcome, "value", &scenario.id, "path outcome")?;
+                if !path.starts_with('/') {
+                    return Err(format!("{} outcome path must be absolute", scenario.id));
+                }
+            }
+            Some("query") => {
+                require_string(outcome, "key", &scenario.id, "query outcome")?;
+                require_string(outcome, "value", &scenario.id, "query outcome")?;
+            }
+            Some("text" | "text-absent") => {
+                require_string(outcome, "value", &scenario.id, "text outcome")?;
+            }
+            Some("selector") => {
+                validate_selector_syntax(require_string(
+                    outcome,
+                    "value",
+                    &scenario.id,
+                    "selector outcome",
+                )?)?;
+            }
+            Some("attribute") => {
+                validate_selector_syntax(action_selector(outcome)?)?;
+                let name = require_string(outcome, "name", &scenario.id, "attribute outcome")?;
+                if !name
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b':'))
+                {
+                    return Err(format!(
+                        "{} attribute outcome has an invalid name",
+                        scenario.id
+                    ));
+                }
+                require_string(outcome, "value", &scenario.id, "attribute outcome")?;
+            }
+            Some("status") => {
+                let status = outcome
+                    .get("value")
+                    .and_then(Value::as_u64)
+                    .filter(|status| (100..=599).contains(status))
+                    .ok_or_else(|| format!("{} status outcome is invalid", scenario.id))?;
+                let _ = status;
+            }
+            Some("no-horizontal-overflow") => {}
+            Some(other) => {
+                return Err(format!("{} has unsupported outcome {other}", scenario.id));
+            }
+            None => return Err(format!("{} outcome omitted type", scenario.id)),
+        }
+    }
+    Ok(())
+}
+
+fn validate_contract_scope(
+    scenario_id: &str,
+    value: &Value,
+    matrix_ids: &BTreeSet<&str>,
+) -> Result<(), String> {
+    if value
+        .get("side")
+        .and_then(Value::as_str)
+        .is_some_and(|side| !matches!(side, "source" | "target"))
+    {
+        return Err(format!("{scenario_id} contract has an invalid side"));
+    }
+    if let Some(ids) = value.get("matrixIds") {
+        let ids = ids
+            .as_array()
+            .ok_or_else(|| format!("{scenario_id} matrixIds must be an array"))?;
+        if ids.is_empty()
+            || ids
+                .iter()
+                .any(|id| id.as_str().is_none_or(|id| !matrix_ids.contains(id)))
+        {
+            return Err(format!("{scenario_id} contract has an unknown matrix ID"));
+        }
+    }
+    Ok(())
+}
+
+fn require_string<'a>(
+    value: &'a Value,
+    key: &str,
+    scenario_id: &str,
+    label: &str,
+) -> Result<&'a str, String> {
+    value
+        .get(key)
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| format!("{scenario_id} {label} omitted {key}"))
+}
+
+fn validate_selector_syntax(selector: &str) -> Result<(), String> {
+    for branch in split_selector_branches(selector)? {
+        let (branch, _) = selector_nth(&branch)?;
+        let branch = branch.replace(":visible", "");
+        let (css, _) = selector_text_filter(&branch)?;
+        if css.trim().is_empty() {
+            return Err("selector resolves to empty CSS".into());
+        }
+    }
+    Ok(())
+}
+
+fn e2e_verify_artifacts(flags: &[String]) -> Result<(), String> {
+    validate_group_flag(flags)?;
+    let root = repo_root()?;
+    let manifest = load_manifest(&root)?;
+    let groups = selected_groups(&manifest, group_id(flags)?)?;
+    let mut checked = 0usize;
+    for group in groups {
+        let evidence_root = root.join(format!("docs/e2e/pr{}/evidence", group.id));
+        let evidence: EvidenceManifest = read_json(&evidence_root.join("evidence-manifest.json"))?;
+        if evidence.schema_version != 1 || evidence.hash_algorithm != "sha256" {
+            return Err(format!(
+                "PR {} evidence manifest contract is invalid",
+                group.id
+            ));
+        }
+        for entry in evidence.entries {
+            let relative = Path::new(&entry.path);
+            if !safe_relative_path(relative) || !is_hex(&entry.sha256, 64) {
+                return Err(format!("unsafe evidence entry {}", entry.path));
+            }
+            let path = evidence_root.join(relative);
+            let bytes = fs::read(&path)
+                .map_err(|error| format!("could not read {}: {error}", path.display()))?;
+            let actual = format!("{:x}", Sha256::digest(bytes));
+            if actual != entry.sha256 {
+                return Err(format!("evidence hash mismatch for {}", path.display()));
+            }
+            checked += 1;
+        }
+    }
+    println!("rust e2e verify-artifacts: PASS — files={checked}");
+    Ok(())
+}
+
+fn e2e_report(flags: &[String]) -> Result<(), String> {
+    validate_group_flag(flags)?;
+    let root = repo_root()?;
+    let manifest = load_manifest(&root)?;
+    for group in selected_groups(&manifest, group_id(flags)?)? {
+        let report = root.join(format!("docs/e2e/pr{}/evidence/report.md", group.id));
+        let bytes = fs::metadata(&report)
+            .map_err(|error| format!("could not inspect {}: {error}", report.display()))?
+            .len();
+        println!(
+            "group={} slug={} scenarios={} report_bytes={} report={}",
+            group.id,
+            group.slug,
+            group.scenarios.len(),
+            bytes,
+            report.display()
+        );
+    }
+    Ok(())
+}
+
+fn e2e_run(flags: &[String]) -> Result<(), String> {
+    let group_id = group_id(flags)?.ok_or("e2e run requires --group 0..9")?;
+    let allowed = [
+        "--group",
+        "--webdriver-url",
+        "--browser",
+        "--runtime-profile",
+        "--frontend-url",
+        "--admin-url",
+        "--fixture-url",
+        "--fixture-token",
+    ];
+    validate_key_value_flags(flags, &allowed)?;
+    let root = repo_root()?;
+    let manifest = load_manifest(&root)?;
+    let group = require_group(&manifest, group_id)?;
+    let matrices = manifest
+        .matrices
+        .get(&group.matrix)
+        .ok_or("group matrix is missing")?;
+    let webdriver_url = flag_value(flags, "--webdriver-url")
+        .map(str::to_owned)
+        .or_else(|| env::var("E2E_WEBDRIVER_URL").ok())
+        .unwrap_or_else(|| "http://127.0.0.1:4444".to_string());
+    let browser = flag_value(flags, "--browser").unwrap_or("chromium");
+    let browser_name = match browser {
+        "chromium" => "chrome",
+        "firefox" => "firefox",
+        "safari" => "safari",
+        _ => return Err("browser must be chromium, firefox, or safari".into()),
+    };
+    let runtime_profile = flag_value(flags, "--runtime-profile")
+        .map(str::to_owned)
+        .or_else(|| env::var("E2E_RUNTIME_PROFILE").ok())
+        .map(|value| E2eRuntimeProfile::parse(&value))
+        .transpose()?
+        .unwrap_or(E2eRuntimeProfile::Local);
+    let frontend = flag_value(flags, "--frontend-url")
+        .map(str::to_owned)
+        .or_else(|| env::var("E2E_TARGET_FRONTEND_URL").ok())
+        .unwrap_or_else(|| "http://127.0.0.1:4200".into());
+    let admin = flag_value(flags, "--admin-url")
+        .map(str::to_owned)
+        .or_else(|| env::var("E2E_TARGET_ADMIN_URL").ok())
+        .unwrap_or_else(|| "http://127.0.0.1:4201".into());
+    require_loopback(&webdriver_url, "WebDriver")?;
+    require_loopback(&frontend, "frontend")?;
+    require_loopback(&admin, "admin")?;
+    let output_root = root.join(format!("e2e/rust-artifacts/group-{group_id}"));
+    fs::create_dir_all(&output_root)
+        .map_err(|error| format!("could not create {}: {error}", output_root.display()))?;
+    let client = Client::builder()
+        .timeout(Duration::from_secs(30))
+        .danger_accept_invalid_certs(true)
+        .build()
+        .map_err(|error| format!("could not create WebDriver client: {error}"))?;
+    let fixture_url = flag_value(flags, "--fixture-url")
+        .map(str::to_owned)
+        .or_else(|| env::var("E2E_FIXTURE_URL").ok());
+    let fixture_token = flag_value(flags, "--fixture-token")
+        .map(str::to_owned)
+        .or_else(|| env::var("E2E_FIXTURE_TOKEN").ok())
+        .unwrap_or_else(|| "epsx-e2e-local-reset-token".into());
+    let provisioner = fixture_url
+        .as_deref()
+        .map(|endpoint| StateProvisioner::connect(&client, endpoint, &fixture_token))
+        .transpose()?;
+    require_runtime_state_provisioning(group, provisioner.as_ref())?;
+    let mut passed = 0usize;
+    for matrix in matrices {
+        for repeat in 1..=group.repeat {
+            let run_root = output_root
+                .join(browser)
+                .join(&matrix.id)
+                .join(format!("repeat-{repeat}"));
+            fs::create_dir_all(&run_root)
+                .map_err(|error| format!("could not create {}: {error}", run_root.display()))?;
+            for scenario in &group.scenarios {
+                let base = if scenario.surface == "admin" {
+                    &admin
+                } else {
+                    &frontend
+                };
+                let mut session =
+                    WebDriverSession::create(&client, &webdriver_url, browser_name, matrix)?;
+                let mut provisioned = None;
+                let result = (|| {
+                    session.set_window(matrix.viewport.width, matrix.viewport.height)?;
+                    if let Some(state_authority) = provisioner.as_ref() {
+                        provisioned = Some(state_authority.prepare(scenario)?);
+                    }
+                    if let Some(access_token) = provisioned
+                        .as_ref()
+                        .and_then(|provisioned| provisioned.access_token.as_deref())
+                    {
+                        session.install_access_cookie(
+                            base,
+                            &scenario.surface,
+                            access_token,
+                            runtime_profile,
+                        )?;
+                    }
+                    run_scenario(&mut session, scenario, base, matrix, &run_root)
+                })();
+                let close_result = session.close();
+                let reset_result = provisioner.as_ref().map(|state_authority| {
+                    if let Some(provisioned) = provisioned.as_ref() {
+                        state_authority.finish(scenario, provisioned, &run_root)
+                    } else {
+                        state_authority.cleanup_failed_setup(scenario)
+                    }
+                });
+                combine_scenario_results(result, close_result, reset_result)?;
+                passed += 1;
+            }
+        }
+    }
+    println!(
+        "rust e2e run: PASS — group={group_id}, browser={browser}, profile={}, matrices={}, repeats={}, executions={passed}",
+        runtime_profile.as_str(), matrices.len(), group.repeat
+    );
+    Ok(())
+}
+
+fn require_runtime_state_provisioning(
+    group: &ScenarioGroup,
+    provisioner: Option<&StateProvisioner<'_>>,
+) -> Result<(), String> {
+    let blocked = group
+        .scenarios
+        .iter()
+        .filter(|scenario| {
+            let authenticated =
+                scenario.state.get("session").and_then(Value::as_str) == Some("authenticated");
+            let target_fixture = scenario.state.get("fixtureMode").is_some()
+                && scenario
+                    .state
+                    .get("fixtureModeSide")
+                    .and_then(Value::as_str)
+                    != Some("source");
+            authenticated || target_fixture
+        })
+        .map(|scenario| scenario.id.as_str())
+        .collect::<Vec<_>>();
+    if blocked.is_empty() {
+        return Ok(());
+    }
+    if let Some(provisioner) = provisioner {
+        return provisioner.supports(group);
+    }
+    Err(format!(
+        "group {} requires authenticated or target-fixture scenario provisioning for {} scenarios (first: {}); refusing an unprovisioned false-positive run",
+        group.id,
+        blocked.len(),
+        blocked.iter().take(5).copied().collect::<Vec<_>>().join(", ")
+    ))
+}
+
+#[derive(Debug)]
+struct ProvisionedScenario {
+    reset_before: Value,
+    configured_state: Value,
+    access_token: Option<String>,
+}
+
+impl<'a> StateProvisioner<'a> {
+    fn connect(client: &'a Client, endpoint: &str, token: &str) -> Result<Self, String> {
+        require_loopback(endpoint, "E2E fixture provisioner")?;
+        if token.len() < 16 || token.len() > 256 {
+            return Err("E2E fixture token must contain 16 through 256 bytes".into());
+        }
+        let mut provisioner = Self {
+            client,
+            endpoint: endpoint.trim_end_matches('/').into(),
+            token: token.into(),
+            capabilities: FixtureCapabilities {
+                schema_version: 0,
+                authority: String::new(),
+                session_algorithm: String::new(),
+                key_id: String::new(),
+                supported_groups: Vec::new(),
+                supported_modes: Vec::new(),
+                reset_proof: false,
+            },
+        };
+        provisioner.capabilities =
+            serde_json::from_value(provisioner.control("GET", "/__e2e/capabilities", None)?)
+                .map_err(|error| format!("invalid fixture capability contract: {error}"))?;
+        let capabilities = &provisioner.capabilities;
+        if capabilities.schema_version != 1
+            || capabilities.authority != "epsx-rust-e2e-fixture"
+            || capabilities.session_algorithm != "RS256"
+            || capabilities.key_id != "epsx-e2e-rs256-v1"
+            || !capabilities.reset_proof
+        {
+            return Err(
+                "fixture provisioner does not satisfy the Rust E2E authority contract".into(),
+            );
+        }
+        Ok(provisioner)
+    }
+
+    fn supports(&self, group: &ScenarioGroup) -> Result<(), String> {
+        if !self.capabilities.supported_groups.contains(&group.id) {
+            return Err(format!(
+                "fixture provisioner does not support migration group {}; supported groups: {}",
+                group.id,
+                self.capabilities
+                    .supported_groups
+                    .iter()
+                    .map(u8::to_string)
+                    .collect::<Vec<_>>()
+                    .join(",")
+            ));
+        }
+        for scenario in &group.scenarios {
+            if target_fixture_mode(scenario).is_some_and(|mode| {
+                !self
+                    .capabilities
+                    .supported_modes
+                    .iter()
+                    .any(|supported| supported == mode)
+            }) {
+                return Err(format!(
+                    "fixture provisioner does not support mode required by {}",
+                    scenario.id
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    fn prepare(&self, scenario: &Scenario) -> Result<ProvisionedScenario, String> {
+        let reset_before = self.control("POST", "/__e2e/reset", Some(json!({})))?;
+        require_clean_reset(&reset_before, &scenario.id, "pre")?;
+        if let Some(mode) = target_fixture_mode(scenario) {
+            let configured = self.control("PUT", "/__e2e/mode", Some(json!({"mode":mode})))?;
+            if configured.get("mode").and_then(Value::as_str) != Some(mode) {
+                return Err(format!(
+                    "fixture provisioner did not select {mode} for {}",
+                    scenario.id
+                ));
+            }
+        }
+        let access_token =
+            if scenario.state.get("session").and_then(Value::as_str) == Some("authenticated") {
+                Some(self.session(scenario)?)
+            } else {
+                None
+            };
+        let configured_state = self.control("GET", "/__e2e/state", None)?;
+        Ok(ProvisionedScenario {
+            reset_before,
+            configured_state,
+            access_token,
+        })
+    }
+
+    fn finish(
+        &self,
+        scenario: &Scenario,
+        provisioned: &ProvisionedScenario,
+        output_root: &Path,
+    ) -> Result<(), String> {
+        let observed_before_reset = self.control("GET", "/__e2e/state", None)?;
+        let reset_after = self.control("POST", "/__e2e/reset", Some(json!({})))?;
+        require_clean_reset(&reset_after, &scenario.id, "post")?;
+        let observed_after_reset = self.control("GET", "/__e2e/state", None)?;
+        let clean_after = fixture_state_is_clean(&observed_after_reset);
+        let proof = json!({
+            "schemaVersion":1,
+            "scenarioId":scenario.id,
+            "authority":self.capabilities.authority,
+            "sessionAlgorithm":self.capabilities.session_algorithm,
+            "resetBefore":provisioned.reset_before,
+            "configuredState":provisioned.configured_state,
+            "observedBeforeReset":observed_before_reset,
+            "resetAfter":reset_after,
+            "observedAfterReset":observed_after_reset,
+            "checks":{
+                "preResetClean":true,
+                "postResetClean":clean_after,
+                "accessTokenProvisioned":provisioned.access_token.is_some(),
+                "accessTokenRequired":scenario.state.get("session").and_then(Value::as_str) == Some("authenticated")
+            },
+            "passed":clean_after
+        });
+        let path = output_root.join(format!("{}.fixture-reset-proof.json", scenario.id));
+        fs::write(
+            &path,
+            serde_json::to_vec_pretty(&proof)
+                .map_err(|error| format!("could not serialize fixture reset proof: {error}"))?,
+        )
+        .map_err(|error| format!("could not write {}: {error}", path.display()))?;
+        if !clean_after {
+            return Err(format!(
+                "fixture reset proof failed for {}; see {}",
+                scenario.id,
+                path.display()
+            ));
+        }
+        Ok(())
+    }
+
+    fn cleanup_failed_setup(&self, scenario: &Scenario) -> Result<(), String> {
+        let reset = self.control("POST", "/__e2e/reset", Some(json!({})))?;
+        require_clean_reset(&reset, &scenario.id, "failed-setup")
+    }
+
+    fn session(&self, scenario: &Scenario) -> Result<String, String> {
+        let audience = scenario
+            .state
+            .get("audience")
+            .and_then(Value::as_str)
+            .ok_or_else(|| format!("{} authenticated state omitted audience", scenario.id))?;
+        let permissions = scenario
+            .state
+            .get("permissions")
+            .and_then(Value::as_array)
+            .ok_or_else(|| format!("{} authenticated state omitted permissions", scenario.id))?
+            .iter()
+            .map(|permission| {
+                permission
+                    .as_str()
+                    .ok_or_else(|| format!("{} has a non-text permission", scenario.id))
+            })
+            .collect::<Result<Vec<_>, String>>()?
+            .join(" ");
+        let key_id = scenario
+            .state
+            .get("tokenKeyId")
+            .and_then(Value::as_str)
+            .unwrap_or(&self.capabilities.key_id);
+        let mut url = Url::parse(&format!("{}/__e2e/session", self.endpoint))
+            .map_err(|error| format!("invalid fixture session URL: {error}"))?;
+        url.query_pairs_mut()
+            .append_pair("audience", audience)
+            .append_pair("permissions", &permissions)
+            .append_pair("key_id", key_id);
+        let path = match url.query() {
+            Some(query) => format!("{}?{query}", url.path()),
+            None => url.path().to_string(),
+        };
+        let response = self.control("GET", &path, None)?;
+        let access_token = response
+            .get("accessToken")
+            .and_then(Value::as_str)
+            .filter(|token| token.split('.').count() == 3 && token.len() < 16 * 1024)
+            .ok_or_else(|| format!("fixture session response was invalid for {}", scenario.id))?;
+        Ok(access_token.into())
+    }
+
+    fn control(&self, method: &str, path: &str, body: Option<Value>) -> Result<Value, String> {
+        let url = format!("{}{}", self.endpoint, path);
+        let request = match method {
+            "GET" => self.client.get(&url),
+            "POST" => self.client.post(&url),
+            "PUT" => self.client.put(&url),
+            _ => return Err("unsupported fixture control method".into()),
+        }
+        .header("x-epsx-e2e-token", &self.token);
+        let response = if let Some(body) = body {
+            request.json(&body)
+        } else {
+            request
+        }
+        .send()
+        .map_err(|error| format!("fixture control {method} failed: {error}"))?;
+        let status = response.status();
+        let value = response
+            .json::<Value>()
+            .map_err(|error| format!("fixture control {method} returned invalid JSON: {error}"))?;
+        if !status.is_success() {
+            return Err(format!(
+                "fixture control {method} {} failed with {status}: {}",
+                path.split('?').next().unwrap_or(path),
+                value
+                    .get("error")
+                    .and_then(Value::as_str)
+                    .unwrap_or("unknown")
+            ));
+        }
+        Ok(value)
+    }
+}
+
+fn target_fixture_mode(scenario: &Scenario) -> Option<&str> {
+    let side = scenario
+        .state
+        .get("fixtureModeSide")
+        .and_then(Value::as_str)
+        .unwrap_or("both");
+    (side != "source")
+        .then(|| scenario.state.get("fixtureMode").and_then(Value::as_str))
+        .flatten()
+}
+
+fn require_clean_reset(value: &Value, scenario_id: &str, phase: &str) -> Result<(), String> {
+    if value.get("schemaVersion").and_then(Value::as_u64) == Some(1)
+        && value.get("reset").and_then(Value::as_bool) == Some(true)
+        && value.get("mode").and_then(Value::as_str) == Some("healthy")
+        && value.get("requestCount").and_then(Value::as_u64) == Some(0)
+        && value.get("mutationCount").and_then(Value::as_u64) == Some(0)
+    {
+        return Ok(());
+    }
+    Err(format!(
+        "fixture {phase}-reset was not clean for {scenario_id}"
+    ))
+}
+
+fn fixture_state_is_clean(value: &Value) -> bool {
+    value.get("schemaVersion").and_then(Value::as_u64) == Some(1)
+        && value.get("mode").and_then(Value::as_str) == Some("healthy")
+        && value.get("requestCount").and_then(Value::as_u64) == Some(0)
+        && value
+            .get("requests")
+            .and_then(Value::as_array)
+            .is_some_and(Vec::is_empty)
+        && value
+            .get("mutations")
+            .and_then(Value::as_array)
+            .is_some_and(Vec::is_empty)
+}
+
+fn combine_scenario_results(
+    scenario: Result<(), String>,
+    close: Result<(), String>,
+    reset: Option<Result<(), String>>,
+) -> Result<(), String> {
+    let mut failures = Vec::new();
+    if let Err(error) = scenario {
+        failures.push(format!("scenario failed: {error}"));
+    }
+    if let Err(error) = close {
+        failures.push(format!("WebDriver cleanup failed: {error}"));
+    }
+    if let Some(Err(error)) = reset {
+        failures.push(format!("fixture rollback failed: {error}"));
+    }
+    if failures.is_empty() {
+        Ok(())
+    } else {
+        Err(failures.join("; "))
+    }
+}
+
+struct WebDriverSession<'a> {
+    client: &'a Client,
+    endpoint: String,
+    id: String,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct ElementRect {
+    x: f64,
+    width: f64,
+}
+
+impl<'a> WebDriverSession<'a> {
+    fn create(
+        client: &'a Client,
+        endpoint: &str,
+        browser: &str,
+        matrix: &Matrix,
+    ) -> Result<Self, String> {
+        let mut always_match = json!({"browserName":browser});
+        always_match["acceptInsecureCerts"] = json!(true);
+        match browser {
+            "chrome" => {
+                let mut arguments = vec![
+                    "--headless=new".to_string(),
+                    "--no-sandbox".to_string(),
+                    "--disable-dev-shm-usage".to_string(),
+                    format!(
+                        "--window-size={},{}",
+                        matrix.viewport.width, matrix.viewport.height
+                    ),
+                ];
+                if matrix.color_scheme == "dark" {
+                    arguments.push("--force-dark-mode".into());
+                }
+                always_match["goog:chromeOptions"] = json!({"args": arguments});
+            }
+            "firefox" => {
+                always_match["moz:firefoxOptions"] = json!({
+                    "args": ["-headless"],
+                    "prefs": {
+                        "ui.systemUsesDarkTheme": if matrix.color_scheme == "dark" { 1 } else { 0 }
+                    }
+                });
+            }
+            _ => {}
+        }
+        let response = client
+            .post(format!("{}/session", endpoint.trim_end_matches('/')))
+            .timeout(Duration::from_secs(90))
+            .json(&json!({"capabilities":{"alwaysMatch":always_match}}))
+            .send()
+            .map_err(|error| format!("could not create WebDriver session: {error}"))?;
+        let status = response.status();
+        let body: Value = response
+            .json()
+            .map_err(|error| format!("invalid WebDriver session response: {error}"))?;
+        if !status.is_success() {
+            return Err(format!("WebDriver session failed with {status}: {body}"));
+        }
+        let id = body
+            .pointer("/value/sessionId")
+            .or_else(|| body.get("sessionId"))
+            .and_then(Value::as_str)
+            .ok_or("WebDriver response omitted sessionId")?
+            .to_string();
+        Ok(Self {
+            client,
+            endpoint: endpoint.trim_end_matches('/').into(),
+            id,
+        })
+    }
+
+    fn command(&self, method: &str, path: &str, body: Option<Value>) -> Result<Value, String> {
+        let url = format!("{}/session/{}{}", self.endpoint, self.id, path);
+        let request = match method {
+            "GET" => self.client.get(url),
+            "POST" => self.client.post(url),
+            "DELETE" => self.client.delete(url),
+            _ => return Err("unsupported WebDriver method".into()),
+        };
+        let response = if let Some(body) = body {
+            request.json(&body)
+        } else {
+            request
+        }
+        .send()
+        .map_err(|error| format!("WebDriver request failed: {error}"))?;
+        let status = response.status();
+        let value: Value = response.json().unwrap_or(Value::Null);
+        if !status.is_success() || value.pointer("/value/error").is_some() {
+            return Err(format!(
+                "WebDriver {method} {path} failed: {status} {value}"
+            ));
+        }
+        Ok(value.get("value").cloned().unwrap_or(value))
+    }
+
+    fn navigate(&self, url: &str) -> Result<(), String> {
+        self.command("POST", "/url", Some(json!({"url":url})))
+            .map(|_| ())
+    }
+
+    fn current_url(&self) -> Result<String, String> {
+        self.command("GET", "/url", None)?
+            .as_str()
+            .map(str::to_owned)
+            .ok_or("WebDriver URL was not text".into())
+    }
+
+    fn source(&self) -> Result<String, String> {
+        self.command("GET", "/source", None)?
+            .as_str()
+            .map(str::to_owned)
+            .ok_or("WebDriver source was not text".into())
+    }
+
+    fn screenshot(&self) -> Result<Vec<u8>, String> {
+        let encoded = self
+            .command("GET", "/screenshot", None)?
+            .as_str()
+            .ok_or("WebDriver screenshot was not base64")?
+            .to_string();
+        BASE64
+            .decode(encoded)
+            .map_err(|error| format!("invalid screenshot base64: {error}"))
+    }
+
+    fn set_window(&self, width: u64, height: u64) -> Result<(), String> {
+        self.command(
+            "POST",
+            "/window/rect",
+            Some(json!({"width":width,"height":height,"x":0,"y":0})),
+        )
+        .map(|_| ())
+    }
+
+    fn find_elements(&self, using: &str, value: &str) -> Result<Vec<String>, String> {
+        let response = self.command(
+            "POST",
+            "/elements",
+            Some(json!({"using":using,"value":value})),
+        )?;
+        response
+            .as_array()
+            .ok_or("WebDriver elements response was not an array")?
+            .iter()
+            .map(|element| {
+                element
+                    .get(W3C_ELEMENT_KEY)
+                    .or_else(|| element.get("ELEMENT"))
+                    .and_then(Value::as_str)
+                    .map(str::to_owned)
+                    .ok_or_else(|| "WebDriver element omitted its element ID".to_string())
+            })
+            .collect()
+    }
+
+    fn element_text(&self, element: &str) -> Result<String, String> {
+        self.command("GET", &format!("/element/{element}/text"), None)?
+            .as_str()
+            .map(str::to_owned)
+            .ok_or("WebDriver element text was not text".into())
+    }
+
+    fn element_displayed(&self, element: &str) -> Result<bool, String> {
+        self.command("GET", &format!("/element/{element}/displayed"), None)?
+            .as_bool()
+            .ok_or("WebDriver displayed result was not boolean".into())
+    }
+
+    fn element_attribute(&self, element: &str, name: &str) -> Result<Option<String>, String> {
+        let value = self.command("GET", &format!("/element/{element}/attribute/{name}"), None)?;
+        if value.is_null() {
+            Ok(None)
+        } else {
+            value
+                .as_str()
+                .map(|value| Some(value.to_string()))
+                .ok_or("WebDriver attribute result was not text or null".into())
+        }
+    }
+
+    fn element_rect(&self, element: &str) -> Result<ElementRect, String> {
+        let value = self.command("GET", &format!("/element/{element}/rect"), None)?;
+        Ok(ElementRect {
+            x: value
+                .get("x")
+                .and_then(Value::as_f64)
+                .ok_or("WebDriver element rect omitted x")?,
+            width: value
+                .get("width")
+                .and_then(Value::as_f64)
+                .ok_or("WebDriver element rect omitted width")?,
+        })
+    }
+
+    fn click(&self, element: &str) -> Result<(), String> {
+        self.command(
+            "POST",
+            &format!("/element/{element}/click"),
+            Some(json!({})),
+        )
+        .map(|_| ())
+    }
+
+    fn clear(&self, element: &str) -> Result<(), String> {
+        self.command(
+            "POST",
+            &format!("/element/{element}/clear"),
+            Some(json!({})),
+        )
+        .map(|_| ())
+    }
+
+    fn send_keys(&self, element: &str, value: &str) -> Result<(), String> {
+        let characters = value.chars().map(|ch| ch.to_string()).collect::<Vec<_>>();
+        self.command(
+            "POST",
+            &format!("/element/{element}/value"),
+            Some(json!({"text":value,"value":characters})),
+        )
+        .map(|_| ())
+    }
+
+    fn install_access_cookie(
+        &self,
+        base_url: &str,
+        surface: &str,
+        access_token: &str,
+        runtime_profile: E2eRuntimeProfile,
+    ) -> Result<(), String> {
+        if access_token.contains(['\r', '\n', ';']) || access_token.len() >= 16 * 1024 {
+            return Err("fixture access token is unsafe for a browser cookie".into());
+        }
+        self.navigate(base_url)?;
+        self.command("DELETE", "/cookie", None)?;
+        let (name, secure) = runtime_profile.access_cookie(surface)?;
+        self.command(
+            "POST",
+            "/cookie",
+            Some(json!({
+                "cookie":{
+                    "name":name,
+                    "value":access_token,
+                    "path":"/",
+                    "httpOnly":true,
+                    "secure":secure,
+                    "sameSite":"Lax"
+                }
+            })),
+        )?;
+        let cookies = self.command("GET", "/cookie", None)?;
+        let cookie = cookies
+            .as_array()
+            .and_then(|cookies| {
+                cookies
+                    .iter()
+                    .find(|cookie| cookie.get("name").and_then(Value::as_str) == Some(name))
+            })
+            .ok_or_else(|| format!("WebDriver did not retain the {name} access cookie"))?;
+        if cookie.get("secure").and_then(Value::as_bool) != Some(secure)
+            || cookie.get("httpOnly").and_then(Value::as_bool) != Some(true)
+            || cookie.get("sameSite").and_then(Value::as_str) != Some("Lax")
+            || cookie.get("path").and_then(Value::as_str) != Some("/")
+        {
+            return Err(format!(
+                "WebDriver access cookie did not satisfy the {runtime_profile:?} security contract"
+            ));
+        }
+        Ok(())
+    }
+
+    fn http_status(&self, url: &str) -> Result<u16, String> {
+        require_loopback(url, "browser status probe")?;
+        let cookies = self.command("GET", "/cookie", None)?;
+        let cookie_header = cookies
+            .as_array()
+            .ok_or("WebDriver cookie response was not an array")?
+            .iter()
+            .map(|cookie| {
+                let name = cookie
+                    .get("name")
+                    .and_then(Value::as_str)
+                    .ok_or("WebDriver cookie omitted name")?;
+                let value = cookie
+                    .get("value")
+                    .and_then(Value::as_str)
+                    .ok_or("WebDriver cookie omitted value")?;
+                Ok(format!("{name}={value}"))
+            })
+            .collect::<Result<Vec<_>, String>>()?
+            .join("; ");
+        let mut request = self.client.get(url);
+        if !cookie_header.is_empty() {
+            request = request.header(reqwest::header::COOKIE, cookie_header);
+        }
+        request
+            .send()
+            .map(|response| response.status().as_u16())
+            .map_err(|error| format!("could not probe browser URL status: {error}"))
+    }
+
+    fn close(&self) -> Result<(), String> {
+        self.client
+            .delete(format!("{}/session/{}", self.endpoint, self.id))
+            .send()
+            .map_err(|error| format!("could not close WebDriver session: {error}"))?;
+        Ok(())
+    }
+}
+
+fn run_scenario(
+    session: &mut WebDriverSession<'_>,
+    scenario: &Scenario,
+    base: &str,
+    matrix: &Matrix,
+    output_root: &Path,
+) -> Result<(), String> {
+    let url = format!("{}{}", base.trim_end_matches('/'), scenario.path.as_str());
+    session.navigate(&url)?;
+    for action in &scenario.actions {
+        if action_side(action) == Some("source") || !matrix_matches(action, &matrix.id) {
+            continue;
+        }
+        match action_type(action) {
+            Some("reload") => session.navigate(&session.current_url()?)?,
+            Some("navigate") => {
+                let path = action
+                    .get("path")
+                    .and_then(Value::as_str)
+                    .ok_or("navigate action omitted path")?;
+                session.navigate(&format!("{}{}", base.trim_end_matches('/'), path))?;
+            }
+            Some("clear-cookies") => {
+                session.command("DELETE", "/cookie", None)?;
+            }
+            Some("wait-for") => {
+                wait_for_elements(session, action_selector(action)?, Duration::from_secs(10))?;
+            }
+            Some("click") => {
+                let element =
+                    wait_for_elements(session, action_selector(action)?, Duration::from_secs(10))?
+                        .into_iter()
+                        .next()
+                        .ok_or("click action resolved no element")?;
+                session.click(&element)?;
+            }
+            Some("fill") => {
+                let value = action
+                    .get("value")
+                    .and_then(Value::as_str)
+                    .ok_or("fill action omitted value")?;
+                let element =
+                    wait_for_elements(session, action_selector(action)?, Duration::from_secs(10))?
+                        .into_iter()
+                        .next()
+                        .ok_or("fill action resolved no element")?;
+                session.clear(&element)?;
+                session.send_keys(&element, value)?;
+            }
+            Some("set-input-files") => {
+                set_input_file(session, scenario, action, output_root)?;
+            }
+            Some(other) => return Err(format!("unsupported Rust E2E action {other}")),
+            None => return Err(format!("{} action omitted type", scenario.id)),
+        }
+    }
+    let expected_path = scenario
+        .expected_target_path
+        .as_deref()
+        .or_else(|| target_path_outcome(scenario))
+        .or_else(|| target_navigation_path(scenario, &matrix.id))
+        .unwrap_or_else(|| requested_path(&scenario.path));
+    let current_url = wait_for_url_contract(
+        session,
+        scenario,
+        base,
+        expected_path,
+        Duration::from_secs(10),
+    )?;
+    let current =
+        Url::parse(&current_url).map_err(|error| format!("invalid browser URL: {error}"))?;
+    if current.path() != expected_path {
+        return Err(format!(
+            "{} path {} != {}",
+            scenario.id,
+            current.path(),
+            expected_path
+        ));
+    }
+    for outcome in &scenario.outcomes {
+        if action_side(outcome) == Some("source") {
+            continue;
+        }
+        match action_type(outcome) {
+            Some("path") => {
+                let value = outcome
+                    .get("value")
+                    .and_then(Value::as_str)
+                    .ok_or("path outcome omitted value")?;
+                if current.path() != value {
+                    return Err(format!("{} path outcome failed", scenario.id));
+                }
+            }
+            Some("query") => {
+                let key = outcome
+                    .get("key")
+                    .and_then(Value::as_str)
+                    .ok_or("query outcome omitted key")?;
+                let value = outcome
+                    .get("value")
+                    .and_then(Value::as_str)
+                    .ok_or("query outcome omitted value")?;
+                if !current
+                    .query_pairs()
+                    .any(|(candidate, actual)| candidate == key && actual == value)
+                {
+                    return Err(format!("{} query outcome failed", scenario.id));
+                }
+            }
+            Some("text") => {
+                let value = outcome
+                    .get("value")
+                    .and_then(Value::as_str)
+                    .ok_or("text outcome omitted value")?;
+                wait_for_rendered_text(session, value, Duration::from_secs(10))?;
+            }
+            Some("text-absent") => {
+                let value = outcome
+                    .get("value")
+                    .and_then(Value::as_str)
+                    .ok_or("text-absent outcome omitted value")?;
+                if session.source()?.contains(value) {
+                    return Err(format!("{} rendered forbidden text", scenario.id));
+                }
+            }
+            Some("selector") => {
+                let selector = outcome
+                    .get("value")
+                    .and_then(Value::as_str)
+                    .ok_or("selector outcome omitted value")?;
+                wait_for_elements(session, selector, Duration::from_secs(10))?;
+            }
+            Some("attribute") => {
+                let selector = action_selector(outcome)?;
+                let name = outcome
+                    .get("name")
+                    .and_then(Value::as_str)
+                    .filter(|name| {
+                        name.bytes().all(|byte| {
+                            byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b':')
+                        })
+                    })
+                    .ok_or("attribute outcome has an invalid or missing name")?;
+                let expected = outcome
+                    .get("value")
+                    .and_then(Value::as_str)
+                    .ok_or("attribute outcome omitted value")?;
+                let element = wait_for_elements(session, selector, Duration::from_secs(10))?
+                    .into_iter()
+                    .next()
+                    .ok_or("attribute outcome resolved no element")?;
+                let actual = session.element_attribute(&element, name)?;
+                if actual.as_deref() != Some(expected) {
+                    return Err(format!(
+                        "{} attribute {name} was {:?}, expected {expected:?}",
+                        scenario.id, actual
+                    ));
+                }
+            }
+            Some("status") => {
+                let expected = outcome
+                    .get("value")
+                    .and_then(Value::as_u64)
+                    .and_then(|value| u16::try_from(value).ok())
+                    .ok_or("status outcome omitted a valid HTTP status")?;
+                let actual = session.http_status(&current_url)?;
+                if actual != expected {
+                    return Err(format!(
+                        "{} HTTP status {actual} != {expected}",
+                        scenario.id
+                    ));
+                }
+            }
+            Some("no-horizontal-overflow") => {
+                assert_no_horizontal_overflow(session, scenario)?;
+            }
+            None => return Err(format!("{} outcome omitted type", scenario.id)),
+            Some(other) => return Err(format!("unsupported Rust E2E outcome {other}")),
+        }
+    }
+    let screenshot = session.screenshot()?;
+    let source = session.source()?;
+    fs::write(output_root.join(format!("{}.png", scenario.id)), screenshot)
+        .map_err(|error| format!("could not write screenshot: {error}"))?;
+    fs::write(output_root.join(format!("{}.html", scenario.id)), source)
+        .map_err(|error| format!("could not write page source: {error}"))?;
+    Ok(())
+}
+
+fn wait_for_url_contract(
+    session: &WebDriverSession<'_>,
+    scenario: &Scenario,
+    base: &str,
+    expected_path: &str,
+    timeout: Duration,
+) -> Result<String, String> {
+    let expected_origin = Url::parse(base)
+        .map_err(|error| format!("invalid scenario base URL: {error}"))?
+        .origin();
+    let start = Instant::now();
+    let mut current_url = session.current_url()?;
+    loop {
+        let current =
+            Url::parse(&current_url).map_err(|error| format!("invalid browser URL: {error}"))?;
+        let query_matches = scenario.outcomes.iter().all(|outcome| {
+            if action_type(outcome) != Some("query") || action_side(outcome) == Some("source") {
+                return true;
+            }
+            let Some(key) = outcome.get("key").and_then(Value::as_str) else {
+                return false;
+            };
+            let Some(value) = outcome.get("value").and_then(Value::as_str) else {
+                return false;
+            };
+            current
+                .query_pairs()
+                .any(|(candidate, actual)| candidate == key && actual == value)
+        });
+        let origin_matches = current.origin() == expected_origin;
+        if origin_matches && current.path() == expected_path && query_matches {
+            return Ok(current_url);
+        }
+        if start.elapsed() >= timeout {
+            return Err(format!(
+                "browser URL {} did not satisfy origin/path/query contract for {} within {} seconds",
+                current_url,
+                scenario.id,
+                timeout.as_secs()
+            ));
+        }
+        thread::sleep(Duration::from_millis(100));
+        current_url = session.current_url()?;
+    }
+}
+
+fn target_path_outcome(scenario: &Scenario) -> Option<&str> {
+    let mut paths = scenario.outcomes.iter().filter_map(|outcome| {
+        (action_type(outcome) == Some("path") && action_side(outcome) != Some("source"))
+            .then(|| outcome.get("value").and_then(Value::as_str))
+            .flatten()
+    });
+    let path = paths.next()?;
+    paths.next().is_none().then_some(path)
+}
+
+fn requested_path(path_and_query: &str) -> &str {
+    path_and_query
+        .split_once('?')
+        .map(|(path, _)| path)
+        .unwrap_or(path_and_query)
+}
+
+fn target_navigation_path<'a>(scenario: &'a Scenario, matrix_id: &str) -> Option<&'a str> {
+    scenario.actions.iter().rev().find_map(|action| {
+        (action_type(action) == Some("navigate")
+            && action_side(action) != Some("source")
+            && matrix_matches(action, matrix_id))
+        .then(|| {
+            action
+                .get("path")
+                .and_then(Value::as_str)
+                .map(requested_path)
+        })
+        .flatten()
+    })
+}
+
+fn action_selector(value: &Value) -> Result<&str, String> {
+    value
+        .get("selector")
+        .and_then(Value::as_str)
+        .filter(|selector| !selector.trim().is_empty())
+        .ok_or("interactive contract omitted selector".into())
+}
+
+fn wait_for_elements(
+    session: &WebDriverSession<'_>,
+    selector: &str,
+    timeout: Duration,
+) -> Result<Vec<String>, String> {
+    let start = Instant::now();
+    while start.elapsed() < timeout {
+        let elements = resolve_selector(session, selector)?;
+        if !elements.is_empty() {
+            return Ok(elements);
+        }
+        thread::sleep(Duration::from_millis(100));
+    }
+    Err(format!("timed out waiting for {selector}"))
+}
+
+fn wait_for_rendered_text(
+    session: &WebDriverSession<'_>,
+    text: &str,
+    timeout: Duration,
+) -> Result<(), String> {
+    let start = Instant::now();
+    while start.elapsed() < timeout {
+        let body = session
+            .find_elements("css selector", "body")?
+            .into_iter()
+            .next();
+        if body.is_some_and(|body| {
+            session
+                .element_text(&body)
+                .is_ok_and(|rendered| rendered.contains(text))
+        }) {
+            return Ok(());
+        }
+        thread::sleep(Duration::from_millis(100));
+    }
+    Err(format!("timed out waiting for rendered text {text:?}"))
+}
+
+fn resolve_selector(session: &WebDriverSession<'_>, selector: &str) -> Result<Vec<String>, String> {
+    let mut resolved = Vec::new();
+    for branch in split_selector_branches(selector)? {
+        let (branch, nth) = selector_nth(&branch)?;
+        let visible = branch.contains(":visible");
+        let branch = branch.replace(":visible", "");
+        let (css, required_text) = selector_text_filter(&branch)?;
+        let candidates = session.find_elements("css selector", &css)?;
+        let mut matching = Vec::new();
+        for element in candidates {
+            if visible && !session.element_displayed(&element)? {
+                continue;
+            }
+            if let Some(text) = required_text.as_deref() {
+                if !session.element_text(&element)?.contains(text) {
+                    continue;
+                }
+            }
+            matching.push(element);
+        }
+        if let Some(index) = nth {
+            if let Some(element) = matching.get(index) {
+                resolved.push(element.clone());
+            }
+        } else {
+            resolved.extend(matching);
+        }
+        if !resolved.is_empty() {
+            break;
+        }
+    }
+    Ok(resolved)
+}
+
+fn split_selector_branches(selector: &str) -> Result<Vec<String>, String> {
+    let mut branches = Vec::new();
+    let mut start = 0usize;
+    let mut parentheses = 0usize;
+    let mut brackets = 0usize;
+    let mut quote = None;
+    let mut escaped = false;
+    for (index, character) in selector.char_indices() {
+        if escaped {
+            escaped = false;
+            continue;
+        }
+        if character == '\\' {
+            escaped = true;
+            continue;
+        }
+        if let Some(active) = quote {
+            if character == active {
+                quote = None;
+            }
+            continue;
+        }
+        match character {
+            '"' | '\'' => quote = Some(character),
+            '(' => parentheses += 1,
+            ')' => {
+                parentheses = parentheses
+                    .checked_sub(1)
+                    .ok_or("selector has an unmatched parenthesis")?
+            }
+            '[' => brackets += 1,
+            ']' => {
+                brackets = brackets
+                    .checked_sub(1)
+                    .ok_or("selector has an unmatched bracket")?
+            }
+            ',' if parentheses == 0 && brackets == 0 => {
+                let branch = selector[start..index].trim();
+                if branch.is_empty() {
+                    return Err("selector contains an empty branch".into());
+                }
+                branches.push(branch.to_string());
+                start = index + character.len_utf8();
+            }
+            _ => {}
+        }
+    }
+    if quote.is_some() || parentheses != 0 || brackets != 0 {
+        return Err("selector has an unterminated quote or group".into());
+    }
+    let branch = selector[start..].trim();
+    if branch.is_empty() {
+        return Err("selector is empty".into());
+    }
+    branches.push(branch.to_string());
+    Ok(branches)
+}
+
+fn selector_nth(selector: &str) -> Result<(String, Option<usize>), String> {
+    let Some((selector, index)) = selector.rsplit_once(" >> nth=") else {
+        return Ok((selector.to_string(), None));
+    };
+    let index = index
+        .parse::<usize>()
+        .map_err(|_| "selector nth index is invalid")?;
+    Ok((selector.trim().to_string(), Some(index)))
+}
+
+fn selector_text_filter(selector: &str) -> Result<(String, Option<String>), String> {
+    if let Some(text) = selector.strip_prefix("text=") {
+        let text = text.trim_matches(|character| matches!(character, '"' | '\''));
+        if text.is_empty() {
+            return Err("text selector is empty".into());
+        }
+        return Ok(("body *".into(), Some(text.to_string())));
+    }
+    let Some(start) = selector.find(":has-text(") else {
+        return Ok((selector.to_string(), None));
+    };
+    let text_start = start + ":has-text(".len();
+    let end = selector[text_start..]
+        .find(')')
+        .map(|offset| text_start + offset)
+        .ok_or("has-text selector is unterminated")?;
+    let text = selector[text_start..end]
+        .trim()
+        .trim_matches(|character| matches!(character, '"' | '\''));
+    if text.is_empty() {
+        return Err("has-text selector is empty".into());
+    }
+    let mut css = selector.to_string();
+    css.replace_range(start..=end, "");
+    if css.trim().is_empty() {
+        css = "body *".into();
+    }
+    Ok((css, Some(text.to_string())))
+}
+
+fn set_input_file(
+    session: &WebDriverSession<'_>,
+    scenario: &Scenario,
+    action: &Value,
+    output_root: &Path,
+) -> Result<(), String> {
+    let name = action
+        .get("name")
+        .and_then(Value::as_str)
+        .ok_or("set-input-files action omitted name")?;
+    let name_path = Path::new(name);
+    if name_path.components().count() != 1 || !safe_relative_path(name_path) {
+        return Err("set-input-files action has an unsafe name".into());
+    }
+    action
+        .get("mimeType")
+        .and_then(Value::as_str)
+        .filter(|mime| mime.contains('/') && !mime.bytes().any(|byte| byte.is_ascii_whitespace()))
+        .ok_or("set-input-files action has an invalid or missing MIME type")?;
+    let encoded = action
+        .get("contentBase64")
+        .and_then(Value::as_str)
+        .ok_or("set-input-files action omitted contentBase64")?;
+    let bytes = BASE64
+        .decode(encoded)
+        .map_err(|error| format!("set-input-files content is invalid base64: {error}"))?;
+    let upload_root = output_root.join("uploads");
+    fs::create_dir_all(&upload_root)
+        .map_err(|error| format!("could not create {}: {error}", upload_root.display()))?;
+    let path = upload_root.join(format!("{}-{name}", scenario.id));
+    fs::write(&path, bytes)
+        .map_err(|error| format!("could not write {}: {error}", path.display()))?;
+    let element = wait_for_elements(session, action_selector(action)?, Duration::from_secs(10))?
+        .into_iter()
+        .next()
+        .ok_or("set-input-files action resolved no element")?;
+    session.send_keys(
+        &element,
+        path.to_str().ok_or("upload path is not valid UTF-8")?,
+    )
+}
+
+fn assert_no_horizontal_overflow(
+    session: &WebDriverSession<'_>,
+    scenario: &Scenario,
+) -> Result<(), String> {
+    let start = Instant::now();
+    loop {
+        match assert_no_horizontal_overflow_once(session, scenario) {
+            Err(error)
+                if (error.contains("stale element reference")
+                    || error.contains("document has no html element"))
+                    && start.elapsed() < Duration::from_secs(10) =>
+            {
+                thread::sleep(Duration::from_millis(100));
+            }
+            result => return result,
+        }
+    }
+}
+
+fn assert_no_horizontal_overflow_once(
+    session: &WebDriverSession<'_>,
+    scenario: &Scenario,
+) -> Result<(), String> {
+    let html = session
+        .find_elements("css selector", "html")?
+        .into_iter()
+        .next()
+        .ok_or("document has no html element")?;
+    let viewport = session.element_rect(&html)?.width;
+    if viewport <= 0.0 {
+        return Err("document viewport width is not positive".into());
+    }
+    for element in session.find_elements("css selector", "body, body > *")? {
+        if !session.element_displayed(&element)? {
+            continue;
+        }
+        let rect = session.element_rect(&element)?;
+        if rect.x < -1.0 || rect.x + rect.width > viewport + 1.0 {
+            return Err(format!(
+                "{} horizontal overflow: x={} width={} viewport={viewport}",
+                scenario.id, rect.x, rect.width
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn action_type(value: &Value) -> Option<&str> {
+    value
+        .as_str()
+        .or_else(|| value.get("type").and_then(Value::as_str))
+}
+
+fn action_side(value: &Value) -> Option<&str> {
+    value.get("side").and_then(Value::as_str)
+}
+
+fn matrix_matches(value: &Value, matrix_id: &str) -> bool {
+    value
+        .get("matrixIds")
+        .and_then(Value::as_array)
+        .is_none_or(|ids| ids.iter().any(|id| id.as_str() == Some(matrix_id)))
+}
+
+fn load_manifest(root: &Path) -> Result<ScenarioManifest, String> {
+    read_json(&root.join("e2e/migration/scenarios.json"))
+}
+
+fn read_json<T: for<'de> Deserialize<'de>>(path: &Path) -> Result<T, String> {
+    serde_json::from_slice(
+        &fs::read(path).map_err(|error| format!("could not read {}: {error}", path.display()))?,
+    )
+    .map_err(|error| format!("invalid JSON in {}: {error}", path.display()))
+}
+
+fn group_id(flags: &[String]) -> Result<Option<u8>, String> {
+    flag_value(flags, "--group")
+        .map(|value| {
+            value
+                .parse::<u8>()
+                .map_err(|_| "group must be an integer from 0 through 9".into())
+        })
+        .transpose()
+        .and_then(|group| {
+            if group.is_some_and(|id| id > 9) {
+                Err("group must be an integer from 0 through 9".into())
+            } else {
+                Ok(group)
+            }
+        })
+}
+
+fn validate_group_flag(flags: &[String]) -> Result<(), String> {
+    validate_key_value_flags(flags, &["--group"])?;
+    group_id(flags).map(|_| ())
+}
+
+fn validate_key_value_flags(flags: &[String], allowed: &[&str]) -> Result<(), String> {
+    if !flags.len().is_multiple_of(2) {
+        return Err("flags must use --name value pairs".into());
+    }
+    for pair in flags.as_chunks::<2>().0 {
+        if !allowed.contains(&pair[0].as_str()) {
+            return Err(format!("unsupported flag {}", pair[0]));
+        }
+    }
+    Ok(())
+}
+
+fn flag_value<'a>(flags: &'a [String], name: &str) -> Option<&'a str> {
+    flags
+        .windows(2)
+        .find(|pair| pair[0] == name)
+        .map(|pair| pair[1].as_str())
+}
+
+fn selected_groups(
+    manifest: &ScenarioManifest,
+    group: Option<u8>,
+) -> Result<Vec<&ScenarioGroup>, String> {
+    group.map_or_else(
+        || Ok(manifest.groups.iter().collect()),
+        |id| Ok(vec![require_group(manifest, id)?]),
+    )
+}
+
+fn require_group(manifest: &ScenarioManifest, id: u8) -> Result<&ScenarioGroup, String> {
+    manifest
+        .groups
+        .iter()
+        .find(|group| group.id == id)
+        .ok_or_else(|| format!("group {id} is missing"))
+}
+
+fn repo_root() -> Result<PathBuf, String> {
+    let output = Command::new("git")
+        .args(["rev-parse", "--show-toplevel"])
+        .output()
+        .map_err(|error| format!("could not run git: {error}"))?;
+    if !output.status.success() {
+        return Err("git rev-parse failed".into());
+    }
+    String::from_utf8(output.stdout)
+        .map(|value| PathBuf::from(value.trim()))
+        .map_err(|_| "repository path is not UTF-8".into())
+}
+
+fn audit_files(root: &Path) -> Result<Vec<PathBuf>, String> {
+    let mut files = BTreeSet::new();
+    // Keep tracked dependencies visible as violations. Only untracked local
+    // dependency installs are excluded, including repositories missing ignores.
+    for tracked in [true, false] {
+        let mut command = Command::new("git");
+        command.args(["ls-files", "-z"]);
+        if tracked {
+            command.arg("--cached");
+        } else {
+            command.args(["--others", "--exclude-standard"]);
+        }
+        let output = command
+            .current_dir(root)
+            .output()
+            .map_err(|error| format!("could not list audit files: {error}"))?;
+        if !output.status.success() {
+            return Err("git ls-files failed".into());
+        }
+        for bytes in output
+            .stdout
+            .split(|byte| *byte == 0)
+            .filter(|p| !p.is_empty())
+        {
+            let path = PathBuf::from(
+                String::from_utf8(bytes.to_vec())
+                    .map_err(|_| "audit path is not UTF-8".to_string())?,
+            );
+            if !tracked
+                && path
+                    .components()
+                    .any(|part| part.as_os_str() == "node_modules")
+            {
+                continue;
+            }
+            if root.join(&path).is_file() {
+                files.insert(path);
+            }
+        }
+    }
+    Ok(files.into_iter().collect())
+}
+
+fn is_allowed_manifest(path: &Path) -> bool {
+    let s = path.to_string_lossy();
+    if ALLOWED_CSS_MANIFESTS.contains(&s.as_ref()) {
+        return true;
+    }
+    if ALLOWED_ROOT_MANIFESTS.contains(&path.file_name().and_then(|n| n.to_str()).unwrap_or("")) {
+        return path
+            .parent()
+            .map(|p| p == Path::new("") || p == Path::new("."))
+            .unwrap_or(true)
+            || s == "package.json"
+            || s == "bun.lock"
+            || s == "bun.lockb"
+            || s == "package-lock.json";
+    }
+    false
+}
+
+fn is_active_automation_path(path: &Path) -> bool {
+    path.starts_with(".github")
+        || path.starts_with("infrastructure")
+        || path.starts_with("scripts")
+        || path
+            .file_name()
+            .and_then(OsStr::to_str)
+            .is_some_and(|name| {
+                name.starts_with("Dockerfile")
+                    || matches!(name, "Makefile" | "AGENTS.md" | "README.md")
+            })
+}
+
+fn contains_node_command(contents: &str) -> bool {
+    contents
+        .lines()
+        .filter(|line| !line.trim_start().starts_with('#'))
+        .any(|line| {
+            let line = line.to_ascii_lowercase();
+            if line.contains("setup-node") || line.contains("setup-bun") {
+                return true;
+            }
+            line.split(|character: char| {
+                !(character.is_ascii_alphanumeric()
+                    || matches!(character, '-' | '_' | '.' | '/' | '@'))
+            })
+            .filter(|token| !token.is_empty())
+            .filter_map(|token| token.rsplit('/').next())
+            .any(|token| ACTIVE_NODE_COMMANDS.contains(&token))
+        })
+}
+
+fn print_paths(label: &str, paths: &[PathBuf]) {
+    for path in paths {
+        println!("  {label}: {}", path.display());
+    }
+}
+
+fn parse_env_file(path: &Path) -> Result<BTreeMap<String, String>, String> {
+    let contents = fs::read_to_string(path)
+        .map_err(|error| format!("could not read {}: {error}", path.display()))?;
+    let mut values = BTreeMap::new();
+    for raw in contents.lines() {
+        let line = raw.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let line = line.strip_prefix("export ").unwrap_or(line);
+        let Some((key, value)) = line.split_once('=') else {
+            continue;
+        };
+        let key = key.trim();
+        if key.is_empty()
+            || !key
+                .chars()
+                .all(|ch| ch == '_' || ch.is_ascii_alphanumeric())
+        {
+            continue;
+        }
+        let mut value = value.trim().to_string();
+        if value.len() >= 2
+            && ((value.starts_with('"') && value.ends_with('"'))
+                || (value.starts_with('\'') && value.ends_with('\'')))
+        {
+            value = value[1..value.len() - 1].to_string();
+        } else if let Some((plain, _)) = value.split_once(" #") {
+            value = plain.trim().to_string();
+        }
+        values.insert(key.to_string(), value);
+    }
+    Ok(values)
+}
+
+fn environment_name() -> String {
+    for key in ["DEPLOYMENT_ENV", "APP_ENV", "ENV", "EPSX_ENV", "RUST_ENV"] {
+        if let Ok(value) = env::var(key) {
+            match value.trim().to_ascii_lowercase().as_str() {
+                "prod" | "production" | "main" | "master" => return "production".into(),
+                "stage" | "staging" => return "staging".into(),
+                "dev" | "development" | "local" | "preview" | "test" => {
+                    return "development".into()
+                }
+                _ => {}
+            }
+        }
+    }
+    "development".into()
+}
+
+fn local_dev_environment(binary: &str) -> &'static [(&'static str, &'static str)] {
+    const BACKEND: &[(&str, &str)] = &[
+        ("ENV", "development"),
+        ("EPSX_ENV", "development"),
+        ("HOST", "127.0.0.1"),
+        ("PORT", "8080"),
+        ("BACKEND_URL", "http://127.0.0.1:8080"),
+        ("OIDC_ISSUER", "http://127.0.0.1:8080"),
+        (
+            "OIDC_JWKS_URL",
+            "http://127.0.0.1:8080/.well-known/jwks.json",
+        ),
+        ("ADMIN_FRONTEND_URL", "http://localhost:3001"),
+        ("PAY_FRONTEND_URL", "http://localhost:3002"),
+        ("FRONTEND_URL", "http://localhost:3000"),
+        ("NEXT_PUBLIC_APP_URL", "http://localhost:3000"),
+        ("PAY_URL", "http://127.0.0.1:8103"),
+        (
+            "DATABASE_URL",
+            "postgres://epsx_user:password@127.0.0.1:5432/epsx_dev",
+        ),
+        (
+            "ANALYTICS_DATABASE_URL",
+            "postgres://epsx_user:password@127.0.0.1:5432/epsx_analytics_dev",
+        ),
+        (
+            "PAYMENTS_DATABASE_URL",
+            "postgres://epsx_user:password@127.0.0.1:5432/epsx_payments_dev",
+        ),
+        (
+            "NOTIFICATIONS_DATABASE_URL",
+            "postgres://epsx_user:password@127.0.0.1:5432/epsx_notifications_dev",
+        ),
+    ];
+    const FRONTEND: &[(&str, &str)] = &[
+        ("ENV", "development"),
+        ("EPSX_ENV", "development"),
+        ("HOST", "localhost"),
+        ("PORT", "3000"),
+        ("API_URL", "http://127.0.0.1:8080"),
+        ("BACKEND_URL", "http://127.0.0.1:8080"),
+        ("OIDC_ISSUER", "http://127.0.0.1:8080"),
+        (
+            "OIDC_JWKS_URL",
+            "http://127.0.0.1:8080/.well-known/jwks.json",
+        ),
+        ("ADMIN_FRONTEND_URL", "http://localhost:3001"),
+        ("PAY_FRONTEND_URL", "http://localhost:3002"),
+        ("NOTIFICATION_SERVICE_URL", "http://127.0.0.1:8106"),
+    ];
+    const PAY_BFF: &[(&str, &str)] = &[
+        ("ENV", "development"),
+        ("EPSX_ENV", "development"),
+        ("HOST", "127.0.0.1"),
+        ("PORT", "3002"),
+        ("API_URL", "http://127.0.0.1:8080"),
+        ("PAYMENT_SERVICE_URL", "http://127.0.0.1:8103"),
+        ("OIDC_ISSUER", "http://127.0.0.1:8080"),
+        (
+            "OIDC_JWKS_URL",
+            "http://127.0.0.1:8080/.well-known/jwks.json",
+        ),
+        ("ADMIN_FRONTEND_URL", "http://localhost:3001"),
+        ("PAY_FRONTEND_URL", "http://localhost:3002"),
+    ];
+    const ADMIN: &[(&str, &str)] = &[
+        ("ENV", "development"),
+        ("EPSX_ENV", "development"),
+        ("HOST", "127.0.0.1"),
+        ("PORT", "3001"),
+        ("API_URL", "http://127.0.0.1:8080"),
+        ("BACKEND_URL", "http://127.0.0.1:8080"),
+        ("OIDC_ISSUER", "http://127.0.0.1:8080"),
+        (
+            "OIDC_JWKS_URL",
+            "http://127.0.0.1:8080/.well-known/jwks.json",
+        ),
+        ("ADMIN_FRONTEND_URL", "http://localhost:3001"),
+        ("PAY_FRONTEND_URL", "http://localhost:3002"),
+        ("WALLET_SERVICE_URL", "http://127.0.0.1:8102"),
+        ("PAYMENT_SERVICE_URL", "http://127.0.0.1:8103"),
+        ("SUBSCRIPTION_SERVICE_URL", "http://127.0.0.1:8104"),
+        ("NOTIFICATION_SERVICE_URL", "http://127.0.0.1:8106"),
+        ("ANALYTICS_SERVICE_URL", "http://127.0.0.1:8107"),
+    ];
+    const WALLET: &[(&str, &str)] = &[
+        ("ENV", "development"),
+        ("EPSX_ENV", "development"),
+        ("HOST", "127.0.0.1"),
+        ("PORT", "8102"),
+        ("OIDC_ISSUER", "http://127.0.0.1:8080"),
+        (
+            "OIDC_JWKS_URL",
+            "http://127.0.0.1:8080/.well-known/jwks.json",
+        ),
+        ("ADMIN_FRONTEND_URL", "http://localhost:3001"),
+        ("PAY_FRONTEND_URL", "http://localhost:3002"),
+        (
+            "DATABASE_URL",
+            "postgres://epsx:epsx@127.0.0.1:5432/epsx_wallet_dev",
+        ),
+    ];
+    const PAYMENT: &[(&str, &str)] = &[
+        ("ENV", "development"),
+        ("EPSX_ENV", "development"),
+        ("HOST", "127.0.0.1"),
+        ("PORT", "8103"),
+        ("OIDC_ISSUER", "http://127.0.0.1:8080"),
+        (
+            "OIDC_JWKS_URL",
+            "http://127.0.0.1:8080/.well-known/jwks.json",
+        ),
+        ("ADMIN_FRONTEND_URL", "http://localhost:3001"),
+        ("PAY_FRONTEND_URL", "http://localhost:3002"),
+        (
+            "DATABASE_URL",
+            "postgres://epsx:epsx@127.0.0.1:5432/epsx_payments_dev",
+        ),
+    ];
+    const SUBSCRIPTION: &[(&str, &str)] = &[
+        ("ENV", "development"),
+        ("EPSX_ENV", "development"),
+        ("HOST", "127.0.0.1"),
+        ("PORT", "8104"),
+        ("OIDC_ISSUER", "http://127.0.0.1:8080"),
+        (
+            "OIDC_JWKS_URL",
+            "http://127.0.0.1:8080/.well-known/jwks.json",
+        ),
+        ("ADMIN_FRONTEND_URL", "http://localhost:3001"),
+        ("PAY_FRONTEND_URL", "http://localhost:3002"),
+        (
+            "DATABASE_URL",
+            "postgres://epsx:epsx@127.0.0.1:5432/epsx_subscription_dev",
+        ),
+    ];
+    const NOTIFICATION: &[(&str, &str)] = &[
+        ("ENV", "development"),
+        ("EPSX_ENV", "development"),
+        ("HOST", "127.0.0.1"),
+        ("PORT", "8106"),
+        ("OIDC_ISSUER", "http://127.0.0.1:8080"),
+        (
+            "OIDC_JWKS_URL",
+            "http://127.0.0.1:8080/.well-known/jwks.json",
+        ),
+        ("ADMIN_FRONTEND_URL", "http://localhost:3001"),
+        ("PAY_FRONTEND_URL", "http://localhost:3002"),
+        (
+            "DATABASE_URL",
+            "postgres://epsx_user:password@127.0.0.1:5432/epsx_notifications_dev",
+        ),
+        (
+            "NOTIFICATION_PLAN_DATABASE_URL",
+            "postgres://epsx_user:password@127.0.0.1:5432/epsx_dev",
+        ),
+    ];
+    const ANALYTICS: &[(&str, &str)] = &[
+        ("ENV", "development"),
+        ("EPSX_ENV", "development"),
+        ("HOST", "127.0.0.1"),
+        ("PORT", "8107"),
+        ("OIDC_ISSUER", "http://127.0.0.1:8080"),
+        (
+            "OIDC_JWKS_URL",
+            "http://127.0.0.1:8080/.well-known/jwks.json",
+        ),
+        ("ADMIN_FRONTEND_URL", "http://localhost:3001"),
+        ("PAY_FRONTEND_URL", "http://localhost:3002"),
+        (
+            "DATABASE_URL",
+            "postgres://epsx_user:password@127.0.0.1:5432/epsx_analytics_dev",
+        ),
+    ];
+
+    match binary {
+        "epsx" => BACKEND,
+        "bff-frontend" => FRONTEND,
+        "bff-admin" => ADMIN,
+        "bff-pay" => PAY_BFF,
+        "wallet" => WALLET,
+        "pay-service" => PAYMENT,
+        "subscription" => SUBSCRIPTION,
+        "notification" => NOTIFICATION,
+        "analytics" => ANALYTICS,
+        _ => &[],
+    }
+}
+
+fn cargo_target_directory(root: &Path) -> Result<PathBuf, String> {
+    let output = Command::new("cargo")
+        .current_dir(root)
+        .args(["metadata", "--no-deps", "--format-version", "1"])
+        .output()
+        .map_err(|error| error.to_string())?;
+    if !output.status.success() {
+        return Err("cargo metadata failed".into());
+    }
+    let metadata: serde_json::Value =
+        serde_json::from_slice(&output.stdout).map_err(|error| error.to_string())?;
+    metadata["target_directory"]
+        .as_str()
+        .map(PathBuf::from)
+        .ok_or_else(|| "missing Cargo target directory".into())
+}
+fn fullstack_port(binary: &str) -> &'static str {
+    local_dev_environment(binary)
+        .iter()
+        .find_map(|(key, value)| (*key == "PORT").then_some(*value))
+        .expect("UI port configured")
+}
+fn fullstack_binary(binary: &str) -> Option<&'static str> {
+    match binary {
+        "bff-frontend" => Some("dx-frontend"),
+        "bff-admin" => Some("dx-admin"),
+        "bff-pay" => Some("epsx-pay"),
+        _ => None,
+    }
+}
+fn fullstack_build(root: &Path, package: &str, binary: &str, release: bool) -> Result<(), String> {
+    let Some(ui) = fullstack_binary(binary) else {
+        return Ok(());
+    };
+    let mut command = Command::new("dx");
+    command.current_dir(root).args([
+        "build",
+        "--fullstack",
+        "true",
+        "--web",
+        "--package",
+        package,
+        "--bin",
+        ui,
+        "--no-default-features",
+        "--locked",
+        "--force-sequential",
+        "true",
+    ]);
+    if release {
+        command.arg("--release");
+    }
+    run_status(&mut command, &format!("{package} SSR and hydration assets"))
+}
+fn fullstack_environment(command: &mut Command, root: &Path, binary: &str) {
+    if let Some(ui) = fullstack_binary(binary) {
+        let target = cargo_target_directory(root)
+            .expect("Cargo target directory available after successful build");
+        command.env(
+            "DIOXUS_PUBLIC_PATH",
+            target.join("dx").join(ui).join("debug/web/public"),
+        );
+        command.env(
+            "EPSX_BROWSER_RUNTIME_DIR",
+            root.join("target/epsx-service-worker"),
+        );
+    }
+}
+fn cargo_run(root: &Path, package: &str, binary: &str) -> Result<(), String> {
+    fullstack_build(root, package, binary, false)?;
+    let mut command = Command::new("cargo");
+    command
+        .args(["run", "-p", package, "--bin", binary])
+        .current_dir(root);
+    for (key, value) in local_dev_environment(binary) {
+        command.env(key, value);
+    }
+    fullstack_environment(&mut command, root, binary);
+    run_status(&mut command, package)
+}
+
+fn cargo_watch_run(root: &Path, package: &str, binary: &str) -> Result<(), String> {
+    dx_serve_run(root, package, binary)
+}
+
+fn dx_serve_run(root: &Path, package: &str, binary: &str) -> Result<(), String> {
+    let app_dir = match binary {
+        "bff-frontend" => root.join("apps/frontend"),
+        "bff-admin" => root.join("apps/admin"),
+        "bff-pay" => root.join("apps/pay"),
+        _ => return cargo_run(root, package, binary),
+    };
+    let mut command = Command::new("dx");
+    command
+        .args([
+            "serve",
+            "--hot-reload",
+            "true",
+            "--port",
+            fullstack_port(binary),
+            "--fullstack",
+            "true",
+            "--web",
+            "--package",
+            package,
+            "--bin",
+            fullstack_binary(binary).expect("UI binary"),
+            "--no-default-features",
+        ])
+        .current_dir(&app_dir);
+    for (key, value) in local_dev_environment(binary) {
+        command.env(key, value);
+    }
+    command.env(
+        "EPSX_BROWSER_RUNTIME_DIR",
+        root.join("target/epsx-service-worker"),
+    );
+    println!("dev {binary}: running dx serve in {}", app_dir.display());
+    run_status(&mut command, &format!("dx-serve({binary})"))
+}
+
+fn run_status(command: &mut Command, label: &str) -> Result<(), String> {
+    let status = command
+        .stdin(Stdio::inherit())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .status()
+        .map_err(|error| format!("could not run {label}: {error}"))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!("{label} failed with {status}"))
+    }
+}
+
+fn require_loopback(raw: &str, label: &str) -> Result<(), String> {
+    let url = Url::parse(raw).map_err(|error| format!("invalid {label} URL: {error}"))?;
+    let is_loopback = url.host_str().is_some_and(|host| {
+        host.eq_ignore_ascii_case("localhost")
+            || host.to_ascii_lowercase().ends_with(".localhost")
+            || host
+                .parse::<std::net::IpAddr>()
+                .is_ok_and(|address| address.is_loopback())
+    });
+    if !is_loopback {
+        return Err(format!("{label} must use a loopback URL"));
+    }
+    Ok(())
+}
+
+fn safe_relative_path(path: &Path) -> bool {
+    !path.as_os_str().is_empty()
+        && path
+            .components()
+            .all(|component| matches!(component, Component::Normal(_)))
+}
+
+fn is_hex(value: &str, len: usize) -> bool {
+    value.len() == len && value.bytes().all(|byte| byte.is_ascii_hexdigit())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        contains_node_command, environment_name, is_hex, legacy_service_worker_bootstrap,
+        local_dev_environment, matrix_matches, require_loopback,
+        require_runtime_state_provisioning, runtime_bootstrap, safe_relative_path, selector_nth,
+        selector_text_filter, split_selector_branches, validate_production_shape_contract,
+        E2eRuntimeProfile, Scenario, ScenarioGroup,
+    };
+    use serde_json::json;
+    use std::{
+        fs,
+        path::{Path, PathBuf},
+        process::Command,
+    };
+
+    #[test]
+    fn fullstack_proxy_ports_match_auth_origins() {
+        for (binary, port) in [
+            ("bff-frontend", "3000"),
+            ("bff-admin", "3001"),
+            ("bff-pay", "3002"),
+        ] {
+            assert_eq!(super::fullstack_port(binary), port);
+        }
+    }
+
+    #[test]
+    fn browser_adapter_exceptions_do_not_allow_another_eval() {
+        let path = std::path::Path::new("shared/rust/dioxus_ui/src/pages/contact.rs");
+        let allowed = r#"document::eval("try { await navigator.clipboard.writeText('info@epsx.io'); dioxus.send(true); } catch (_) { dioxus.send(false); }")"#;
+        assert!(!super::inline_runtime_source(path, allowed).contains("document::eval"));
+        assert!(super::inline_runtime_source(
+            path,
+            &format!("{allowed}; document::eval(unsafe_script)")
+        )
+        .contains("document::eval"));
+        assert!(
+            super::inline_runtime_source(std::path::Path::new("other.rs"), allowed)
+                .contains("document::eval")
+        );
+    }
+
+    #[test]
+    fn reviewed_adapters_reject_modified_or_additional_scripts() {
+        for adapter in super::browser_adapters() {
+            let path = Path::new(&adapter.path);
+            assert!(!super::inline_runtime_source(path, &adapter.source).contains("document::eval"));
+            let changed =
+                adapter
+                    .source
+                    .replacen("document::eval", "document::eval /* changed */", 1);
+            assert!(super::inline_runtime_source(path, &changed).contains("document::eval"));
+            let extra = format!("{}; document::eval(unreviewed)", adapter.source);
+            assert!(super::inline_runtime_source(path, &extra).contains("document::eval"));
+        }
+        for name in [
+            "shared/rust/dioxus_ui/src/fullstack/pay/wallet_adapter.js",
+            "shared/rust/dioxus_ui/src/fullstack/wallet_disconnect.js",
+            "shared/rust/dioxus_ui/src/navigation_lifecycle.js",
+            "infrastructure/native/local-deploy.js",
+            "infrastructure/native/dev-live-css.js",
+        ] {
+            let path = Path::new(name);
+            let bytes = std::fs::read(super::repo_root().unwrap().join(path)).unwrap();
+            assert!(super::is_browser_adapter_asset(path, &bytes));
+            let mut changed = bytes;
+            changed.extend_from_slice(b"\ndocument.body.innerHTML = '';");
+            assert!(!super::is_browser_adapter_asset(path, &changed));
+        }
+    }
+
+    #[test]
+    fn audit_inventory_includes_untracked_source_but_not_dependency_installs() {
+        let root = std::env::temp_dir().join(format!(
+            "epsx-audit-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(root.join("node_modules/local")).unwrap();
+        fs::create_dir_all(root.join("src")).unwrap();
+        assert!(Command::new("git")
+            .args(["init", "-q"])
+            .current_dir(&root)
+            .status()
+            .unwrap()
+            .success());
+        fs::write(root.join("node_modules/local/untracked.js"), "bad()").unwrap();
+        fs::write(root.join("node_modules/local/tracked.js"), "bad()").unwrap();
+        fs::write(root.join("src/new.rs"), "document::eval(bad)").unwrap();
+        fs::write(root.join(".gitignore"), "ignored.js\n").unwrap();
+        fs::write(root.join("ignored.js"), "bad()").unwrap();
+        assert!(Command::new("git")
+            .args(["add", "node_modules/local/tracked.js"])
+            .current_dir(&root)
+            .status()
+            .unwrap()
+            .success());
+        let files = super::audit_files(&root).unwrap();
+        assert!(files.contains(&PathBuf::from("src/new.rs")));
+        assert!(files.contains(&PathBuf::from("node_modules/local/tracked.js")));
+        assert!(!files.contains(&PathBuf::from("node_modules/local/untracked.js")));
+        assert!(!files.contains(&PathBuf::from("ignored.js")));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn evidence_paths_are_strictly_relative() {
+        assert!(safe_relative_path(Path::new("screenshots/a.png")));
+        assert!(!safe_relative_path(Path::new("../secret")));
+        assert!(!safe_relative_path(Path::new("/tmp/secret")));
+    }
+
+    #[test]
+    fn hashes_require_the_exact_width() {
+        assert!(is_hex(&"a".repeat(64), 64));
+        assert!(!is_hex(&"g".repeat(64), 64));
+    }
+
+    #[test]
+    fn service_worker_bootstrap_owns_async_initialization_from_install() {
+        let worker = runtime_bootstrap("epsx_service_worker");
+        assert!(!worker.contains("await init()"));
+        assert!(worker.contains("./epsx_service_worker.js?rev=3"));
+        assert!(worker.contains("./epsx_service_worker_bg.wasm?rev=3"));
+        assert!(worker.contains("self.addEventListener('install'"));
+        assert!(worker.contains("install()).then(() => self.skipWaiting())"));
+        assert!(worker.contains("self.addEventListener('activate'"));
+        assert!(worker.contains("self.addEventListener('fetch'"));
+        assert!(worker.contains("event.respondWith(runtime.then(() => fetch_navigation"));
+        assert!(worker.contains("self.addEventListener('push'"));
+        assert!(worker.contains("self.addEventListener('notificationclick'"));
+
+        let browser = runtime_bootstrap("epsx_browser_runtime");
+        assert!(browser.contains("await init({ module_or_path: new URL("));
+        assert!(browser.contains("./epsx_browser_runtime.js?rev=3"));
+        assert!(browser.contains("./epsx_browser_runtime_bg.wasm?rev=3"));
+        assert!(!browser.contains("addEventListener('install'"));
+    }
+
+    #[test]
+    fn legacy_service_worker_releases_existing_clients() {
+        let worker = legacy_service_worker_bootstrap();
+        assert!(worker.contains("self.skipWaiting()"));
+        assert!(worker.contains("self.registration.unregister()"));
+        assert!(worker.contains("client.navigate(client.url)"));
+        assert!(!worker.contains("fetch_navigation"));
+    }
+
+    #[test]
+    fn local_dev_services_share_one_issuer_and_frontend_origin() {
+        let backend = local_dev_environment("epsx");
+        let frontend = local_dev_environment("bff-frontend");
+        let value = |environment: &'static [(&'static str, &'static str)], key: &str| {
+            environment
+                .iter()
+                .find_map(|(candidate, value)| (*candidate == key).then_some(*value))
+        };
+
+        assert_eq!(
+            value(backend, "OIDC_ISSUER"),
+            value(frontend, "OIDC_ISSUER")
+        );
+        assert_eq!(
+            value(backend, "FRONTEND_URL"),
+            Some("http://localhost:3000")
+        );
+        assert_eq!(value(frontend, "PORT"), Some("3000"));
+        assert_eq!(value(frontend, "HOST"), Some("localhost"));
+        let admin = local_dev_environment("bff-admin");
+        assert_eq!(value(admin, "PORT"), Some("3001"));
+        assert_eq!(
+            value(admin, "WALLET_SERVICE_URL"),
+            Some("http://127.0.0.1:8102")
+        );
+        assert_eq!(
+            value(admin, "PAYMENT_SERVICE_URL"),
+            Some("http://127.0.0.1:8103")
+        );
+        assert_eq!(
+            value(admin, "SUBSCRIPTION_SERVICE_URL"),
+            Some("http://127.0.0.1:8104")
+        );
+        assert_eq!(
+            value(admin, "NOTIFICATION_SERVICE_URL"),
+            Some("http://127.0.0.1:8106")
+        );
+        assert_eq!(
+            value(admin, "ANALYTICS_SERVICE_URL"),
+            Some("http://127.0.0.1:8107")
+        );
+        for binary in [
+            "wallet",
+            "pay-service",
+            "subscription",
+            "notification",
+            "analytics",
+        ] {
+            let service = local_dev_environment(binary);
+            assert_eq!(value(service, "OIDC_ISSUER"), value(backend, "OIDC_ISSUER"));
+            assert!(value(service, "DATABASE_URL").is_some());
+        }
+    }
+
+    #[test]
+    fn production_shaped_runtime_contract_is_explicit_and_local_only() {
+        assert_eq!(
+            E2eRuntimeProfile::parse("production-shaped").unwrap(),
+            E2eRuntimeProfile::ProductionShaped
+        );
+        assert_eq!(
+            E2eRuntimeProfile::ProductionShaped
+                .access_cookie("frontend")
+                .unwrap(),
+            ("__Host-epsx.access_token", true)
+        );
+        assert!(require_loopback("https://epsx.e2e.localhost:4443", "frontend").is_ok());
+        assert!(require_loopback("https://localhost.example:4443", "frontend").is_err());
+
+        let workflow = "cargo build --release -p epsx-frontend -p epsx-admin\n\
+            --issuer https://api.epsx.test:4443\n\
+            EPSX_ENV=production SSL_CERT_FILE=/tmp/epsx-e2e-ca.crt\n\
+            API_URL=https://api.epsx.test:4443\n\
+            target/release/bff-frontend\n\
+            target/release/bff-admin\n\
+            openssl verify -CAfile /tmp/epsx-e2e-ca.crt\n\
+            E2E_RUNTIME_PROFILE: production-shaped\n\
+            E2E_TARGET_FRONTEND_URL: https://epsx.e2e.localhost:4443\n\
+            E2E_TARGET_ADMIN_URL: https://admin.e2e.localhost:4443\n\
+            curl --cacert /tmp/epsx-e2e-ca.crt -fsS https://api.epsx.test:4443/api/health\n\
+            curl --cacert /tmp/epsx-e2e-ca.crt -fsS https://epsx.e2e.localhost:4443/api/health\n\
+            curl --cacert /tmp/epsx-e2e-ca.crt -fsS https://admin.e2e.localhost:4443/api/health";
+        let edge = "ssl_protocols TLSv1.2 TLSv1.3;\n\
+            server_name api.epsx.test;\n\
+            server_name epsx.e2e.localhost;\n\
+            server_name admin.e2e.localhost;\n\
+            proxy_pass http://127.0.0.1:48080;\n\
+            proxy_pass http://127.0.0.1:4200;\n\
+            proxy_pass http://127.0.0.1:4201;\n\
+            proxy_set_header Host $http_host;\n\
+            proxy_set_header X-Forwarded-Proto https;";
+        assert!(validate_production_shape_contract(workflow, edge).is_ok());
+        assert!(validate_production_shape_contract(
+            &format!("{workflow}\nEPSX_PRODUCTION_SHAPED_E2E=1"),
+            edge
+        )
+        .is_err());
+        assert!(validate_production_shape_contract(
+            &workflow.replace("E2E_RUNTIME_PROFILE: production-shaped", ""),
+            edge
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn matrix_filters_are_exact() {
+        assert!(matrix_matches(&json!({"type":"reload"}), "desktop-light"));
+        assert!(matrix_matches(
+            &json!({"matrixIds":["desktop-light"]}),
+            "desktop-light"
+        ));
+        assert!(!matrix_matches(
+            &json!({"matrixIds":["mobile-dark"]}),
+            "desktop-light"
+        ));
+    }
+
+    #[test]
+    fn webdriver_selector_contract_handles_playwright_compatibility_tokens() {
+        let branches = split_selector_branches(
+            r#"form:has(input[value="a,b"]), h2:has-text("Active Plans"):visible"#,
+        )
+        .unwrap();
+        assert_eq!(branches.len(), 2);
+        let (selector, nth) = selector_nth("text=Plan not found >> nth=1").unwrap();
+        assert_eq!(selector, "text=Plan not found");
+        assert_eq!(nth, Some(1));
+        assert_eq!(
+            selector_text_filter(r#"h2:has-text("Active Plans")"#).unwrap(),
+            ("h2".to_string(), Some("Active Plans".to_string()))
+        );
+        assert_eq!(
+            selector_text_filter("text=Total Credits Outstanding").unwrap(),
+            (
+                "body *".to_string(),
+                Some("Total Credits Outstanding".to_string())
+            )
+        );
+    }
+
+    #[test]
+    fn runtime_refuses_unprovisioned_authenticated_scenarios() {
+        let scenario = |id: &str, state| Scenario {
+            id: id.to_string(),
+            surface: "frontend".into(),
+            path: "/".into(),
+            expected_target_path: None,
+            actions: Vec::new(),
+            outcomes: Vec::new(),
+            state,
+            fixture_requirements: Vec::new(),
+        };
+        let signed_out = ScenarioGroup {
+            id: 0,
+            slug: "signed-out".into(),
+            matrix: "test".into(),
+            repeat: 1,
+            scenarios: vec![scenario(
+                "public",
+                json!({"id":"public","session":"signed-out"}),
+            )],
+        };
+        assert!(require_runtime_state_provisioning(&signed_out, None).is_ok());
+
+        let authenticated = ScenarioGroup {
+            id: 1,
+            slug: "authenticated".into(),
+            matrix: "test".into(),
+            repeat: 1,
+            scenarios: vec![scenario(
+                "owner",
+                json!({
+                    "id":"owner",
+                    "session":"authenticated",
+                    "audience":"epsx-frontend",
+                    "permissions":[]
+                }),
+            )],
+        };
+        assert!(require_runtime_state_provisioning(&authenticated, None)
+            .unwrap_err()
+            .contains("refusing an unprovisioned false-positive run"));
+    }
+
+    #[test]
+    fn default_environment_is_supported() {
+        assert!(matches!(
+            environment_name().as_str(),
+            "development" | "staging" | "production"
+        ));
+    }
+
+    #[test]
+    fn active_command_audit_uses_exact_runtime_tokens() {
+        assert!(contains_node_command("run: node -p version"));
+        assert!(contains_node_command("uses: actions/setup-node@v4"));
+        assert!(!contains_node_command(
+            "run: cargo xtask audit no-node --strict"
+        ));
+        assert!(!contains_node_command("nodePort: 30080"));
+    }
+}

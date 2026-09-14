@@ -1,5 +1,5 @@
-use crate::prelude::*;
 use crate::application::shared::Query;
+use crate::prelude::*;
 
 /// Query to get a single stock analysis by symbol
 #[derive(Debug, Clone)]

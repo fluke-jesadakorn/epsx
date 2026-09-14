@@ -4,9 +4,8 @@
 //! Excludes admin-only endpoints for cleaner public documentation.
 
 use utoipa::{
-    OpenApi,
-    Modify,
     openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme},
+    Modify, OpenApi,
 };
 
 /// User-facing OpenAPI documentation
@@ -56,7 +55,6 @@ use utoipa::{
         // ANALYTICS ENDPOINTS
         // ============================================================================
         crate::web::analytics::eps::cache::get_unified_analytics_rankings_cached,
-        crate::web::analytics::eps::cache::get_cache_stats,
         crate::web::analytics::eps::metadata::get_available_countries,
         crate::web::analytics::eps::metadata::get_all_valid_countries,
         crate::web::analytics::eps::metadata::get_sectors_by_country,
@@ -151,9 +149,9 @@ impl Modify for UserSecurityAddon {
                             1) Generate challenge via POST /api/auth/web3/challenge \
                             2) Sign the SIWE message with your wallet \
                             3) Verify signature via POST /api/auth/web3/verify to get token \
-                            4) Use the token as Bearer authentication for protected endpoints"
+                            4) Use the token as Bearer authentication for protected endpoints",
                         ))
-                        .build()
+                        .build(),
                 ),
             );
         }

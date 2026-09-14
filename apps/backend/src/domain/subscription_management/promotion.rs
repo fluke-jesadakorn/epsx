@@ -44,9 +44,7 @@ impl Promotion {
                 let discount_factor = 1.0 - (self.value / 100.0);
                 base_price * discount_factor
             }
-            PromotionType::Fixed => {
-                (base_price - self.value).max(0.0)
-            }
+            PromotionType::Fixed => (base_price - self.value).max(0.0),
         }
     }
 

@@ -13,39 +13,43 @@ pub fn sanitize_chat_content(content: &str) -> String {
     }
 
     // Process markdown links first
-    let with_safe_md_links = MD_LINK.replace_all(content, |caps: &regex::Captures| {
-        let label = &caps[1];
-        let url = &caps[2];
+    let with_safe_md_links = MD_LINK
+        .replace_all(content, |caps: &regex::Captures| {
+            let label = &caps[1];
+            let url = &caps[2];
 
-        // Ensure attachments are preserved literally
-        if url.starts_with("[attachment:") {
-            return caps[0].to_string();
-        }
-
-        if let Ok(parsed_url) = Url::parse(url) {
-            if let Some(host) = parsed_url.host_str() {
-                if host == "localhost" || host.ends_with("epsx.io") {
-                    return format!("[{}]({})", label, url);
-                }
+            // Ensure attachments are preserved literally
+            if url.starts_with("[attachment:") {
+                return caps[0].to_string();
             }
-        } else if url.starts_with('/') {
-            // Allow relative links (e.g., /chat/123)
-            return format!("[{}]({})", label, url);
-        }
 
-        "*[External Link Removed]*".to_string()
-    }).to_string();
+            if let Ok(parsed_url) = Url::parse(url) {
+                if let Some(host) = parsed_url.host_str() {
+                    if host == "localhost" || host.ends_with("epsx.io") {
+                        return format!("[{}]({})", label, url);
+                    }
+                }
+            } else if url.starts_with('/') {
+                // Allow relative links (e.g., /chat/123)
+                return format!("[{}]({})", label, url);
+            }
+
+            "*[External Link Removed]*".to_string()
+        })
+        .to_string();
 
     // Process bare URLs that weren't inside markdown links
-    BARE_URL.replace_all(&with_safe_md_links, |caps: &regex::Captures| {
-        let url = &caps[0];
-        if let Ok(parsed_url) = Url::parse(url) {
-            if let Some(host) = parsed_url.host_str() {
-                if host == "localhost" || host.ends_with("epsx.io") {
-                    return url.to_string();
+    BARE_URL
+        .replace_all(&with_safe_md_links, |caps: &regex::Captures| {
+            let url = &caps[0];
+            if let Ok(parsed_url) = Url::parse(url) {
+                if let Some(host) = parsed_url.host_str() {
+                    if host == "localhost" || host.ends_with("epsx.io") {
+                        return url.to_string();
+                    }
                 }
             }
-        }
-        "[External Link Removed]".to_string()
-    }).to_string()
+            "[External Link Removed]".to_string()
+        })
+        .to_string()
 }

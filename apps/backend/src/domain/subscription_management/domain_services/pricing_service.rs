@@ -1,5 +1,5 @@
+use crate::domain::subscription_management::{BillingCycle, Plan, Price};
 use crate::prelude::*;
-use crate::domain::subscription_management::{Plan, Price, BillingCycle};
 use rust_decimal::Decimal;
 
 /// Domain service for pricing calculations
@@ -7,10 +7,7 @@ pub struct PricingService;
 
 impl PricingService {
     /// Calculate prorated price for partial billing period
-    pub fn calculate_prorated_price(
-        plan: &Plan,
-        days_used: i64,
-    ) -> AppResult<Price> {
+    pub fn calculate_prorated_price(plan: &Plan, days_used: i64) -> AppResult<Price> {
         let price = plan.price();
 
         let billing_days = match plan.billing_cycle().duration_days() {
@@ -18,7 +15,10 @@ impl PricingService {
             None => return Ok(price.clone()), // Lifetime - no proration
         };
 
-        let daily_rate = price.amount().to_string().parse::<f64>()
+        let daily_rate = price
+            .amount()
+            .to_string()
+            .parse::<f64>()
             .map_err(|e| AppError::internal_error(e.to_string()))?
             / billing_days;
 
@@ -34,19 +34,24 @@ impl PricingService {
         match billing_cycle {
             BillingCycle::PayPerUse => 0.0,
             BillingCycle::Monthly => 0.0,
-            BillingCycle::Quarterly => 0.05,  // 5% discount
-            BillingCycle::Yearly => 0.15,     // 15% discount
-            BillingCycle::Lifetime => 0.30,   // 30% discount
+            BillingCycle::Quarterly => 0.05, // 5% discount
+            BillingCycle::Yearly => 0.15,    // 15% discount
+            BillingCycle::Lifetime => 0.30,  // 30% discount
         }
     }
 
     /// Apply discount to price
     pub fn apply_discount(price: &Price, discount: f64) -> AppResult<Price> {
         if !(0.0..=1.0).contains(&discount) {
-            return Err(AppError::validation_error("Discount must be between 0 and 1"));
+            return Err(AppError::validation_error(
+                "Discount must be between 0 and 1",
+            ));
         }
 
-        let amount_f64 = price.amount().to_string().parse::<f64>()
+        let amount_f64 = price
+            .amount()
+            .to_string()
+            .parse::<f64>()
             .map_err(|e| AppError::internal_error(e.to_string()))?;
 
         let discounted = amount_f64 * (1.0 - discount);

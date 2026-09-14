@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json.schemastore.org/block-type.json",
+  "type": "blog-list",
+  "name": "Blog List",
+  "category": "content",
+  "description": "Grid of blog post previews",
+  "props": {
+    "title": { "type": "string", "description": "Section heading" },
+    "posts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "slug": { "type": "string", "required": true },
+          "title": { "type": "string", "required": true },
+          "excerpt": { "type": "string" },
+          "cover": { "type": "string", "format": "url" },
+          "author": { "type": "string" },
+          "date": { "type": "string", "format": "date" },
+          "tags": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "columns": { "type": "integer", "enum": [2, 3, 4], "default": 3 },
+    "showExcerpt": { "type": "boolean", "default": true }
+  }
+}

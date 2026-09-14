@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
 use super::{ApplicationError, ApplicationResult};
@@ -9,7 +9,7 @@ use super::{ApplicationError, ApplicationResult};
 pub trait Query: Send + Sync + Debug + Clone {
     /// The type of response this query produces
     type Response: Send + Sync;
-    
+
     /// Validate the query before execution
     fn validate(&self) -> ApplicationResult<()> {
         Ok(())
@@ -50,17 +50,17 @@ impl QueryMetadata {
             cache_ttl_seconds: None,
         }
     }
-    
+
     pub fn with_user(mut self, wallet_address: impl Into<String>) -> Self {
         self.requested_by = Some(wallet_address.into());
         self
     }
-    
+
     pub fn with_correlation_id(mut self, correlation_id: impl Into<String>) -> Self {
         self.correlation_id = Some(correlation_id.into());
         self
     }
-    
+
     pub fn cacheable(mut self, ttl_seconds: u64) -> Self {
         self.cacheable = true;
         self.cache_ttl_seconds = Some(ttl_seconds);
@@ -79,31 +79,31 @@ pub struct PaginationParams {
 impl PaginationParams {
     pub fn new(page: u32, page_size: u32) -> Self {
         Self {
-            page: page.max(1), // Pages are 1-indexed
+            page: page.max(1),                   // Pages are 1-indexed
             page_size: page_size.clamp(1, 1000), // Reasonable limits
             max_page_size: 1000,
         }
     }
-    
+
     pub fn offset(&self) -> u32 {
         (self.page - 1) * self.page_size
     }
-    
+
     pub fn validate(&self) -> ApplicationResult<()> {
         if self.page_size > self.max_page_size {
             return Err(ApplicationError::validation(
                 "page_size",
-                format!("Page size cannot exceed {}", self.max_page_size)
+                format!("Page size cannot exceed {}", self.max_page_size),
             ));
         }
-        
+
         if self.page == 0 {
             return Err(ApplicationError::validation(
                 "page",
-                "Page number must be greater than 0"
+                "Page number must be greater than 0",
             ));
         }
-        
+
         Ok(())
     }
 }
@@ -134,11 +134,11 @@ impl SortParams {
             direction,
         }
     }
-    
+
     pub fn asc(field: impl Into<String>) -> Self {
         Self::new(field, SortDirection::Asc)
     }
-    
+
     pub fn desc(field: impl Into<String>) -> Self {
         Self::new(field, SortDirection::Desc)
     }

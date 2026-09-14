@@ -1,11 +1,13 @@
+use crate::application::shared::command_bus::CommandHandler;
+use crate::application::shared::error::ApplicationError;
+use crate::application::shared::ApplicationResult;
+use crate::domain::subscription_management::repository_ports::PlanRepositoryPort;
 use async_trait::async_trait;
 use std::sync::Arc;
-use crate::application::shared::command_bus::CommandHandler;
-use crate::application::shared::ApplicationResult;
-use crate::application::shared::error::ApplicationError;
-use crate::domain::subscription_management::repository_ports::PlanRepositoryPort;
 
-use crate::application::subscription_management::commands::models::delete_plan::{DeletePlanCommand, DeletePlanResponse};
+use crate::application::subscription_management::commands::models::delete_plan::{
+    DeletePlanCommand, DeletePlanResponse,
+};
 
 pub type DeletePlanResult = DeletePlanResponse;
 
@@ -25,13 +27,18 @@ impl CommandHandler<DeletePlanCommand> for DeletePlanCommandHandler {
         let plan_id = command.id;
 
         // 1. Check existence
-        let _plan = self.plan_repository.find_by_id(&plan_id)
-            .await.map_err(|e| ApplicationError::infrastructure(e.to_string()))?
+        let _plan = self
+            .plan_repository
+            .find_by_id(&plan_id)
+            .await
+            .map_err(|e| ApplicationError::infrastructure(e.to_string()))?
             .ok_or_else(|| ApplicationError::not_found("Plan", plan_id.to_string()))?;
 
         // 2. Delete Plan
-        self.plan_repository.delete(&plan_id)
-            .await.map_err(|e| ApplicationError::infrastructure(e.to_string()))?;
+        self.plan_repository
+            .delete(&plan_id)
+            .await
+            .map_err(|e| ApplicationError::infrastructure(e.to_string()))?;
 
         Ok(DeletePlanResult {
             plan_id: plan_id.to_string(),

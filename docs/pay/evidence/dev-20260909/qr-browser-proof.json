@@ -1,0 +1,22 @@
+{
+  "order_id": "9acd953e-aca4-4b0f-b318-4a077ffc0a49",
+  "payment_id": "pi_de79545b70f149deb1dd11a5fba1709e",
+  "order_owner": "0x0305d127caaced896c7cf0e0579afc5384f97494",
+  "payer": "0x7a2267d036084789486fE3c971F0f401610C5781",
+  "deposit_address": "0xb4ce3a206110d243f57798e635f9fc07c2e3fe65",
+  "chain_id": 31337,
+  "token": "USDT",
+  "amount": "5",
+  "transaction_hash": "0x17c7eae124ad768d97b04434324df716de24b4f281a4d351ac2ba4b1f47ba121",
+  "payment_transport": "ordinary ERC20 transfer from separate generated test buyer via CLI; no browser wallet connection",
+  "order_created_in_browser": true,
+  "payment_status": "succeeded",
+  "fulfillment_status": "granted",
+  "admin_matches_transaction": true,
+  "browser_payment_received": true,
+  "browser_account_order_granted": true,
+  "webhook_status": "delivered",
+  "webhook_http_status": 200,
+  "webhook_attempts": 1,
+  "restart_anvil_and_services": "passed; original receipt and granted order preserved"
+}

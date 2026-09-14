@@ -1,7 +1,7 @@
 // Stock entity for shared use across bounded contexts
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 /// Stock entity representing a tradeable asset
 #[derive(Debug, Clone, Serialize, Deserialize)]

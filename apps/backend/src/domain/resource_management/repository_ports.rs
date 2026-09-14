@@ -1,7 +1,7 @@
 // Repository Ports for Resource Management
 // Define interfaces for data persistence
 
-use crate::domain::resource_management::aggregates::{UserResourceUsage, PlanResourceConfig};
+use crate::domain::resource_management::aggregates::{PlanResourceConfig, UserResourceUsage};
 use async_trait::async_trait;
 use std::collections::HashMap;
 
@@ -11,7 +11,11 @@ pub trait UserResourceUsageRepository {
     type Error;
 
     /// Get user's current resource usage
-    async fn get_user_usage(&self, wallet_address: &str, access_context: &str) -> Result<Option<UserResourceUsage>, Self::Error>;
+    async fn get_user_usage(
+        &self,
+        wallet_address: &str,
+        access_context: &str,
+    ) -> Result<Option<UserResourceUsage>, Self::Error>;
 
     /// Save user resource usage
     async fn save_user_usage(&self, usage: &UserResourceUsage) -> Result<(), Self::Error>;
@@ -20,7 +24,11 @@ pub trait UserResourceUsageRepository {
     async fn update_user_usage(&self, usage: &UserResourceUsage) -> Result<(), Self::Error>;
 
     /// Get historical usage data
-    async fn get_usage_history(&self, wallet_address: &str, days: u32) -> Result<Vec<UserResourceUsage>, Self::Error>;
+    async fn get_usage_history(
+        &self,
+        wallet_address: &str,
+        days: u32,
+    ) -> Result<Vec<UserResourceUsage>, Self::Error>;
 
     /// Get all users with active usage
     async fn get_active_users(&self) -> Result<Vec<String>, Self::Error>;
@@ -35,7 +43,10 @@ pub trait PlanResourceConfigRepository {
     type Error;
 
     /// Get plan resource configuration
-    async fn get_plan_config(&self, plan_id: i32) -> Result<Option<PlanResourceConfig>, Self::Error>;
+    async fn get_plan_config(
+        &self,
+        plan_id: i32,
+    ) -> Result<Option<PlanResourceConfig>, Self::Error>;
 
     /// Save plan resource configuration
     async fn save_plan_config(&self, config: &PlanResourceConfig) -> Result<(), Self::Error>;
@@ -47,7 +58,10 @@ pub trait PlanResourceConfigRepository {
     async fn get_active_plan_configs(&self) -> Result<Vec<PlanResourceConfig>, Self::Error>;
 
     /// Get plan configs by access context
-    async fn get_plans_by_context(&self, access_context: &str) -> Result<Vec<PlanResourceConfig>, Self::Error>;
+    async fn get_plans_by_context(
+        &self,
+        access_context: &str,
+    ) -> Result<Vec<PlanResourceConfig>, Self::Error>;
 }
 
 /// Repository for resource metrics and analytics

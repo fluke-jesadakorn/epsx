@@ -6,7 +6,6 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-
 /// Notification Priority - pure domain enum
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum NotificationPriority {
@@ -243,8 +242,12 @@ impl Notification {
     // ... (previous methods)
 
     pub fn update_priority(&mut self, new_priority: NotificationPriority) -> Result<(), String> {
-        if self.status != NotificationStatus::Created && self.status != NotificationStatus::Scheduled {
-            return Err("Cannot update priority for notification that is already processing".to_string());
+        if self.status != NotificationStatus::Created
+            && self.status != NotificationStatus::Scheduled
+        {
+            return Err(
+                "Cannot update priority for notification that is already processing".to_string(),
+            );
         }
         self.priority = new_priority;
         self.base.touch();
@@ -252,7 +255,8 @@ impl Notification {
     }
 
     pub fn cancel(&mut self, _reason: String) -> Result<(), String> {
-        if self.status == NotificationStatus::Delivered || self.status == NotificationStatus::Failed {
+        if self.status == NotificationStatus::Delivered || self.status == NotificationStatus::Failed
+        {
             return Err("Cannot cancel finished notification".to_string());
         }
         self.status = NotificationStatus::Cancelled;
@@ -267,7 +271,7 @@ impl Notification {
         result: DeliveryResult,
     ) -> Result<(), String> {
         self.delivery_tracking.record_attempt(channel, result);
-        
+
         // Update status based on delivery results
         if self.delivery_tracking.has_successful_delivery() {
             if self.status != NotificationStatus::Delivered {
@@ -278,7 +282,7 @@ impl Notification {
             // Check if all channels failed or some still pending
             // For now, simple logic
             self.status = NotificationStatus::PartiallyDelivered; // Or something
-             self.base.touch();
+            self.base.touch();
         }
         Ok(())
     }
@@ -310,19 +314,19 @@ impl Notification {
     pub fn topic(&self) -> Option<&NotificationTopic> {
         self.topic.as_ref()
     }
-    
+
     pub fn channels(&self) -> &MultiChannelConfig {
         &self.channels
     }
-    
+
     pub fn schedule(&self) -> &ScheduleInfo {
         &self.schedule
     }
-    
+
     pub fn status(&self) -> NotificationStatus {
         self.status
     }
-    
+
     pub fn delivery_tracking(&self) -> &DeliveryTracking {
         &self.delivery_tracking
     }
@@ -330,40 +334,41 @@ impl Notification {
 
 impl AggregateRoot for Notification {
     type Id = NotificationId;
-    
+
     fn id(&self) -> &Self::Id {
         &self.id
     }
-    
+
     fn version(&self) -> u64 {
         self.base.version()
     }
-    
+
     fn increment_version(&mut self) {
         self.base.increment_version();
     }
-    
-    fn uncommitted_events(&self) -> &[Box<dyn crate::domain::shared_kernel::domain_event::DomainEvent>] {
+
+    fn uncommitted_events(
+        &self,
+    ) -> &[Box<dyn crate::domain::shared_kernel::domain_event::DomainEvent>] {
         self.base.uncommitted_events()
     }
-    
+
     fn mark_events_as_committed(&mut self) {
         self.base.mark_events_as_committed();
     }
-    
+
     fn created_at(&self) -> DateTime<Utc> {
         self.base.created_at
     }
-    
+
     fn updated_at(&self) -> DateTime<Utc> {
         self.base.updated_at
     }
-    
+
     fn touch(&mut self) {
         self.base.touch();
     }
 }
-
 
 // And NotificationMetadata
 

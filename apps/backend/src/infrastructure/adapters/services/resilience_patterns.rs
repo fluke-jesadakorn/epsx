@@ -1,8 +1,8 @@
-use std::sync::atomic::{AtomicUsize, AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 // use std::sync::Arc; // Removed - unused import
 use std::time::{Duration, Instant};
 use tokio::time::sleep;
-use tracing::{warn, error, debug};
+use tracing::{debug, error, warn};
 
 /// Circuit breaker for blockchain RPC calls
 /// Prevents cascade failures when blockchain endpoints are down
@@ -64,7 +64,7 @@ impl CircuitBreaker {
     /// Record failed call
     pub fn record_failure(&self) {
         let new_count = self.failure_count.fetch_add(1, Ordering::Relaxed) + 1;
-        
+
         if let Ok(mut last_failure) = self.last_failure_time.lock() {
             *last_failure = Some(Instant::now());
         }
@@ -134,7 +134,11 @@ impl RetryPolicy {
                     self.base_delay * 2_u32.pow((attempt - 1) as u32),
                     self.max_delay,
                 );
-                debug!(attempt = attempt, delay_ms = delay.as_millis(), "Retrying after delay");
+                debug!(
+                    attempt = attempt,
+                    delay_ms = delay.as_millis(),
+                    "Retrying after delay"
+                );
                 sleep(delay).await;
             }
 
@@ -174,11 +178,11 @@ impl RateLimiter {
     /// Check if call is allowed within rate limit
     pub fn allow_call(&self) -> bool {
         let now = Instant::now();
-        
+
         if let Ok(mut calls) = self.calls.lock() {
             // Remove old calls outside the window
             calls.retain(|&call_time| now.duration_since(call_time) < self.window_duration);
-            
+
             if calls.len() < self.max_calls {
                 calls.push(now);
                 true
@@ -193,7 +197,7 @@ impl RateLimiter {
     /// Get remaining calls in current window
     pub fn remaining_calls(&self) -> usize {
         let now = Instant::now();
-        
+
         if let Ok(mut calls) = self.calls.lock() {
             calls.retain(|&call_time| now.duration_since(call_time) < self.window_duration);
             self.max_calls.saturating_sub(calls.len())
@@ -212,28 +216,28 @@ mod tests {
     async fn test_circuit_breaker() {
         println!("Starting test_circuit_breaker");
         let cb = CircuitBreaker::new(3, Duration::from_millis(100));
-        
+
         // Initially should allow calls
         assert!(cb.can_execute());
         println!("Initial execute OK");
-        
+
         // Record failures
         for _ in 0..3 {
             cb.record_failure();
         }
         println!("Recorded failures");
-        
+
         // Should be open now
         assert!(!cb.can_execute());
-        
+
         println!("Before sleep");
         // Wait for timeout
         sleep(Duration::from_millis(150)).await;
         println!("After sleep");
-        
+
         // Should allow calls again
         assert!(cb.can_execute());
-        
+
         // Success should reset
         cb.record_success();
         assert!(cb.can_execute());
@@ -243,19 +247,21 @@ mod tests {
     #[tokio::test]
     async fn test_retry_policy() {
         let policy = RetryPolicy::new(3, Duration::from_millis(10), Duration::from_millis(100));
-        
+
         let mut attempt_count = 0;
-        let result = policy.retry_with_backoff(|| {
-            attempt_count += 1;
-            Box::pin(async move {
-                if attempt_count < 3 {
-                    Err("temporary failure")
-                } else {
-                    Ok("success")
-                }
+        let result = policy
+            .retry_with_backoff(|| {
+                attempt_count += 1;
+                Box::pin(async move {
+                    if attempt_count < 3 {
+                        Err("temporary failure")
+                    } else {
+                        Ok("success")
+                    }
+                })
             })
-        }).await;
-        
+            .await;
+
         assert_eq!(result, Ok("success"));
         assert_eq!(attempt_count, 3);
     }
@@ -263,11 +269,11 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_rate_limiter() {
         let limiter = RateLimiter::new(2, Duration::from_millis(100));
-        
+
         assert!(limiter.allow_call());
         assert!(limiter.allow_call());
         assert!(!limiter.allow_call()); // Should be rate limited
-        
+
         sleep(Duration::from_millis(150)).await;
         assert!(limiter.allow_call()); // Should allow after window
     }

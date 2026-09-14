@@ -1,9 +1,12 @@
-use crate::prelude::*;
-use crate::application::shared::{QueryHandler, ApplicationResult, ApplicationError};
 use crate::application::permission_management::queries::{
-    ListPermissionPlansQuery, ListPermissionPlansResponse, PermissionPlanSummary
+    ListPermissionPlansQuery, ListPermissionPlansResponse, PermissionPlanSummary,
 };
-use crate::domain::permission_management::{PermissionPlanRepositoryPort, PlanAssignmentRepositoryPort, repository_ports::PlanSearchCriteria};
+use crate::application::shared::{ApplicationError, ApplicationResult, QueryHandler};
+use crate::domain::permission_management::{
+    repository_ports::PlanSearchCriteria, PermissionPlanRepositoryPort,
+    PlanAssignmentRepositoryPort,
+};
+use crate::prelude::*;
 use crate::web::pagination::Pagination;
 
 /// Query handler for listing permission plans
@@ -26,7 +29,10 @@ impl ListPermissionPlansQueryHandler {
 
 #[async_trait]
 impl QueryHandler<ListPermissionPlansQuery> for ListPermissionPlansQueryHandler {
-    async fn handle(&self, query: ListPermissionPlansQuery) -> ApplicationResult<ListPermissionPlansResponse> {
+    async fn handle(
+        &self,
+        query: ListPermissionPlansQuery,
+    ) -> ApplicationResult<ListPermissionPlansResponse> {
         let pg = Pagination::standard(query.page, query.limit);
 
         // 1. Build search criteria
@@ -41,17 +47,26 @@ impl QueryHandler<ListPermissionPlansQuery> for ListPermissionPlansQueryHandler 
         };
 
         // 2. Find plans
-        let plans = self.plan_repository.find_all(criteria.clone()).await
+        let plans = self
+            .plan_repository
+            .find_all(criteria.clone())
+            .await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?;
 
         // 3. Get total count
-        let total = self.plan_repository.count(criteria).await
+        let total = self
+            .plan_repository
+            .count(criteria)
+            .await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?;
 
         // 4. Build summaries with member counts
         let mut summaries = Vec::new();
         for plan in plans {
-            let member_count = self.assignment_repository.count_plan_members(plan.id()).await
+            let member_count = self
+                .assignment_repository
+                .count_plan_members(plan.id())
+                .await
                 .map_err(|e| ApplicationError::infrastructure(e.to_string()))?;
 
             summaries.push(PermissionPlanSummary {
@@ -60,7 +75,11 @@ impl QueryHandler<ListPermissionPlansQuery> for ListPermissionPlansQueryHandler 
                 slug: plan.slug().as_str().to_string(),
                 description: plan.description().to_string(),
                 plan_type: plan.plan_type().to_string(),
-                permissions: plan.permissions().iter().map(|p| p.as_str().to_string()).collect(),
+                permissions: plan
+                    .permissions()
+                    .iter()
+                    .map(|p| p.as_str().to_string())
+                    .collect(),
                 price: plan.price(),
                 currency: plan.currency().to_string(),
                 is_active: plan.is_active(),

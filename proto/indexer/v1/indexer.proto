@@ -1,0 +1,147 @@
+syntax = "proto3";
+
+package epsx.indexer.v1;
+
+option rust_module = "indexer_v1";
+
+service IndexerService {
+  rpc GetBlock(GetBlockRequest) returns (GetBlockResponse);
+  rpc GetTransaction(GetTransactionRequest) returns (GetTransactionResponse);
+  rpc GetContractEvents(GetContractEventsRequest) returns (GetContractEventsResponse);
+  rpc GetTokenTransfers(GetTokenTransfersRequest) returns (GetTokenTransfersResponse);
+  rpc GetAddressActivity(GetAddressActivityRequest) returns (GetAddressActivityResponse);
+  rpc GetChainStatus(GetChainStatusRequest) returns (GetChainStatusResponse);
+}
+
+message GetBlockRequest {
+  string chain_id = 1;
+  int64 block_number = 2;
+}
+
+message GetBlockResponse {
+  Block block = 1;
+}
+
+message GetTransactionRequest {
+  string chain_id = 1;
+  string tx_hash = 2;
+}
+
+message GetTransactionResponse {
+  Transaction tx = 1;
+}
+
+message GetContractEventsRequest {
+  string chain_id = 1;
+  string contract_address = 2;
+  string event_name = 3;
+  int64 from_block = 4;
+  int64 to_block = 5;
+}
+
+message GetContractEventsResponse {
+  repeated ContractEvent events = 1;
+}
+
+message GetTokenTransfersRequest {
+  string chain_id = 1;
+  string token_address = 2;
+  string from_address = 3;
+  string to_address = 4;
+  int64 from_block = 5;
+  int64 to_block = 6;
+}
+
+message GetTokenTransfersResponse {
+  repeated TokenTransfer transfers = 1;
+}
+
+message GetAddressActivityRequest {
+  string chain_id = 1;
+  string address = 2;
+  int64 since_block = 3;
+}
+
+message GetAddressActivityResponse {
+  repeated ActivityItem activities = 1;
+}
+
+message GetChainStatusRequest {
+  string chain_id = 1;
+}
+
+message GetChainStatusResponse {
+  int64 latest_block = 1;
+  int64 indexer_block = 2;
+  int64 lag = 3;
+  bool healthy = 4;
+}
+
+message Block {
+  string chain_id = 1;
+  int64 number = 2;
+  string hash = 3;
+  string parent_hash = 4;
+  int64 timestamp = 5;
+  string miner = 6;
+  int64 gas_used = 7;
+  int64 gas_limit = 8;
+  int32 tx_count = 9;
+}
+
+message Transaction {
+  string chain_id = 1;
+  string hash = 2;
+  string from = 3;
+  string to = 4;
+  string value = 5;
+  int64 gas_limit = 6;
+  int64 gas_used = 7;
+  string gas_price = 8;
+  int64 nonce = 9;
+  int64 block_number = 10;
+  int32 status = 11;
+  int64 timestamp = 12;
+  bytes input = 13;
+}
+
+message ContractEvent {
+  string chain_id = 1;
+  string contract_address = 2;
+  string event_name = 3;
+  repeated EventParam params = 4;
+  string tx_hash = 5;
+  int64 block_number = 6;
+  int64 log_index = 7;
+  int64 timestamp = 8;
+}
+
+message EventParam {
+  string name = 1;
+  string value = 2;
+  string indexed = 3;
+}
+
+message TokenTransfer {
+  string chain_id = 1;
+  string token_address = 2;
+  string from = 3;
+  string to = 4;
+  string value = 5;
+  int64 decimals = 6;
+  string symbol = 7;
+  string tx_hash = 8;
+  int64 block_number = 9;
+  int64 timestamp = 10;
+}
+
+message ActivityItem {
+  string type = 1;
+  string tx_hash = 2;
+  string from = 3;
+  string to = 4;
+  string value = 5;
+  string asset = 6;
+  int64 block_number = 7;
+  int64 timestamp = 8;
+}
