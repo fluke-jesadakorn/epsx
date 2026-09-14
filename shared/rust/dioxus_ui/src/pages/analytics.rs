@@ -1497,7 +1497,7 @@ mod tests {
             .insert(ANALYTICS_STATE_PARAM.to_string(), "empty".to_string());
         let empty_html = html(&empty);
         assert!(empty_html.contains("data-analytics-state=\"empty\""));
-        assert!(empty_html.contains("No companies match"));
+        assert!(empty_html.contains("No companies available for this view"));
 
         let mut malformed = page_ctx();
         malformed
