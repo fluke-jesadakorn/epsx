@@ -1,0 +1,22 @@
+{
+  "USDT": {
+    "address": "0xAb7Df3fb3D976DEfB6D64D4e15a6B57ab528C931",
+    "deployment_block": 118,
+    "tx_hash": "0x48e350aea084156cf5677ff70177463b54147f093da16178a6ee2b69c71d7b88"
+  },
+  "USDC": {
+    "address": "0x5360208e4EEF0CFCcdAfFbE9eF30DC600660e828",
+    "deployment_block": 119,
+    "tx_hash": "0x44e68b4236a8740fbb335108a8fd347513e1b2ec050becc83f1e9b249394328d"
+  },
+  "direct": {
+    "address": "0x9434ab445a0cd8bA2124e594584c38476890F6AD",
+    "deployment_block": 120,
+    "tx_hash": "0xd6c420dbc40704073f5f3d73e5fc6ea32798ee93508d34dcb4c357e90cd298f4"
+  },
+  "escrow": {
+    "address": "0xE0E214B3371f02D22e98C23B895CEBC19cB73FB9",
+    "deployment_block": 121,
+    "tx_hash": "0xebc12719ecc701b5bef484198ffe90f1ce3fa16cb101036cd4fdaa7a330e8c29"
+  }
+}

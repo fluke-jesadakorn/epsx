@@ -1,0 +1,34 @@
+[package]
+name = "epsx-bff"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+tracing.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+async-trait.workspace = true
+jsonwebtoken.workspace = true
+reqwest = { workspace = true, features = ["rustls-tls-native-roots"] }
+http.workspace = true
+epsx-auth = { path = "../auth" }
+epsx-crypto = { path = "../crypto" }
+epsx-client = { path = "../client" }
+epsx-templates = { path = "../templates" }
+epsx-dioxus-ui = { path = "../dioxus_ui" }
+
+[dev-dependencies]
+base64.workspace = true
+rsa.workspace = true
+rand = "0.8"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+dioxus-server = { workspace = true, optional = true }
+tokio.workspace = true
+axum.workspace = true
+tower = { workspace = true, features = ["util"] }
+tower-http = { workspace = true, features = ["set-header", "fs", "cors"] }
+
+[features]
+fullstack = ["dep:dioxus-server", "epsx-dioxus-ui/server"]

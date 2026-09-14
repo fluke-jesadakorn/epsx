@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Backend-only overlay — enables `kubectl apply -k infrastructure/kubernetes/base/backend`
+# without frontend/admin. The main prod overlay (`overlays/prod`) still brings
+# the full topology (frontend + admin + backend) with independent probes.
+# Backend stays pure Axum (`apps/backend/src/main.rs`), not DX, so it scales
+# independently via `kubectl scale deployment epsx-backend --replicas=3` or HPA.
+
+resources:
+  - deployment.yaml
+  - service.yaml
+  - postgres-external.yaml

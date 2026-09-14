@@ -3,56 +3,66 @@ use crate::prelude::TlsPool;
 // Enhanced Container - Web3-first service container
 // Provides comprehensive Web3 services with proper dependency injection
 
-use std::sync::Arc;
+use crate::config::contracts::Chain;
+use crate::domain::auth::ports::IdentityProviderPort;
+use crate::domain::wallet_management::{
+    WalletPermissionService, WalletUserAnalyticsPort, WalletUserRepositoryPort,
+};
+use crate::infrastructure::adapters::repositories::{
+    credit_repository_adapter::CreditRepositoryAdapter,
+    notification_repository_adapter::NotificationRepositoryAdapter,
+    payment_repository_adapter::PaymentRepositoryAdapter,
+    permission_plan_repository_adapter::PlanRepositoryAdapter,
+    wallet_user::WalletUserRepositoryAdapter,
+};
+use crate::infrastructure::adapters::services::permission_adapter::{
+    BlockchainConfig, Web3PermissionServiceAdapter,
+};
+use crate::infrastructure::adapters::RedisPubsubAdapter;
+use crate::infrastructure::cache::unified_permission_cache::UnifiedPermissionCache;
+use crate::infrastructure::cache::Cache;
+use crate::infrastructure::redis::RedisPool;
+use epsx_contracts::pubsub_port::PubsubPort;
 use std::collections::HashMap;
 use std::pin::Pin;
-use crate::config::contracts::Chain;
-use crate::infrastructure::cache::Cache;
-use crate::infrastructure::cache::unified_permission_cache::UnifiedPermissionCache;
-use crate::infrastructure::redis::RedisPool;
-use crate::web::notifications::RedisNotificationBroadcaster;
-use crate::infrastructure::adapters::repositories::{
-    wallet_user::WalletUserRepositoryAdapter,
+use std::sync::Arc;
 
-    permission_plan_repository_adapter::PermissionPlanRepositoryAdapter,
-    payment_repository_adapter::PaymentRepositoryAdapter,
-    notification_repository_adapter::NotificationRepositoryAdapter,
-};
-use crate::infrastructure::adapters::services::{
-    permission_adapter::{Web3PermissionServiceAdapter, BlockchainConfig},
-};
-use crate::domain::wallet_management::{
-    WalletPermissionService,
-    WalletUserRepositoryPort,
-    WalletUserAnalyticsPort,
-};
-use crate::domain::auth::ports::IdentityProviderPort;
-
-use crate::domain::payment::repository_ports::{PaymentRepositoryPort, TransactionHistoryProvider};
 use crate::auth::auth_service::UnifiedWeb3AuthService;
-use crate::auth::token_service::OpenIDTokenService;
 use crate::auth::key_manager::KeyManager;
+use crate::auth::token_service::OpenIDTokenService;
+use crate::auth::RefreshTokenKeyring;
 use crate::auth::UnifiedPermissionService;
-use crate::infrastructure::cqrs::{EventStore, PostgresEventStore, TransactionalOutbox};
+use crate::domain::payment::repository_ports::{
+    CreditRepositoryPort, PaymentRepositoryPort, TransactionHistoryProvider,
+};
 use crate::infrastructure::blockchain::{ContractSubscriber, PaymentEvent};
-use crate::domain::shared_kernel::app_error::AppError;
+use crate::infrastructure::cqrs::{EventStore, PostgresEventStore, TransactionalOutbox};
 use crate::infrastructure::storage::S3Storage;
+use epsx_contracts::errors::AppError;
 use tracing::info;
 
 /// Enhanced container with Web3-first services
 #[derive(Clone)]
 pub struct SimpleContainer {
-    pub db_pool: Arc<&'static TlsPool>,
-    pub payments_pool: Option<Arc<&'static TlsPool>>,
-    pub analytics_pool: Option<Arc<&'static TlsPool>>,
-    pub notifications_pool: Option<Arc<&'static TlsPool>>,
+    pub db_pool: Arc<TlsPool>,
+    pub payments_pool: Option<Arc<TlsPool>>,
+    pub analytics_pool: Option<Arc<TlsPool>>,
+    pub notifications_pool: Option<Arc<TlsPool>>,
+    // BIG-BANG Phase1: canonical sqlx pools side-by-side with TlsPool.
+    // New code should use `sqlx_*_pool`; `TlsPool` fields are deprecated and will be removed
+    // when the last Diesel query is gone. See `shared/rust/epsx-database-pools/src/sqlx_pool.rs`.
+    pub sqlx_core_pool: Option<Arc<sqlx::PgPool>>,
+    pub sqlx_payments_pool: Option<Arc<sqlx::PgPool>>,
+    pub sqlx_analytics_pool: Option<Arc<sqlx::PgPool>>,
+    pub sqlx_notifications_pool: Option<Arc<sqlx::PgPool>>,
     pub cache: Option<Arc<dyn Cache>>,
 
     // NEW - Web3-first services (primary)
     pub wallet_user_repository: Option<Arc<WalletUserRepositoryAdapter>>,
 
-    pub permission_plan_repository: Option<Arc<PermissionPlanRepositoryAdapter>>,
+    pub permission_plan_repository: Option<Arc<PlanRepositoryAdapter>>,
     pub payment_repository: Option<Arc<PaymentRepositoryAdapter>>,
+    pub credit_repository: Option<Arc<CreditRepositoryAdapter>>,
     pub notification_repository: Option<Arc<NotificationRepositoryAdapter>>,
     pub wallet_permission_service: Option<Arc<WalletPermissionService>>,
     pub web3_permission_adapter: Option<Arc<Web3PermissionServiceAdapter>>,
@@ -62,13 +72,25 @@ pub struct SimpleContainer {
 
     pub event_bus: Option<Arc<dyn crate::domain::DomainEventBus>>,
 
+    // wave11(track-c): kernel-level `EventPublisherPort` (ROADMAP §5 R7).
+    // The container builds the in-process adapter wrapping the legacy
+    // bus at `build()`. The port is the seam that the 19 application
+    // command handlers depend on; a future network impl (HTTP / gRPC)
+    // is a wave-N+2 concern. See
+    // `infrastructure::adapters::events::InProcessEventPublisher` for
+    // the design notes.
+    pub event_publisher: Option<Arc<dyn epsx_contracts::event_publisher_port::EventPublisherPort>>,
+
     // Unified Permission Service (single source of truth for permissions)
     pub unified_permission_service: Option<Arc<UnifiedPermissionService>>,
     pub permission_cache: Option<Arc<UnifiedPermissionCache>>,
 
     // Redis infrastructure for real-time notifications
     pub redis_pool: Option<Arc<RedisPool>>,
-    pub redis_broadcaster: Option<Arc<RedisNotificationBroadcaster>>,
+    /// Generic pubsub port. Notifications + chat both publish and
+    /// subscribe through this port. See
+    /// `docs/wave8-service-boundary/ROADMAP.md` §5 R2.
+    pub pubsub: Option<Arc<dyn PubsubPort>>,
 
     // CQRS Infrastructure (Event Sourcing)
     pub event_store: Option<Arc<dyn EventStore>>,
@@ -89,32 +111,45 @@ pub struct SimpleContainer {
 }
 
 impl SimpleContainer {
-    pub fn new(db_pool: Arc<&'static TlsPool>) -> Self {
+    fn get_oidc_issuer() -> String {
+        std::env::var("OIDC_ISSUER")
+            .or_else(|_| std::env::var("BACKEND_URL"))
+            .unwrap_or_else(|_| "https://api.epsx.io".to_string())
+            .trim_end_matches('/')
+            .to_string()
+    }
+
+    pub fn new(db_pool: Arc<TlsPool>) -> Self {
         Self {
             db_pool,
             payments_pool: None,
             analytics_pool: None,
             notifications_pool: None,
+            sqlx_core_pool: None,
+            sqlx_payments_pool: None,
+            sqlx_analytics_pool: None,
+            sqlx_notifications_pool: None,
             cache: None,
             identity_provider: None,
             // NEW - Web3-first services (initialized as None, configured via builder methods)
-
             wallet_user_repository: None,
 
             permission_plan_repository: None,
             payment_repository: None,
+            credit_repository: None,
             notification_repository: None,
             wallet_permission_service: None,
             web3_permission_adapter: None,
             auth_service: None,
             token_service: None,
             event_bus: None,
+            event_publisher: None,
             // Unified Permission Service
             unified_permission_service: None,
             permission_cache: None,
             // Redis
             redis_pool: None,
-            redis_broadcaster: None,
+            pubsub: None,
             // CQRS
             event_store: None,
             transactional_outbox: None,
@@ -132,124 +167,115 @@ impl SimpleContainer {
 
     /// Get Web3 domain for SIWE authentication from environment
     fn get_web3_domain() -> String {
-        use std::env;
-        
-        // Try to get frontend URL from environment
-        if let Ok(frontend_url) = env::var("FRONTEND_URL") {
-            // Extract domain from URL
-            if let Ok(url) = url::Url::parse(&frontend_url) {
-                if let Some(host) = url.host_str() {
-                    return host.to_string();
-                }
-            }
-        }
-        
-        // Try NEXT_PUBLIC_APP_URL as fallback
-        if let Ok(app_url) = env::var("NEXT_PUBLIC_APP_URL") {
-            if let Ok(url) = url::Url::parse(&app_url) {
-                if let Some(host) = url.host_str() {
-                    return host.to_string();
-                }
-            }
-        }
-        
-        // Environment-based defaults
-        if env::var("NODE_ENV").map(|v| v == "production").unwrap_or(false) ||
-           env::var("RUST_ENV").map(|v| v == "production").unwrap_or(false) {
-            "epsx.io".to_string()
-        } else {
-            "localhost".to_string()
-        }
+        super::configured_siwe_domain()
     }
-    
+
     /// Create container with Web3 services properly wired
     pub async fn new_with_web3_services(
         cache: Option<Arc<dyn Cache>>,
         blockchain_config: Option<BlockchainConfig>,
     ) -> Self {
         // Get Diesel pool
-        let diesel_pool = crate::infrastructure::database::get_diesel_pool().await
+        let diesel_pool = crate::infrastructure::database::get_diesel_pool()
+            .await
             .expect("Failed to get Diesel pool");
-        let db_pool = Arc::new(diesel_pool);
+        let db_pool: Arc<sqlx::PgPool> = Arc::new(diesel_pool.clone());
+        let _ = diesel_pool;
 
         // Create repository adapters
         let wallet_user_repository = Arc::new(WalletUserRepositoryAdapter::new(diesel_pool));
 
-        let permission_plan_repository = Arc::new(PermissionPlanRepositoryAdapter::new(diesel_pool));
-        let plan_repository = Arc::new(crate::infrastructure::adapters::repositories::plan_repository_adapter::PostgresPlanRepositoryAdapter::new(diesel_pool));
+        let permission_plan_repository = Arc::new(PlanRepositoryAdapter::new(db_pool.clone()));
+        let plan_repository = Arc::new(crate::infrastructure::adapters::repositories::plan_repository_adapter::PostgresPlanRepositoryAdapter::new(db_pool.clone()));
 
         // Initialize dedicated pools
-        let payments_pool = crate::infrastructure::database::get_payments_pool().await.ok().map(Arc::new);
-        let analytics_pool = crate::infrastructure::database::get_analytics_pool().await.ok().map(Arc::new);
-        let notifications_pool = crate::infrastructure::database::get_notifications_pool().await.ok().map(Arc::new);
-        
+        let payments_pool = crate::infrastructure::database::get_payments_pool()
+            .await
+            .ok()
+            .map(Arc::new);
+        let analytics_pool = crate::infrastructure::database::get_analytics_pool()
+            .await
+            .ok()
+            .map(Arc::new);
+        let notifications_pool = crate::infrastructure::database::get_notifications_pool()
+            .await
+            .ok()
+            .map(Arc::new);
+
         // Payment Repository (uses payments_pool if available)
-        let payment_repository = payments_pool.as_ref().map(|pool| Arc::new(PaymentRepositoryAdapter::new(**pool)));
+        let payment_repository = payments_pool
+            .as_ref()
+            .map(|pool| Arc::new(PaymentRepositoryAdapter::new((**pool).clone())));
+
+        // Credit Repository (uses payments_pool — same schema as
+        // `wallet_credits` / `credit_transactions` live in the
+        // payments migrations).
+        let credit_repository = payments_pool
+            .as_ref()
+            .map(|pool| Arc::new(CreditRepositoryAdapter::new(pool.clone())));
 
         // Notification Repository (uses notifications_pool if available)
         let notification_repository = if let Some(pool) = &notifications_pool {
-           Some(Arc::new(NotificationRepositoryAdapter::new(**pool)))
+            Some(Arc::new(NotificationRepositoryAdapter::new(
+                (**pool).clone(),
+            )))
         } else {
-           // If no dedicated pool, we could fallback to db_pool OR just return None/default
-           // Since we updated NotificationRepositoryAdapter::new to take a pool, we MUST provide one.
-           // Fallback to db_pool if notifications_pool is missing (e.g. single DB setup)
-           Some(Arc::new(NotificationRepositoryAdapter::new(*db_pool)))
+            // If no dedicated pool, we could fallback to db_pool OR just return None/default
+            // Since we updated NotificationRepositoryAdapter::new to take a pool, we MUST provide one.
+            // Fallback to db_pool if notifications_pool is missing (e.g. single DB setup)
+            Some(Arc::new(NotificationRepositoryAdapter::new(
+                (*db_pool).clone(),
+            )))
         };
 
         // Create domain services
-        let wallet_permission_service = Arc::new(WalletPermissionService::new()
-            .expect("Failed to create WalletPermissionService"));
+        let wallet_permission_service = Arc::new(
+            WalletPermissionService::new().expect("Failed to create WalletPermissionService"),
+        );
 
         // NOTE: UnifiedPermissionCache will be created after Redis initialization
         // Create initial web3_permission_adapter with None cache (will be updated after Redis init)
 
         // Create OpenID token service with RSA key manager
-        let key_manager = KeyManager::from_env_or_generate()
-            .expect("Failed to initialize RSA key manager");
+        let key_manager =
+            KeyManager::from_env_or_generate().expect("Failed to initialize RSA key manager");
+        let refresh_token_keyring = RefreshTokenKeyring::from_env()
+            .expect("Failed to initialize the required refresh-token HMAC keyring");
         let token_service_impl = OpenIDTokenService::new(
-            *db_pool,
-            "https://api.epsx.io".to_string(), // issuer
-            vec!["epsx-frontend".to_string(), "epsx-admin".to_string(), "epsx-api".to_string()], // audiences
+            ((*db_pool).clone()).clone(),
+            Self::get_oidc_issuer(),
+            vec![
+                "epsx-frontend".to_string(),
+                "epsx-admin".to_string(),
+                "epsx-api".to_string(),
+                "epsx-pay".to_string(),
+            ], // audiences
             Arc::new(key_manager),
+            Arc::new(refresh_token_keyring),
         );
         let token_service = Arc::new(token_service_impl.clone());
 
         // Create unified auth service with environment-based domain & OpenID support
         let domain = Self::get_web3_domain();
         let auth_service = Arc::new(UnifiedWeb3AuthService::new_with_openid(
-            *db_pool,
+            diesel_pool,
             domain,
             token_service_impl,
         ));
 
         // Create event bus
-        let event_bus: Arc<dyn crate::domain::DomainEventBus> = Arc::new(
-            crate::infrastructure::event_bus::simple_event_bus::SimpleEventBus::new()
-        );
+        let event_bus: Arc<dyn crate::domain::DomainEventBus> =
+            Arc::new(crate::infrastructure::event_bus::simple_event_bus::SimpleEventBus::new());
 
         // Create CQRS infrastructure (Event Sourcing)
-        // Use analytics_pool for event store if available, otherwise fallback to primary (legacy)
-        let event_store_pool = analytics_pool.as_ref().cloned().unwrap_or(Arc::clone(&db_pool));
-        let event_store: Arc<dyn EventStore> = Arc::new(PostgresEventStore::new(event_store_pool.clone()));
-        
-        // Outbox also needs to know which DB it's using? Usually Outbox is on the same DB as the aggregate changes...
-        // BUT here we have split DBs.
-        // If an aggregate (e.g. User) in Primary DB emits an event, the outbox MUST be in Primary DB?
-        // OR we use dual-write/saga. 
-        // Current impl of TransactionalOutbox takes `db_pool` and `event_store`.
-        // If event_store is in Analytics DB, ensuring atomicity is hard.
-        // For now, let's assume Outbox table is on Primary DB (where Aggregates are).
-        // Wait, I removed Outbox from Primary schema!
-        // So Outbox MUST be in Analytics DB or wherever EventStore is.
-        // Ideally, domain logic should write to Outbox in same transaction as Aggregate update.
-        // If Aggregate is in Primary and Outbox in Analytics, we cannot do atomic transaction.
-        // This is a known issue with split DBs. 
-        // For this refactor, let's point Outbox to Analytics DB (event_store_pool).
-        // This means we sacrifice atomicity unless we use 2PC (which we don't).
-        // Or maybe Outbox table was intended to be in Primary? 
-        // I removed `outbox_events` from Primary.
+        // The core migration family owns event_store, outbox_events and snapshots.
+        // Keep events and aggregate changes on the same database transaction.
+        let event_store_pool = Arc::clone(&db_pool);
+        let event_store: Arc<dyn EventStore> =
+            Arc::new(PostgresEventStore::new(event_store_pool.clone()));
+
         let transactional_outbox = Arc::new(TransactionalOutbox::new(
-            event_store_pool.clone(), // Use same pool as EventStore (Analytics)
+            event_store_pool.clone(),
             Arc::clone(&event_store),
         ));
 
@@ -278,7 +304,7 @@ impl SimpleContainer {
             Ok(manager) => {
                 // Register WalletReadModelProjection
                 let wallet_projection = Arc::new(
-                    crate::infrastructure::WalletReadModelProjection::new(Arc::clone(&db_pool))
+                    crate::infrastructure::WalletReadModelProjection::new(Arc::clone(&db_pool)),
                 );
                 Some(Arc::new(manager.register(wallet_projection)))
             }
@@ -288,47 +314,83 @@ impl SimpleContainer {
             }
         };
 
-        // Create Redis pool and notification broadcaster
+        // Create Redis pool and pubsub port
         let redis_timeout = std::time::Duration::from_secs(5);
-        let (redis_pool, redis_broadcaster, permission_cache, unified_permission_service) = match redis_url {
+        let (redis_pool, pubsub, permission_cache, unified_permission_service) = match redis_url {
             Some(ref url) => {
-                // Try to create Redis pool for notifications
-                let (pool, broadcaster) = match tokio::time::timeout(redis_timeout, RedisPool::new(url)).await {
-                    Ok(Ok(pool)) => {
-                        let pool_arc = Arc::new(pool);
-                        let broadcaster = Arc::new(RedisNotificationBroadcaster::new(Arc::clone(&pool_arc)));
-                        tracing::info!("Redis notification system initialized");
-                        (Some(pool_arc), Some(broadcaster))
-                    }
-                    Ok(Err(e)) => {
-                        tracing::warn!("Failed to create Redis pool: {} (notifications will not work)", e);
-                        (None, None)
-                    }
-                    Err(_) => {
-                        tracing::warn!("Redis pool initialization timed out after 5s");
-                        (None, None)
-                    }
-                };
+                // Try to create Redis pool for pubsub (notifications + chat)
+                let (pool, port): (Option<Arc<RedisPool>>, Option<Arc<dyn PubsubPort>>) =
+                    match tokio::time::timeout(redis_timeout, RedisPool::new(url)).await {
+                        Ok(Ok(pool)) => {
+                            let pool_arc = Arc::new(pool);
+                            // Mint a redis::Client alongside the pool so the
+                            // PubsubPort can open fresh PubSub connections
+                            // (the pool only exposes a ConnectionManager, not
+                            // a Client).
+                            let port: Option<Arc<dyn PubsubPort>> =
+                                match redis::Client::open(url.as_str()) {
+                                    Ok(client) => {
+                                        let adapter = RedisPubsubAdapter::from_pool_and_client(
+                                            client,
+                                            Arc::clone(&pool_arc),
+                                        );
+                                        tracing::info!(
+                                            "Redis pubsub system initialized (PubsubPort)"
+                                        );
+                                        Some(Arc::new(adapter) as Arc<dyn PubsubPort>)
+                                    }
+                                    Err(e) => {
+                                        tracing::warn!(
+                                            "Failed to create redis::Client for pubsub adapter: {}",
+                                            e
+                                        );
+                                        None
+                                    }
+                                };
+                            (Some(pool_arc), port)
+                        }
+                        Ok(Err(e)) => {
+                            tracing::warn!(
+                                "Failed to create Redis pool: {} (pubsub will not work)",
+                                e
+                            );
+                            (None, None)
+                        }
+                        Err(_) => {
+                            tracing::warn!("Redis pool initialization timed out after 5s");
+                            (None, None)
+                        }
+                    };
 
                 // Try to create Redis client for permission caching
                 match redis::Client::open(url.as_str()) {
                     Ok(_) => {
                         // PERMISSION CACHE DISABLED FOR SECURITY CONTROL
-                        let perm_service = Arc::new(UnifiedPermissionService::new_without_cache(*db_pool));
+                        let perm_service = Arc::new(UnifiedPermissionService::new_without_cache(
+                            (*db_pool).clone(),
+                        ));
                         tracing::info!("UnifiedPermissionService initialized (cache disabled for security control)");
-                        (pool, broadcaster, None, perm_service)
+                        (pool, port, None, perm_service)
                     }
                     Err(e) => {
                         tracing::warn!("Failed to create Redis client for permission cache: {}", e);
-                        let perm_service = Arc::new(UnifiedPermissionService::new_without_cache(*db_pool));
-                        tracing::info!("UnifiedPermissionService initialized (without Redis cache)");
-                        (pool, broadcaster, None, perm_service)
+                        let perm_service = Arc::new(UnifiedPermissionService::new_without_cache(
+                            (*db_pool).clone(),
+                        ));
+                        tracing::info!(
+                            "UnifiedPermissionService initialized (without Redis cache)"
+                        );
+                        (pool, port, None, perm_service)
                     }
                 }
             }
             None => {
-                tracing::warn!("No REDIS_URL configured - notifications and permission caching will not work");
-                let perm_service = Arc::new(UnifiedPermissionService::new_without_cache(*db_pool));
+                tracing::warn!(
+                    "No REDIS_URL configured - notifications and permission caching will not work"
+                );
+                let perm_service = Arc::new(UnifiedPermissionService::new_without_cache(
+                    (*db_pool).clone(),
+                ));
                 (None, None, None, perm_service)
             }
         };
@@ -337,7 +399,7 @@ impl SimpleContainer {
         let web3_permission_adapter = Arc::new(Web3PermissionServiceAdapter::new(
             cache.as_ref().map(Arc::clone),
             blockchain_config,
-            *db_pool,
+            db_pool.clone(),
         ));
 
         // Create TransactionHistoryProvider based on environment
@@ -348,16 +410,24 @@ impl SimpleContainer {
 
             if config.is_production() {
                 let api_key = std::env::var("BSCSCAN_API_KEY").unwrap_or_default();
-                Some(Arc::new(crate::infrastructure::blockchain::ScannerTransactionHistoryProvider::new(
-                    api_key,
-                    contract_address,
-                )))
+                Some(Arc::new(
+                    crate::infrastructure::blockchain::ScannerTransactionHistoryProvider::new(
+                        api_key,
+                        contract_address,
+                    ),
+                ))
             } else {
                 let rpc_url = config.bsc_rpc_url.clone();
-                match crate::infrastructure::blockchain::RpcTransactionHistoryProvider::new(rpc_url, contract_address) {
+                match crate::infrastructure::blockchain::RpcTransactionHistoryProvider::new(
+                    rpc_url,
+                    contract_address,
+                ) {
                     Ok(provider) => Some(Arc::new(provider)),
                     Err(e) => {
-                        tracing::error!("Failed to initialize RpcTransactionHistoryProvider: {}", e);
+                        tracing::error!(
+                            "Failed to initialize RpcTransactionHistoryProvider: {}",
+                            e
+                        );
                         None
                     }
                 }
@@ -365,16 +435,26 @@ impl SimpleContainer {
         };
 
         // Initialize S3 storage (MinIO)
-        let s3 = match (env::var("MINIO_ENDPOINT").ok(), env::var("MINIO_ACCESS_KEY").ok(), env::var("MINIO_SECRET_KEY").ok()) {
+        let s3 = match (
+            env::var("MINIO_ENDPOINT").ok(),
+            env::var("MINIO_ACCESS_KEY").ok(),
+            env::var("MINIO_SECRET_KEY").ok(),
+        ) {
             (Some(endpoint), Some(access_key), Some(secret_key)) => {
                 let public_url = env::var("MINIO_PUBLIC_URL").unwrap_or_else(|_| endpoint.clone());
-                let storage = S3Storage::new(&endpoint, &access_key, &secret_key, &public_url).await;
+                let storage =
+                    S3Storage::new(&endpoint, &access_key, &secret_key, &public_url).await;
                 storage.init_buckets().await;
-                info!("S3 storage (MinIO) initialized with public URL: {}", public_url);
+                info!(
+                    "S3 storage (MinIO) initialized with public URL: {}",
+                    public_url
+                );
                 Some(Arc::new(storage))
             }
             _ => {
-                tracing::warn!("MinIO not configured (MINIO_ENDPOINT/ACCESS_KEY/SECRET_KEY missing)");
+                tracing::warn!(
+                    "MinIO not configured (MINIO_ENDPOINT/ACCESS_KEY/SECRET_KEY missing)"
+                );
                 None
             }
         };
@@ -393,12 +473,17 @@ impl SimpleContainer {
             payments_pool,
             analytics_pool,
             notifications_pool,
+            sqlx_core_pool: None,
+            sqlx_payments_pool: None,
+            sqlx_analytics_pool: None,
+            sqlx_notifications_pool: None,
             cache,
             // Web3-first services
             wallet_user_repository: Some(wallet_user_repository),
 
             permission_plan_repository: Some(permission_plan_repository),
             payment_repository,
+            credit_repository,
             notification_repository,
             wallet_permission_service: Some(wallet_permission_service),
             web3_permission_adapter: Some(web3_permission_adapter),
@@ -407,13 +492,26 @@ impl SimpleContainer {
             identity_provider: None,
 
             plan_repository: Some(plan_repository),
-            event_bus: Some(event_bus),
+            event_bus: Some(event_bus.clone()),
+            // wave11(track-c): wrap the legacy bus in the in-process
+            // `EventPublisherPort` adapter. The adapter logs at
+            // `tracing::info!` and forwards to the bus via
+            // `tokio::spawn`. See `InProcessEventPublisher` for
+            // the design notes. The bus remains available on
+            // `event_bus` for the 5 legacy unit tests that assert
+            // on `SimpleEventBus::published_events()`; the port
+            // is the seam the application command handlers use.
+            event_publisher: Some(Arc::new(
+                crate::infrastructure::adapters::events::InProcessEventPublisher::with_bus(
+                    event_bus,
+                ),
+            )),
             // Unified Permission Service
             unified_permission_service: Some(unified_permission_service),
             permission_cache,
             // Redis notifications
             redis_pool,
-            redis_broadcaster,
+            pubsub,
             // CQRS
             event_store: Some(event_store),
             transactional_outbox: Some(transactional_outbox),
@@ -433,7 +531,10 @@ impl SimpleContainer {
         config: &crate::config::env::Config,
         supported_tokens: Vec<String>,
         payment_repository: Option<Arc<PaymentRepositoryAdapter>>,
-    ) -> (Option<Arc<HashMap<Chain, Arc<ContractSubscriber>>>>, Option<Arc<HashMap<Chain, tokio::task::JoinHandle<Result<(), AppError>>>>>) {
+    ) -> (
+        Option<Arc<HashMap<Chain, Arc<ContractSubscriber>>>>,
+        Option<Arc<HashMap<Chain, tokio::task::JoinHandle<Result<(), AppError>>>>>,
+    ) {
         use crate::config::contracts::{Chain, ChainContractConfig};
 
         let mut subscribers = HashMap::new();
@@ -450,7 +551,8 @@ impl SimpleContainer {
                 Chain::Base => &config.base_payment_contract,
             };
 
-            let contract_address = contract_addr.as_ref()
+            let contract_address = contract_addr
+                .as_ref()
                 .and_then(|a| a.parse::<ethers::types::H160>().ok())?;
 
             let ws_url = match chain {
@@ -490,7 +592,14 @@ impl SimpleContainer {
         };
 
         // Check each chain for configuration
-        for chain in [Chain::Bsc, Chain::Ethereum, Chain::Polygon, Chain::Arbitrum, Chain::Optimism, Chain::Base] {
+        for chain in [
+            Chain::Bsc,
+            Chain::Ethereum,
+            Chain::Polygon,
+            Chain::Arbitrum,
+            Chain::Optimism,
+            Chain::Base,
+        ] {
             if let Some(chain_config) = get_chain_config(chain) {
                 match ContractSubscriber::new(chain_config.clone(), supported_tokens.clone()) {
                     Ok(subscriber) => {
@@ -504,11 +613,17 @@ impl SimpleContainer {
                         let handle = tokio::spawn(async move {
                             info!("Starting contract subscriber for {}", chain_clone);
 
-                            let _callback = move |event: PaymentEvent| -> Pin<Box<dyn std::future::Future<Output = Result<(), AppError>> + Send>> {
+                            let _callback = move |event: PaymentEvent| -> Pin<
+                                Box<dyn std::future::Future<Output = Result<(), AppError>> + Send>,
+                            > {
                                 let _repo = repo.clone();
                                 Box::pin(async move {
                                     // Process payment event - update database, etc.
-                                    tracing::info!("Processing payment: {} on {}", event.transaction_hash, chain_clone);
+                                    tracing::info!(
+                                        "Processing payment: {} on {}",
+                                        event.transaction_hash,
+                                        chain_clone
+                                    );
                                     Ok(())
                                 })
                             };
@@ -538,37 +653,46 @@ impl SimpleContainer {
             Some(Arc::new(subscribers))
         };
 
-        let handles_map = if handles.is_empty() { None } else { Some(Arc::new(handles)) };
+        let handles_map = if handles.is_empty() {
+            None
+        } else {
+            Some(Arc::new(handles))
+        };
 
         (subscribers_map, handles_map)
     }
 
-    pub fn with_cache(db_pool: Arc<&'static TlsPool>, cache: Arc<dyn Cache>) -> Self {
+    pub fn with_cache(db_pool: Arc<TlsPool>, cache: Arc<dyn Cache>) -> Self {
         Self {
             db_pool,
             payments_pool: None,
             analytics_pool: None,
             notifications_pool: None,
+            sqlx_core_pool: None,
+            sqlx_payments_pool: None,
+            sqlx_analytics_pool: None,
+            sqlx_notifications_pool: None,
             cache: Some(cache),
             identity_provider: None,
             // Initialize Web3 services as None - use new_with_web3_services for full setup
-
             wallet_user_repository: None,
 
             permission_plan_repository: None,
             payment_repository: None,
+            credit_repository: None,
             notification_repository: None,
             wallet_permission_service: None,
             web3_permission_adapter: None,
             auth_service: None,
             token_service: None,
             event_bus: None,
+            event_publisher: None,
             // Unified Permission Service
             unified_permission_service: None,
             permission_cache: None,
             // Redis
             redis_pool: None,
-            redis_broadcaster: None,
+            pubsub: None,
             // CQRS
             event_store: None,
             transactional_outbox: None,
@@ -591,31 +715,31 @@ impl SimpleContainer {
             self.web3_permission_adapter = Some(Arc::new(Web3PermissionServiceAdapter::new(
                 Some(Arc::clone(cache)),
                 Some(blockchain_config),
-                *self.db_pool,
+                Arc::clone(&self.db_pool),
             )));
         }
         self
     }
 
     // Compatibility methods
-    pub fn db_pool(&self) -> Arc<&'static TlsPool> {
+    pub fn db_pool(&self) -> Arc<TlsPool> {
         Arc::clone(&self.db_pool)
     }
 
     pub fn infra(&self) -> &Self {
         self
     }
-    
+
     // Pool Getters
-    pub fn get_payments_pool(&self) -> Option<Arc<&'static TlsPool>> {
+    pub fn get_payments_pool(&self) -> Option<Arc<TlsPool>> {
         self.payments_pool.as_ref().map(Arc::clone)
     }
 
-    pub fn get_analytics_pool(&self) -> Option<Arc<&'static TlsPool>> {
+    pub fn get_analytics_pool(&self) -> Option<Arc<TlsPool>> {
         self.analytics_pool.as_ref().map(Arc::clone)
     }
 
-    pub fn get_notifications_pool(&self) -> Option<Arc<&'static TlsPool>> {
+    pub fn get_notifications_pool(&self) -> Option<Arc<TlsPool>> {
         self.notifications_pool.as_ref().map(Arc::clone)
     }
 
@@ -625,11 +749,15 @@ impl SimpleContainer {
     }
 
     pub fn get_wallet_user_repository_port(&self) -> Option<Arc<dyn WalletUserRepositoryPort>> {
-        self.wallet_user_repository.as_ref().map(|repo| Arc::clone(repo) as Arc<dyn WalletUserRepositoryPort>)
+        self.wallet_user_repository
+            .as_ref()
+            .map(|repo| Arc::clone(repo) as Arc<dyn WalletUserRepositoryPort>)
     }
 
     pub fn get_wallet_user_analytics_port(&self) -> Option<Arc<dyn WalletUserAnalyticsPort>> {
-        self.wallet_user_repository.as_ref().map(|repo| Arc::clone(repo) as Arc<dyn WalletUserAnalyticsPort>)
+        self.wallet_user_repository
+            .as_ref()
+            .map(|repo| Arc::clone(repo) as Arc<dyn WalletUserAnalyticsPort>)
     }
 
     pub fn get_payment_repository(&self) -> Option<Arc<PaymentRepositoryAdapter>> {
@@ -637,7 +765,19 @@ impl SimpleContainer {
     }
 
     pub fn get_payment_repository_port(&self) -> Option<Arc<dyn PaymentRepositoryPort>> {
-        self.payment_repository.as_ref().map(|repo| Arc::clone(repo) as Arc<dyn PaymentRepositoryPort>)
+        self.payment_repository
+            .as_ref()
+            .map(|repo| Arc::clone(repo) as Arc<dyn PaymentRepositoryPort>)
+    }
+
+    /// Wave 11 / Track A: `CreditRepositoryPort` accessor. Used
+    /// by the credit handlers (admin credits, user balance,
+    /// history) and by `submit_tx_handler.rs` after the
+    /// cross-pool collapse.
+    pub fn get_credit_repository_port(&self) -> Option<Arc<dyn CreditRepositoryPort>> {
+        self.credit_repository
+            .as_ref()
+            .map(|repo| Arc::clone(repo) as Arc<dyn CreditRepositoryPort>)
     }
 
     pub fn get_notification_repository(&self) -> Option<Arc<NotificationRepositoryAdapter>> {
@@ -664,7 +804,6 @@ impl SimpleContainer {
         self.identity_provider.as_ref().map(Arc::clone)
     }
 
-
     /// Get the unified permission service (single source of truth)
     pub fn get_unified_permission_service(&self) -> Option<Arc<UnifiedPermissionService>> {
         self.unified_permission_service.as_ref().map(Arc::clone)
@@ -674,16 +813,19 @@ impl SimpleContainer {
         self.redis_pool.as_ref().map(Arc::clone)
     }
 
-    pub fn get_redis_broadcaster(&self) -> Option<Arc<RedisNotificationBroadcaster>> {
-        self.redis_broadcaster.as_ref().map(Arc::clone)
+    pub fn get_pubsub(&self) -> Option<Arc<dyn PubsubPort>> {
+        self.pubsub.as_ref().map(Arc::clone)
     }
 
     pub fn get_transaction_history_provider(&self) -> Option<Arc<dyn TransactionHistoryProvider>> {
         self.transaction_history_provider.as_ref().map(Arc::clone)
     }
 
-    pub fn get_plan_repository_port(&self) -> Option<Arc<dyn crate::domain::subscription_management::repository_ports::PlanRepositoryPort>> {
-         self.plan_repository.as_ref().map(|repo| Arc::clone(repo) as Arc<dyn crate::domain::subscription_management::repository_ports::PlanRepositoryPort>)
+    pub fn get_plan_repository_port(
+        &self,
+    ) -> Option<Arc<dyn crate::domain::subscription_management::repository_ports::PlanRepositoryPort>>
+    {
+        self.plan_repository.as_ref().map(|repo| Arc::clone(repo) as Arc<dyn crate::domain::subscription_management::repository_ports::PlanRepositoryPort>)
     }
 
     // Enhanced app state creation with Web3 services
@@ -700,26 +842,14 @@ impl SimpleContainer {
             transaction_history_provider: self.get_transaction_history_provider(),
         }
     }
-    
+
     // Health check for all services
     pub async fn health_check(&self) -> ContainerHealthStatus {
-                use diesel_async::RunQueryDsl;
-
         // Check database connectivity
-        let database_healthy = async {
-            let mut conn = self.db_pool.get().await.ok()?;
-
-            #[derive(diesel::QueryableByName)]
-            struct HealthCheck {
-                #[diesel(sql_type = diesel::sql_types::Integer)]
-                _check: i32,
-            }
-
-            diesel::sql_query("SELECT 1 as _check")
-                .get_result::<HealthCheck>(&mut conn)
-                .await
-                .ok()
-        }.await.is_some();
+        let database_healthy = sqlx::query("SELECT 1")
+            .execute(self.db_pool.as_ref())
+            .await
+            .is_ok();
 
         // Check cache connectivity
         let cache_healthy = if let Some(cache) = &self.cache {
@@ -733,43 +863,42 @@ impl SimpleContainer {
             cache_healthy,
             ..Default::default()
         };
-        
+
         // Check Web3 services
-        status.web3_services_healthy = self.wallet_user_repository.is_some() &&
-            self.wallet_permission_service.is_some() &&
-            self.web3_permission_adapter.is_some();
-        
-        status.overall_healthy = status.database_healthy && 
-            status.cache_healthy && 
-            status.web3_services_healthy;
-        
+        status.web3_services_healthy = self.wallet_user_repository.is_some()
+            && self.wallet_permission_service.is_some()
+            && self.web3_permission_adapter.is_some();
+
+        status.overall_healthy =
+            status.database_healthy && status.cache_healthy && status.web3_services_healthy;
+
         status
     }
-    
+
     // Service validation
     pub fn validate_services(&self) -> Vec<String> {
         let mut errors = Vec::new();
-        
+
         if self.wallet_user_repository.is_none() {
             errors.push("WalletUserRepository not configured".to_string());
         }
-        
+
         if self.wallet_permission_service.is_none() {
             errors.push("WalletPermissionService not configured".to_string());
         }
-        
+
         if self.web3_permission_adapter.is_none() {
             errors.push("Web3PermissionServiceAdapter not configured".to_string());
         }
-        
+
         if self.auth_service.is_none() {
             errors.push("UnifiedWeb3AuthService not configured".to_string());
         }
-        
+
         if self.token_service.is_none() {
             errors.push("OpenIDTokenService not configured".to_string());
         }
-        
+
         errors
     }
 }
@@ -783,7 +912,7 @@ pub struct Web3AppState {
     pub wallet_permission_service: Option<Arc<WalletPermissionService>>,
     pub web3_permission_adapter: Option<Arc<Web3PermissionServiceAdapter>>,
     pub auth_service: Option<Arc<UnifiedWeb3AuthService>>,
-    pub db_pool: Arc<&'static TlsPool>,
+    pub db_pool: Arc<TlsPool>,
     pub cache: Option<Arc<dyn Cache>>,
     pub transaction_history_provider: Option<Arc<dyn TransactionHistoryProvider>>,
 }
@@ -792,7 +921,7 @@ impl Web3AppState {
     /// Validate that all required services are available
     pub fn validate(&self) -> Result<(), Vec<String>> {
         let mut errors = Vec::new();
-        
+
         if self.wallet_user_repository.is_none() {
             errors.push("WalletUserRepository is required".to_string());
         }
@@ -800,26 +929,26 @@ impl Web3AppState {
         if self.payment_repository.is_none() {
             errors.push("PaymentRepository is required".to_string());
         }
-        
+
         if self.wallet_permission_service.is_none() {
             errors.push("WalletPermissionService is required".to_string());
         }
-        
+
         if self.web3_permission_adapter.is_none() {
             errors.push("Web3PermissionServiceAdapter is required".to_string());
         }
-        
+
         if self.auth_service.is_none() {
             errors.push("UnifiedWeb3AuthService is required".to_string());
         }
-        
+
         if errors.is_empty() {
             Ok(())
         } else {
             Err(errors)
         }
     }
-    
+
     /// Get all required services - returns error if any are missing
     pub fn services(&self) -> Result<Web3Services, Vec<String>> {
         self.validate()?;
@@ -860,7 +989,7 @@ impl ContainerHealthStatus {
     pub fn is_healthy(&self) -> bool {
         self.overall_healthy
     }
-    
+
     pub fn add_error(&mut self, error: String) {
         self.error_details.push(error);
         self.overall_healthy = false;

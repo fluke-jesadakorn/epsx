@@ -1,0 +1,35 @@
+{
+  "checked_at": "2026-09-09T12:40:16.873883+00:00",
+  "release": "20260909-sales-flow",
+  "health": {
+    "dev.epsx.io": 200,
+    "dev-admin.epsx.io": 200,
+    "dev-pay.epsx.io": 200,
+    "dev-api.epsx.io": 200
+  },
+  "public_catalog_count": 5,
+  "browser": {
+    "plans": {
+      "desktop_light": true,
+      "desktop_dark": true,
+      "mobile_light": true,
+      "mobile_dark": true,
+      "horizontal_overflow": false,
+      "all_five_sale_badges": true
+    },
+    "pay": {
+      "desktop_dark": true,
+      "mobile_light": true,
+      "mobile_dark_receipt": true,
+      "qr_wallet_switch_keeps_price": true,
+      "saved_original_price": "5.00",
+      "saved_sale_price": "1.00",
+      "saved_savings": "4.00",
+      "payment_received_and_transaction_visible": true
+    }
+  },
+  "deployment": "Verified cargo release binaries and generated Wasm were packaged using the native layout and checksum manifest; a redundant package rebuild was stopped.",
+  "backup": "~/.config/epsx/dev/backups/sales-flow-20260909-193528/epsx_dev.dump",
+  "previous_release": "20260909-merchant-v5",
+  "production_unchanged": true
+}

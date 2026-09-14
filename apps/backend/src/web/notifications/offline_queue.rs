@@ -1,9 +1,7 @@
 use crate::prelude::TlsPool;
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
+use crate::web::notifications::{NotificationPriority, NotificationType, SSENotification};
+use epsx_contracts::errors::AppError;
 use uuid::Uuid;
-use crate::web::notifications::{SSENotification, NotificationType, NotificationPriority};
-use crate::core::errors::AppError;
 
 /// Fetch all active notifications for a wallet (offline queue)
 /// Returns notifications that persist until user explicitly deletes them
@@ -19,32 +17,25 @@ pub async fn fetch_queued_notifications(
     db_pool: &TlsPool,
     wallet_address: &str,
 ) -> Result<Vec<SSENotification>, AppError> {
-    let mut conn = db_pool.get().await
+    let mut conn = db_pool
+        .acquire()
+        .await
         .map_err(|e| AppError::database_error(format!("Connection pool error: {}", e)))?;
 
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct NotificationRow {
-        #[diesel(sql_type = diesel::sql_types::Uuid)]
         id: Uuid,
-        #[diesel(sql_type = diesel::sql_types::Text)]
         wallet_address: String,
-        #[diesel(sql_type = diesel::sql_types::Text)]
         notification_type: String,
-        #[diesel(sql_type = diesel::sql_types::Text)]
         title: String,
-        #[diesel(sql_type = diesel::sql_types::Text)]
         message: String,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Jsonb>)]
         data: Option<serde_json::Value>,
-        #[diesel(sql_type = diesel::sql_types::Text)]
         priority: String,
-        #[diesel(sql_type = diesel::sql_types::Timestamptz)]
         timestamp: chrono::DateTime<chrono::Utc>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
         expires_at: Option<chrono::DateTime<chrono::Utc>>,
     }
 
-    let records = diesel::sql_query(
+    let records: Vec<NotificationRow> = sqlx::query_as::<_, NotificationRow>(
         r#"
         SELECT
             id, recipient_wallet_address as wallet_address, notification_type, title, body as message,
@@ -56,33 +47,31 @@ pub async fn fetch_queued_notifications(
           AND (expires_at IS NULL OR expires_at > NOW())
         ORDER BY created_at DESC
         LIMIT 100
-        "#
+        "#,
     )
-    .bind::<diesel::sql_types::Text, _>(wallet_address.to_lowercase())
-    .load::<NotificationRow>(&mut conn)
-    .await?;
+    .bind(wallet_address.to_lowercase())
+    .fetch_all(&mut *conn)
+    .await
+    .map_err(|e| AppError::database_error(format!("Failed to fetch notifications: {}", e)))?;
 
     let notifications: Vec<_> = records
         .into_iter()
-        .map(|r| {
-            SSENotification {
-                id: r.id.to_string(),
-                wallet_address: r.wallet_address,
-                notification_type: parse_notification_type(&r.notification_type, &r.id),
-                title: r.title,
-                message: r.message,
-                data: r.data,
-                priority: parse_priority(&r.priority, &r.id),
-                timestamp: r.timestamp,
-                expires_at: r.expires_at,
-            }
+        .map(|r| SSENotification {
+            id: r.id.to_string(),
+            wallet_address: r.wallet_address,
+            notification_type: parse_notification_type(&r.notification_type, &r.id),
+            title: r.title,
+            message: r.message,
+            data: r.data,
+            priority: parse_priority(&r.priority, &r.id),
+            timestamp: r.timestamp,
+            expires_at: r.expires_at,
         })
         .collect();
 
     tracing::info!(
-        "Fetched {} active notifications (last 30 days) for wallet: {}",
-        notifications.len(),
-        wallet_address
+        "Fetched {} active notifications (last 30 days) for notification stream",
+        notifications.len()
     );
 
     Ok(notifications)
@@ -91,24 +80,26 @@ pub async fn fetch_queued_notifications(
 /// Mark notification as delivered (SSE stream sent it to the client).
 /// Only transitions from undelivered states (created/queued/sent) so it never
 /// clobbers a user-explicitly set state like 'read' or 'unread'.
-pub async fn mark_as_delivered(
-    db_pool: &TlsPool,
-    notification_id: &str,
-) -> Result<(), AppError> {
+pub async fn mark_as_delivered(db_pool: &TlsPool, notification_id: &str) -> Result<(), AppError> {
     let id = Uuid::parse_str(notification_id)
         .map_err(|e| AppError::from(Box::new(e) as Box<dyn std::error::Error>))?;
 
-    let mut conn = db_pool.get().await
+    let mut conn = db_pool
+        .acquire()
+        .await
         .map_err(|e| AppError::database_error(format!("Connection pool error: {}", e)))?;
 
-    diesel::sql_query(
+    sqlx::query(
         "UPDATE wallet_notifications \
          SET status = 'delivered', total_attempts = total_attempts + 1, updated_at = NOW() \
-         WHERE id = $1 AND status IN ('created', 'queued', 'sent')"
+         WHERE id = $1 AND status IN ('created', 'queued', 'sent')",
     )
-    .bind::<diesel::sql_types::Uuid, _>(id)
-    .execute(&mut conn)
-    .await?;
+    .bind(id)
+    .execute(&mut *conn)
+    .await
+    .map_err(|e| {
+        AppError::database_error(format!("Failed to mark notification as delivered: {}", e))
+    })?;
 
     Ok(())
 }
@@ -124,21 +115,27 @@ pub async fn mark_as_acknowledged(
     let id = Uuid::parse_str(notification_id)
         .map_err(|e| AppError::from(Box::new(e) as Box<dyn std::error::Error>))?;
 
-    let mut conn = db_pool.get().await
+    let mut conn = db_pool
+        .acquire()
+        .await
         .map_err(|e| AppError::database_error(format!("Connection pool error: {}", e)))?;
 
     // Only update if not already in a user-controlled state ('read' or 'unread').
     // This prevents the SSE auto-acknowledge from undoing an explicit markAsUnread.
-    diesel::sql_query(
+    sqlx::query(
         "UPDATE wallet_notifications \
          SET status = 'delivered', updated_at = NOW() \
-         WHERE id = $1 AND status NOT IN ('read', 'unread', 'deleted')"
+         WHERE id = $1 AND status NOT IN ('read', 'unread', 'deleted')",
     )
-    .bind::<diesel::sql_types::Uuid, _>(id)
-    .execute(&mut conn)
-    .await?;
+    .bind(id)
+    .execute(&mut *conn)
+    .await
+    .map_err(|e| AppError::database_error(format!("Failed to ack notification: {}", e)))?;
 
-    tracing::debug!("Notification acknowledged (delivery confirmed): id={}", notification_id);
+    tracing::debug!(
+        "Notification acknowledged (delivery confirmed): id={}",
+        notification_id
+    );
 
     Ok(())
 }
@@ -152,87 +149,92 @@ pub async fn mark_as_acknowledged(
 /// - Expired notifications: Remove immediately
 ///
 /// Called every hour by `PlanExpirationService` background task (main.rs).
-pub async fn cleanup_old_notifications(
-    db_pool: &TlsPool,
-    _days: i64,
-) -> Result<u64, AppError> {
-    let mut conn = db_pool.get().await.map_err(|e| {
+pub async fn cleanup_old_notifications(db_pool: &TlsPool, _days: i64) -> Result<u64, AppError> {
+    let mut conn = db_pool.acquire().await.map_err(|e| {
         AppError::database_error(format!("Failed to get database connection: {}", e))
     })?;
 
     // Delete soft-deleted notifications after grace period (7 days)
-    let soft_deleted_result = diesel::sql_query(
+    let soft_deleted_result = sqlx::query(
         "DELETE FROM wallet_notifications WHERE status = 'deleted' AND updated_at < NOW() - INTERVAL '7 days'"
     )
-    .execute(&mut conn)
-    .await?;
+    .execute(&mut *conn)
+    .await
+    .map_err(|e| AppError::database_error(format!("Failed to delete soft-deleted: {}", e)))?;
 
     // Delete old read notifications (90 days)
-    let read_result = diesel::sql_query(
+    let read_result = sqlx::query(
         "DELETE FROM wallet_notifications WHERE status = 'read' AND created_at < NOW() - INTERVAL '90 days'"
     )
-    .execute(&mut conn)
-    .await?;
+    .execute(&mut *conn)
+    .await
+    .map_err(|e| AppError::database_error(format!("Failed to delete read: {}", e)))?;
 
     // Delete expired notifications immediately
-    let expired_result = diesel::sql_query(
-        "DELETE FROM wallet_notifications WHERE expires_at IS NOT NULL AND expires_at < NOW()"
+    let expired_result = sqlx::query(
+        "DELETE FROM wallet_notifications WHERE expires_at IS NOT NULL AND expires_at < NOW()",
     )
-    .execute(&mut conn)
-    .await?;
+    .execute(&mut *conn)
+    .await
+    .map_err(|e| AppError::database_error(format!("Failed to delete expired: {}", e)))?;
 
-    let total_cleaned = soft_deleted_result
-        + read_result
-        + expired_result;
+    let total_cleaned = soft_deleted_result.rows_affected()
+        + read_result.rows_affected()
+        + expired_result.rows_affected();
 
     tracing::info!(
         "Cleaned up {} notifications (soft-deleted: {}, read: {}, expired: {})",
         total_cleaned,
-        soft_deleted_result,
-        read_result,
-        expired_result
+        soft_deleted_result.rows_affected(),
+        read_result.rows_affected(),
+        expired_result.rows_affected()
     );
 
     Ok(total_cleaned as u64)
 }
 
 /// Get notification statistics for monitoring (excludes soft-deleted)
-pub async fn get_notification_stats(
-    db_pool: &TlsPool,
-) -> Result<NotificationStats, AppError> {
-    let mut conn = db_pool.get().await.map_err(|e| {
+pub async fn get_notification_stats(db_pool: &TlsPool) -> Result<NotificationStats, AppError> {
+    let mut conn = db_pool.acquire().await.map_err(|e| {
         AppError::database_error(format!("Failed to get database connection: {}", e))
     })?;
 
-    use diesel::sql_types::BigInt;
-
-    #[derive(diesel::QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct CountRow {
-        #[diesel(sql_type = BigInt)]
         count: i64,
     }
 
-    let total: CountRow = diesel::sql_query("SELECT COUNT(*) as count FROM wallet_notifications WHERE status != 'deleted'")
-        .get_result(&mut conn)
-        .await?;
+    let total: i64 = sqlx::query_as::<_, CountRow>(
+        "SELECT COUNT(*) as count FROM wallet_notifications WHERE status != 'deleted'",
+    )
+    .fetch_one(&mut *conn)
+    .await
+    .map_err(|e| AppError::database_error(format!("Failed to count: {}", e)))?
+    .count;
 
-    let queued: CountRow = diesel::sql_query("SELECT COUNT(*) as count FROM wallet_notifications WHERE status IN ('created', 'queued') AND status != 'deleted'")
-        .get_result(&mut conn)
-        .await?;
+    let queued: i64 = sqlx::query_as::<_, CountRow>("SELECT COUNT(*) as count FROM wallet_notifications WHERE status IN ('created', 'queued') AND status != 'deleted'")
+        .fetch_one(&mut *conn)
+        .await
+        .map_err(|e| AppError::database_error(format!("Failed to count queued: {}", e)))?
+        .count;
 
-    let delivered: CountRow = diesel::sql_query("SELECT COUNT(*) as count FROM wallet_notifications WHERE status IN ('sent', 'delivered') AND status != 'deleted'")
-        .get_result(&mut conn)
-        .await?;
+    let delivered: i64 = sqlx::query_as::<_, CountRow>("SELECT COUNT(*) as count FROM wallet_notifications WHERE status IN ('sent', 'delivered') AND status != 'deleted'")
+        .fetch_one(&mut *conn)
+        .await
+        .map_err(|e| AppError::database_error(format!("Failed to count delivered: {}", e)))?
+        .count;
 
-    let acknowledged: CountRow = diesel::sql_query("SELECT COUNT(*) as count FROM wallet_notifications WHERE status = 'read' AND status != 'deleted'")
-        .get_result(&mut conn)
-        .await?;
+    let acknowledged: i64 = sqlx::query_as::<_, CountRow>("SELECT COUNT(*) as count FROM wallet_notifications WHERE status = 'read' AND status != 'deleted'")
+        .fetch_one(&mut *conn)
+        .await
+        .map_err(|e| AppError::database_error(format!("Failed to count acknowledged: {}", e)))?
+        .count;
 
     Ok(NotificationStats {
-        total: total.count as usize,
-        queued: queued.count as usize,
-        delivered: delivered.count as usize,
-        acknowledged: acknowledged.count as usize,
+        total: total as usize,
+        queued: queued as usize,
+        delivered: delivered as usize,
+        acknowledged: acknowledged as usize,
     })
 }
 

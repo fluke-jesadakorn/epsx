@@ -1,0 +1,987 @@
+{
+  "schemaVersion": 1,
+  "contractId": "A12.0-analytics-indexer-execution",
+  "purpose": "deterministic-audit-and-readiness-stop",
+  "productionReady": false,
+  "integrityExit": 0,
+  "readinessExit": 3,
+  "safety": {
+    "deploymentAuthorized": false,
+    "databaseAccessAuthorized": false,
+    "redisAccessAuthorized": false,
+    "chainAccessAuthorized": false,
+    "networkAccessAuthorized": false,
+    "liveMarketDataAccessAuthorized": false,
+    "runtimeMutationAuthorized": false,
+    "readinessMeaning": "Integrity proves only that the audit evidence and STOP contract are intact."
+  },
+  "source": {
+    "ref": "origin/development",
+    "commit": "373bd231cb7a616c3d4c0ddc1d60e0099a88a5db",
+    "evidence": [
+      {
+        "id": "src-public-ranking-cap",
+        "file": "shared/api/analytics.ts",
+        "blob": "95e6457879199083da6f9cf27034ce0ebc6b1815",
+        "anchor": "limit: Math.min(filters.limit ?? 10, 10), // Public API limit: max 10"
+      },
+      {
+        "id": "src-auth-ranking-route",
+        "file": "shared/api/analytics.ts",
+        "blob": "95e6457879199083da6f9cf27034ce0ebc6b1815",
+        "anchor": "async getAuthenticatedRankings(filters: AnalyticsFilters = {}): Promise<CardDashboardResponse> {"
+      },
+      {
+        "id": "src-auth-ranking-action",
+        "file": "apps/frontend/app/actions/analytics.ts",
+        "blob": "8058d826e5fcec8cb5b1a14e7019da23b5bebf6a",
+        "anchor": "return await analytics.getAuthenticatedRankings(mergedFilters);"
+      },
+      {
+        "id": "src-plan-access-bootstrap",
+        "file": "apps/frontend/app/analytics/page.tsx",
+        "blob": "11eb5924c1df7299d965fd0cba0f6e52257427f6",
+        "anchor": "const { plan_access: planAccess, watchlist } = await getDashboardInitAction();"
+      },
+      {
+        "id": "src-portfolio-auth",
+        "file": "apps/frontend/app/portfolio/page.tsx",
+        "blob": "b3599fab157fa943ccfbc4d083dad29e7ada84e1",
+        "anchor": "<RequireSignIn actionName=\"view your portfolio\">"
+      },
+      {
+        "id": "src-admin-permission-metrics",
+        "file": "apps/admin-frontend/app/analytics/actions.ts",
+        "blob": "29075466b0d05cb19c2980b01799869d73229bb5",
+        "anchor": "apiClient.get<PermissionAnalytics>('/api/admin/analytics/permissions'),"
+      },
+      {
+        "id": "src-ranking-offset-authority",
+        "file": "apps/backend/src/web/analytics/eps/cache.rs",
+        "blob": "13f8c39b24a248186d6c24f3298023ba678bc210",
+        "anchor": "match permission_service.get_wallet_ranking_offset(wallet).await {"
+      },
+      {
+        "id": "src-live-market-query",
+        "file": "apps/backend/src/web/analytics/eps/cache.rs",
+        "blob": "13f8c39b24a248186d6c24f3298023ba678bc210",
+        "anchor": ".fetch_eps_growth_ranking("
+      },
+      {
+        "id": "src-filter-source",
+        "file": "apps/backend/src/web/analytics/eps/metadata.rs",
+        "blob": "fa00324d37a1400519264aa2877b65a1563239e1",
+        "anchor": "let sectors = service.get_sectors_by_country(None).await"
+      },
+      {
+        "id": "src-auth-route-boundary",
+        "file": "apps/backend/src/web/routes/unified_router.rs",
+        "blob": "46b97779e8726757560d7946d1a47114bed28861",
+        "anchor": "crate::web::middleware::optional_bearer_middleware,"
+      },
+      {
+        "id": "src-public-route-boundary",
+        "file": "apps/backend/src/web/routes/unified_router.rs",
+        "blob": "46b97779e8726757560d7946d1a47114bed28861",
+        "anchor": ".nest(\"/analytics\", Router::new()"
+      },
+      {
+        "id": "src-analytics-schema",
+        "file": "apps/backend/migrations/analytics/00000000000001_consolidated_analytics_v2/up.sql",
+        "blob": "eb730cd57a58631ef6425af0659eaeb40045a421",
+        "anchor": "CREATE TABLE analytics_events ("
+      },
+      {
+        "id": "src-admin-revenue-authority",
+        "file": "apps/backend/src/web/admin/analytics/overview.rs",
+        "blob": "46593eec57ef21ba80533550f90a9e7d89d98e70",
+        "anchor": "SELECT COALESCE(SUM(pg.price), 0.0) as revenue FROM wallet_plan_assignments wga"
+      },
+      {
+        "id": "src-browser-filter-flow",
+        "file": "e2e/frontend/analytics.spec.ts",
+        "blob": "2353a2d2d5383b5101cca1d2e451239bd326cc40",
+        "anchor": "test('analytics filters interaction', async ({ authedPage: page }) => {"
+      }
+    ]
+  },
+  "domains": {
+    "marketAnalytics": {
+      "owner": "apps/analytics",
+      "dataClass": "external-market-rankings-and-filters",
+      "authority": "market-data adapter plus backend-resolved entitlement offset",
+      "status": "blocked"
+    },
+    "eventAnalytics": {
+      "owner": "services/analytics",
+      "dataClass": "first-party-product-events-and-derived-metrics",
+      "authority": "durable event taxonomy with canonical subject attribution",
+      "status": "blocked"
+    },
+    "indexer": {
+      "owner": "services/indexer",
+      "dataClass": "chain-blocks-transactions-and-logs",
+      "authority": "canonical-chain ingestion with durable checkpoints and reorg repair",
+      "status": "blocked"
+    },
+    "identityRankingOffset": {
+      "owner": "shared/rust/epsx-identity-service",
+      "dataClass": "wallet-entitlement-ranking-projection",
+      "authority": "backend plan and permission projection only",
+      "status": "blocked"
+    }
+  },
+  "targetEvidence": [
+    {
+      "id": "tgt-market-route-shape",
+      "domain": "marketAnalytics",
+      "file": "apps/analytics/src/main.rs",
+      "anchor": "\"/api/analytics/rankings\","
+    },
+    {
+      "id": "tgt-market-direct-auth",
+      "domain": "marketAnalytics",
+      "file": "apps/analytics/src/auth.rs",
+      "anchor": "authenticate_headers(state.verifier.as_ref(), request.headers()).await"
+    },
+    {
+      "id": "tgt-market-live-adapter",
+      "domain": "marketAnalytics",
+      "file": "apps/analytics/src/lib.rs",
+      "anchor": "pub use epsx::infrastructure::adapters::services::tradingview::TradingViewApiService;"
+    },
+    {
+      "id": "tgt-identity-a2-10-authenticated-ranking-rpc-contract",
+      "domain": "identityRankingOffset",
+      "file": "docs/migration/contracts/a2-10-authenticated-ranking-rpc.json",
+      "anchor": "\"contractId\": \"A2.10-authenticated-ranking-rpc\""
+    },
+    {
+      "id": "tgt-market-a2-6-authority-failure-contract",
+      "domain": "marketAnalytics",
+      "file": "docs/migration/contracts/a2-6-ranking-authority-failure-boundary.json",
+      "anchor": "\"contractId\": \"A2.6-ranking-authority-failure-boundary\""
+    },
+    {
+      "id": "tgt-market-a2-4-contract",
+      "domain": "marketAnalytics",
+      "file": "docs/migration/contracts/a2-4-market-analytics-authorization.json",
+      "anchor": "\"contractId\": \"A2.4-market-analytics-direct-service-authorization\""
+    },
+    {
+      "id": "tgt-market-a2-5-contract",
+      "domain": "marketAnalytics",
+      "file": "docs/migration/contracts/a2-5-market-provider-boundary.json",
+      "anchor": "\"contractId\": \"A2.5-market-rankings-provider-boundary\""
+    },
+    {
+      "id": "tgt-market-health-shallow",
+      "domain": "marketAnalytics",
+      "file": "apps/analytics/src/main.rs",
+      "anchor": "The new binary has no DB connections, so the probe is purely"
+    },
+    {
+      "id": "tgt-event-routes",
+      "domain": "eventAnalytics",
+      "file": "services/analytics/src/lib.rs",
+      "anchor": ".route(\"/api/v1/analytics/track\", post(track_event))"
+    },
+    {
+      "id": "tgt-event-schema-boundary",
+      "domain": "eventAnalytics",
+      "file": "docs/migration/contracts/a3-6-analytics-schema-boundary.json",
+      "anchor": "\"scannerFindingAfter\": 0"
+    },
+    {
+      "id": "tgt-event-verified-subject-attribution",
+      "domain": "eventAnalytics",
+      "file": "services/analytics/src/lib.rs",
+      "anchor": "request.user_id = Some(principal.wallet_address);"
+    },
+    {
+      "id": "tgt-event-revenue-fail-closed",
+      "domain": "eventAnalytics",
+      "file": "services/analytics/src/lib.rs",
+      "anchor": "Revenue and subscription counts are financial decisions owned by"
+    },
+    {
+      "id": "tgt-event-direct-auth",
+      "domain": "eventAnalytics",
+      "file": "services/analytics/src/lib.rs",
+      "anchor": "const ANALYTICS_VIEW_PERMISSION: &str = \"admin:analytics:view\";"
+    },
+    {
+      "id": "tgt-event-prometheus-hidden",
+      "domain": "eventAnalytics",
+      "file": "services/analytics/src/lib.rs",
+      "anchor": "AccessPolicy::InternalOnly,"
+    },
+    {
+      "id": "tgt-identity-a2-11-ranking-store-extraction-contract",
+      "domain": "identityRankingOffset",
+      "file": "docs/migration/contracts/a2-11-ranking-store-extraction.json",
+      "anchor": "\"contractId\": \"A2.11-ranking-store-extraction\""
+    },
+    {
+      "id": "tgt-indexer-db-default",
+      "domain": "indexer",
+      "file": "services/indexer/src/main.rs",
+      "anchor": "default_value = \"postgres://epsx:epsx@localhost:5432/epsx_indexer\""
+    },
+    {
+      "id": "tgt-indexer-schema-boundary",
+      "domain": "indexer",
+      "file": "docs/migration/contracts/a3-12-indexer-schema-boundary.json",
+      "anchor": "\"scannerFindingAfter\": 0"
+    },
+    {
+      "id": "tgt-indexer-chain-scoped-tx-key",
+      "domain": "indexer",
+      "file": "services/indexer/migrations/20260722050000_create_indexer_projection_tables.sql",
+      "anchor": "PRIMARY KEY (chain_id, hash)"
+    },
+    {
+      "id": "tgt-indexer-public-routes",
+      "domain": "indexer",
+      "file": "services/indexer/src/main.rs",
+      "anchor": "\"/api/v1/indexer/transfers/{chain}/{address}\""
+    },
+    {
+      "id": "tgt-indexer-post-sync",
+      "domain": "indexer",
+      "file": "services/indexer/src/main.rs",
+      "anchor": ".route(\"/api/v1/indexer/sync\", post(sync_unavailable))"
+    },
+    {
+      "id": "tgt-indexer-inert-state",
+      "domain": "indexer",
+      "file": "services/indexer/src/main.rs",
+      "anchor": "let state = AppState { db };"
+    },
+    {
+      "id": "tgt-indexer-fake-sync-absent",
+      "domain": "indexer",
+      "file": "docs/migration/A3_12_INDEXER_SCHEMA_BOUNDARY.md",
+      "anchor": "The package also removes the default-on autonomous provider/sync worker and every fabricated block"
+    },
+    {
+      "id": "tgt-indexer-no-reorg-model",
+      "domain": "indexer",
+      "file": "docs/migration/A3_12_INDEXER_SCHEMA_BOUNDARY.md",
+      "anchor": "This projection schema does not pretend to be a fork store."
+    },
+    {
+      "id": "tgt-indexer-shallow-health",
+      "domain": "indexer",
+      "file": "services/indexer/src/main.rs",
+      "anchor": "async fn health() -> StatusCode {"
+    },
+    {
+      "id": "tgt-identity-free-stub",
+      "domain": "identityRankingOffset",
+      "file": "shared/rust/epsx-identity-service/src/identity_service.rs",
+      "anchor": "Ok(RankingOffset::free_plan())"
+    },
+    {
+      "id": "tgt-identity-a2-7-entitlement-snapshot-contract",
+      "domain": "identityRankingOffset",
+      "file": "docs/migration/contracts/a2-7-ranking-entitlement-snapshot.json",
+      "anchor": "\"contractId\": \"A2.7-ranking-entitlement-snapshot\""
+    },
+    {
+      "id": "tgt-identity-a2-8-core-snapshot-adapter-contract",
+      "domain": "identityRankingOffset",
+      "file": "docs/migration/contracts/a2-8-core-ranking-snapshot-adapter.json",
+      "anchor": "\"contractId\": \"A2.8-core-ranking-snapshot-adapter\""
+    },
+    {
+      "id": "tgt-identity-a2-9-event-containment-contract",
+      "domain": "identityRankingOffset",
+      "file": "docs/migration/contracts/a2-9-identity-event-containment.json",
+      "anchor": "\"contractId\": \"A2.9-identity-event-containment\""
+    },
+    {
+      "id": "tgt-k8s-identity-sse-config-stale",
+      "domain": "identityRankingOffset",
+      "file": "infrastructure/kubernetes/base/identity/deployment.yaml",
+      "anchor": "- name: BIND_ADDR_SSE"
+    },
+    {
+      "id": "tgt-gateway-event-port",
+      "domain": "eventAnalytics",
+      "file": "services/gateway/src/main.rs",
+      "anchor": "#[arg(long, default_value = \"http://localhost:8107\")]"
+    },
+    {
+      "id": "tgt-gateway-indexer-public",
+      "domain": "indexer",
+      "file": "services/gateway/src/policy.rs",
+      "anchor": "(&Method::GET, [\"api\", \"v1\", \"indexer\", \"status\", _])"
+    },
+    {
+      "id": "tgt-gateway-indexer-manage",
+      "domain": "indexer",
+      "file": "services/gateway/src/policy.rs",
+      "anchor": "AccessPolicy::Permission(\"admin:indexer:manage\")"
+    },
+    {
+      "id": "tgt-k8s-market-service",
+      "domain": "marketAnalytics",
+      "file": "infrastructure/kubernetes/base/analytics/deployment.yaml",
+      "anchor": "image: epsx-analytics:wave12"
+    },
+    {
+      "id": "tgt-k8s-market-only-probe",
+      "domain": "marketAnalytics",
+      "file": "infrastructure/kubernetes/base/analytics/deployment.yaml",
+      "anchor": "path: /health"
+    },
+    {
+      "id": "tgt-ui-rankings-unavailable",
+      "domain": "marketAnalytics",
+      "file": "shared/rust/dioxus_ui/src/pages/analytics.rs",
+      "anchor": "failure_state: \"unavailable\".to_string(),"
+    },
+    {
+      "id": "tgt-ui-payloads-ignored",
+      "domain": "eventAnalytics",
+      "file": "shared/rust/dioxus_ui/src/pages/analytics.rs",
+      "anchor": "fn semantic_validation_rejects_partial_and_invalid_payloads()"
+    },
+    {
+      "id": "tgt-home-market-unavailable",
+      "domain": "marketAnalytics",
+      "file": "shared/rust/dioxus_ui/src/pages/home.rs",
+      "anchor": "HomeAnalyticsOutcome::Unavailable => \"unavailable\","
+    },
+    {
+      "id": "tgt-portfolio-unavailable",
+      "domain": "marketAnalytics",
+      "file": "shared/rust/dioxus_ui/src/pages/portfolio.rs",
+      "anchor": "\"data-portfolio-state\": \"unavailable\""
+    },
+    {
+      "id": "tgt-frontend-rankings-loader",
+      "domain": "marketAnalytics",
+      "file": "apps/frontend/src/ssr.rs",
+      "anchor": "async fn load_analytics_rankings("
+    },
+    {
+      "id": "tgt-frontend-track-upstream-status",
+      "domain": "eventAnalytics",
+      "file": "apps/frontend/src/api.rs",
+      "anchor": "Ok(r) if r.status().is_success() => Json(serde_json::json!({\"ok\": true})).into_response(),"
+    }
+  ],
+  "surfaceContracts": [
+    {
+      "id": "market-public-rankings",
+      "domain": "marketAnalytics",
+      "sourceContract": "GET /api/public/analytics/rankings; max 10; public filter restrictions",
+      "targetObserved": "the canonical handler now enforces the anonymous 10-row cap through one bounded provider port; route ownership, query compatibility and public cutover remain unproven",
+      "status": "blocked",
+      "blockerIds": ["B01", "B02", "B03", "B04", "B05", "B06", "B07", "B23"]
+    },
+    {
+      "id": "market-auth-rankings",
+      "domain": "marketAnalytics",
+      "sourceContract": "GET /api/analytics/rankings with server-resolved plan offset",
+      "targetObserved": "strict optional bearer handling propagates a verified wallet, authority failures stop before provider work, and the canonical handler caps authenticated provider work at 100 rows, while the identity runtime fails closed until entitlement authority is wired",
+      "status": "blocked",
+      "blockerIds": ["B01", "B02", "B03", "B04", "B07", "B09", "B23"]
+    },
+    {
+      "id": "market-filters",
+      "domain": "marketAnalytics",
+      "sourceContract": "GET public/auth filters, countries and country-scoped sectors",
+      "targetObserved": "canonical metadata routes exist and raw aliases are blocked; response parity and legacy public compatibility are unproven",
+      "status": "blocked",
+      "blockerIds": ["B01", "B02", "B04", "B06", "B23"]
+    },
+    {
+      "id": "market-ui",
+      "domain": "marketAnalytics",
+      "sourceContract": "search, sort, filters, pagination, plan range, watchlist and export render backend truth",
+      "targetObserved": "analytics and the home market preview now use strict service loaders with ready, empty, malformed, and unavailable outcomes; authenticated portfolio remains fail-closed and live stale/browser evidence is incomplete",
+      "status": "blocked",
+      "blockerIds": ["B05", "B06", "B07", "B21"]
+    },
+    {
+      "id": "event-track",
+      "domain": "eventAnalytics",
+      "sourceContract": "authenticated event ingestion with canonical attribution and explicit delivery result",
+      "targetObserved": "service verifies a bearer and validates an exact read-only schema boundary, but persists NULL subject; frontend reports ok even when upstream fails",
+      "status": "blocked",
+      "blockerIds": ["B10", "B11", "B12", "B14", "B22", "B23"]
+    },
+    {
+      "id": "event-reads",
+      "domain": "eventAnalytics",
+      "sourceContract": "admin-only events and metric reads with bounded filters and stable envelopes",
+      "targetObserved": "direct auth and a static schema boundary exist; list is fixed latest 100 and metric taxonomy is any path segment",
+      "status": "blocked",
+      "blockerIds": ["B01", "B02", "B10", "B12", "B14", "B22", "B23"]
+    },
+    {
+      "id": "event-revenue",
+      "domain": "eventAnalytics",
+      "sourceContract": "admin revenue derives from authoritative paid plan/subscription records",
+      "targetObserved": "counts subscription.created events and explicitly says exact payment integration is missing",
+      "status": "blocked",
+      "blockerIds": ["B12", "B13", "B21"]
+    },
+    {
+      "id": "event-observability",
+      "domain": "eventAnalytics",
+      "sourceContract": "internal metrics, health and alerting prove ingestion/aggregation health without public exposure",
+      "targetObserved": "Prometheus recorder exists but HTTP metric routes intentionally return 404 and no scraper contract is deployed",
+      "status": "blocked",
+      "blockerIds": ["B22", "B23"]
+    },
+    {
+      "id": "indexer-status",
+      "domain": "indexer",
+      "sourceContract": "new domain: canonical head, durable indexed head, finality, lag and degraded reason",
+      "targetObserved": "direct boundary returns 404 before status; the inert handler can report only durable MAX with a degraded reason and has no canonical head, finality, or checkpoint worker",
+      "status": "blocked",
+      "blockerIds": ["B15", "B16", "B18", "B19", "B22", "B23"]
+    },
+    {
+      "id": "indexer-block-transaction",
+      "domain": "indexer",
+      "sourceContract": "new domain: canonical block/transaction records keyed by chain with finality/reorg state",
+      "targetObserved": "direct boundary returns 404 before reads; startup fake sync is removed and the chain-scoped projection schema exists, but no canonical ingestion worker persists blocks, receipts, logs, or transactions",
+      "status": "blocked",
+      "blockerIds": ["B15", "B16", "B17", "B18", "B19", "B20"]
+    },
+    {
+      "id": "indexer-transfers",
+      "domain": "indexer",
+      "sourceContract": "new domain: decoded, checksummed/token-normalized logs with cursor pagination",
+      "targetObserved": "direct boundary returns 404 before the read; no ingestion worker decodes or inserts transfer logs",
+      "status": "blocked",
+      "blockerIds": ["B15", "B16", "B17", "B19", "B20"]
+    },
+    {
+      "id": "indexer-sync",
+      "domain": "indexer",
+      "sourceContract": "internal/admin bounded backfill command with idempotent lease, progress and cancellation",
+      "targetObserved": "direct service narrows to POST, verifies admin:indexer:manage, then returns 404; the fake loop and memory cursor are removed, leaving no bounded backfill worker or durable checkpoint lease",
+      "status": "blocked",
+      "blockerIds": ["B15", "B16", "B18", "B19", "B20", "B22"]
+    },
+    {
+      "id": "identity-ranking-offset-query",
+      "domain": "identityRankingOffset",
+      "sourceContract": "wallet plan assignments resolve the minimum active-plan ranking offset in the backend",
+      "targetObserved": "A2.7 hermetically resolves fixed-time raw entitlement snapshots, A2.8 adds an unwired core-owned adapter, A2.9 removes the production identity event listener, A2.10 exports an unwired fail-closed workload-authenticated RPC composition, and A2.11 extracts the adapter into a library-only ranking-store package; no concrete credential verifier, analytics metadata, TLS, owner delegation, certified store activation or runtime wiring exists, so identity requests fail closed",
+      "status": "blocked",
+      "blockerIds": ["B07", "B21", "B23"]
+    },
+    {
+      "id": "identity-ranking-offset-stream",
+      "domain": "identityRankingOffset",
+      "sourceContract": "durable entitlement changes invalidate market caches with revision and replay semantics",
+      "targetObserved": "A2.9 removes the production SSE mount and leaves no event-delivery runtime; no durable outbox, revision, cursor, replay or repair replacement exists and checked-in 50052 configuration is stale",
+      "status": "blocked",
+      "blockerIds": ["B08", "B09", "B21", "B22", "B23"]
+    },
+    {
+      "id": "identity-ranking-offset-emit",
+      "domain": "identityRankingOffset",
+      "sourceContract": "only the authoritative plan projection publishes versioned offset changes",
+      "targetObserved": "A2.9 removes the public emit mount; no authenticated authoritative publisher or durable publication path replaces it",
+      "status": "blocked",
+      "blockerIds": ["B08", "B09", "B21"]
+    },
+    {
+      "id": "cross-domain-cutover",
+      "domain": "marketAnalytics",
+      "sourceContract": "one explicit route/data authority per domain with shadow comparison and reversible cutover",
+      "targetObserved": "market and event services share analytics naming while gateway, K8s and UI address different contracts",
+      "status": "blocked",
+      "blockerIds": ["B01", "B02", "B21", "B23", "B24"]
+    }
+  ],
+  "blockers": [
+    {
+      "id": "B01",
+      "category": "domain-routing",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Market analytics and event analytics share the analytics name but expose incompatible routes and runtime requirements.",
+      "resolution": "Give each domain an unambiguous service name, URL, ownership map and gateway prefix; prove every deployed route reaches the intended binary.",
+      "evidenceIds": ["tgt-market-route-shape", "tgt-event-routes", "tgt-gateway-event-port", "tgt-k8s-market-service"]
+    },
+    {
+      "id": "B02",
+      "category": "compatibility",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Legacy public, authenticated and admin market-analytics paths/envelopes do not have a proven compatibility layer.",
+      "resolution": "Lock method, path, query, status and response adapters for every source surface and fail unknown drift closed.",
+      "evidenceIds": ["src-public-ranking-cap", "src-auth-ranking-route", "src-public-route-boundary", "tgt-market-route-shape"]
+    },
+    {
+      "id": "B03",
+      "category": "market-authorization",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "The standalone market service has hermetic direct-JWT, wallet-propagation, and authenticated authority-failure boundaries, and authority errors stop before provider work; A2.10 adds an exported but unwired server-side workload-auth composition, while analytics metadata, a concrete credential verifier, TLS, owner delegation, authoritative entitlement success, live runtime and production ownership remain unproven.",
+      "resolution": "Retain strict service verification, canonical-wallet derivation, fail-closed authority errors and A2.10 ordering while proving compatibility, analytics credential injection, trusted workload verification, owner delegation, TLS, authoritative entitlement success, runtime, routing and cutover behavior.",
+      "evidenceIds": ["src-auth-route-boundary", "src-ranking-offset-authority", "tgt-market-route-shape", "tgt-market-direct-auth", "tgt-market-a2-6-authority-failure-contract", "tgt-identity-a2-10-authenticated-ranking-rpc-contract"]
+    },
+    {
+      "id": "B04",
+      "category": "market-data",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "A2.5 hermetically bounds canonical request size, process-local concurrency, transient attempts, deadline and outward failure details; provenance, licensing, normalization, distributed quotas, freshness and cache semantics remain unproven.",
+      "resolution": "Define and authorize the provider commercial contract, observation-time provenance, exchange/timezone normalization, cross-replica quotas, stale/cache behavior and authorized staging validation.",
+      "evidenceIds": ["src-live-market-query", "src-filter-source", "tgt-market-live-adapter", "tgt-market-a2-5-contract"]
+    },
+    {
+      "id": "B05",
+      "category": "ui-truthfulness",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Analytics and the home market preview now have strict service loaders, while authenticated portfolio remains fail-closed; none has production-complete live/browser market UX proof.",
+      "resolution": "Consume typed owner-safe BFF data, render loading/empty/error/stale states, and never label fixtures or unavailable data as live.",
+      "evidenceIds": ["tgt-ui-rankings-unavailable", "tgt-ui-payloads-ignored", "tgt-home-market-unavailable", "tgt-portfolio-unavailable"]
+    },
+    {
+      "id": "B06",
+      "category": "market-ux",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Search, filters, sorting, pagination, export and watchlist interactions are not proven against live backend state.",
+      "resolution": "Implement typed query/state contracts and strict mobile/desktop browser tests covering success and failure paths.",
+      "evidenceIds": ["src-browser-filter-flow", "src-plan-access-bootstrap", "tgt-ui-rankings-unavailable", "tgt-portfolio-unavailable"]
+    },
+    {
+      "id": "B07",
+      "category": "ranking-entitlement",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "A2.6 removes the market client's silent authenticated free-plan fallback, A2.7 proves the pure resolver, A2.8 adds a static core-owned snapshot adapter, A2.9 removes the unsafe identity event listener, A2.10 adds an exported fail-closed authenticated RPC composition, and A2.11 extracts the adapter behind a library-only package boundary; identity requests fail closed because the composition and store are unwired, SQL is unexecuted against a certified schema, and concrete credential trust, analytics metadata, TLS, owner delegation, reconciliation and runtime activation are absent.",
+      "resolution": "Keep the pure resolver, fail-closed market boundary, extracted static store and A2.10 auth-before-wallet/query ordering; certify credential trust and rotation, inject analytics metadata, define owner delegation and TLS, certify the adopted schema and query plan, reconcile source lifecycle and alternate entitlement semantics, then prove free, paid, expiry, overlap, downgrade, outage and recovery parity before runtime activation.",
+      "evidenceIds": ["src-ranking-offset-authority", "src-plan-access-bootstrap", "tgt-market-a2-6-authority-failure-contract", "tgt-identity-free-stub", "tgt-identity-a2-7-entitlement-snapshot-contract", "tgt-identity-a2-8-core-snapshot-adapter-contract", "tgt-identity-a2-9-event-containment-contract", "tgt-identity-a2-10-authenticated-ranking-rpc-contract", "tgt-identity-a2-11-ranking-store-extraction-contract"]
+    },
+    {
+      "id": "B08",
+      "category": "ranking-event-auth",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "A2.9 removes the public identity emit and stream mounts, but no authenticated authoritative publisher identity, exact audience or replay protection exists for a durable replacement.",
+      "resolution": "Keep the removed public hook absent; require authenticated internal publisher identity, exact audience, owner binding and replay protection before any replacement is mounted.",
+      "evidenceIds": ["tgt-identity-a2-9-event-containment-contract", "tgt-k8s-identity-sse-config-stale"]
+    },
+    {
+      "id": "B09",
+      "category": "ranking-event-delivery",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "A2.9 removes the ephemeral production SSE mount, leaving no ranking-event delivery runtime and no durable revision, cursor, replay or repair contract.",
+      "resolution": "Publish versioned outbox events, persist consumer cursor, detect gaps and reconcile offsets before invalidating caches.",
+      "evidenceIds": ["tgt-market-a2-4-contract", "tgt-identity-a2-9-event-containment-contract", "tgt-k8s-identity-sse-config-stale"]
+    },
+    {
+      "id": "B10",
+      "category": "event-schema",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Event analytics has a guarded additive migration and read-only startup compatibility probe, but no reviewed runner/version ledger, populated-baseline adoption, source upgrade, or live database proof.",
+      "resolution": "Wire a reviewed runner and immutable ledger, prove populated baseline adoption and source-version upgrades, and add required event constraints/indexes through later additive migrations.",
+      "evidenceIds": ["src-analytics-schema", "tgt-event-schema-boundary"]
+    },
+    {
+      "id": "B11",
+      "category": "event-ownership",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Authenticated event ingestion deliberately discards the canonical subject and cannot provide truthful per-user metrics.",
+      "resolution": "Define a wallet-compatible subject column and derive attribution exclusively from the verified principal or explicitly classify events anonymous.",
+      "evidenceIds": ["tgt-event-verified-subject-attribution", "tgt-event-direct-auth"]
+    },
+    {
+      "id": "B12",
+      "category": "event-contract",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Event names, property schemas, producer idempotency, time semantics and aggregation definitions are open-ended.",
+      "resolution": "Version an allowlisted event catalog with schemas, event IDs, occurred/received timestamps, producer identity and deduplication.",
+      "evidenceIds": ["tgt-event-routes", "tgt-event-schema-boundary", "tgt-frontend-track-upstream-status"]
+    },
+    {
+      "id": "B13",
+      "category": "revenue-authority",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Revenue is inferred from event counts rather than finalized payment/subscription values.",
+      "resolution": "Build a reconciled read model from authoritative finalized payment and active subscription records with currency/period definitions.",
+      "evidenceIds": ["src-admin-revenue-authority", "tgt-event-revenue-fail-closed"]
+    },
+    {
+      "id": "B14",
+      "category": "privacy-retention",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Analytics property privacy classification, redaction, retention, deletion and export policies are not enforced.",
+      "resolution": "Classify fields, reject secrets/PII, bound payloads, document retention and implement subject deletion/export audit flows.",
+      "evidenceIds": ["tgt-event-schema-boundary", "tgt-event-verified-subject-attribution"]
+    },
+    {
+      "id": "B15",
+      "category": "indexer-authorization",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "The direct boundary now fails all non-health handlers closed and verifies admin:indexer:manage for POST sync, but truthful reads are unavailable and address-history privacy is still undecided.",
+      "resolution": "Preserve the service-local exact route/method policy, decide deliberate public versus owner/admin address-history privacy, and enable only canonical truthful projections and bounded sync.",
+      "evidenceIds": ["tgt-indexer-public-routes", "tgt-indexer-post-sync", "tgt-gateway-indexer-public", "tgt-gateway-indexer-manage"]
+    },
+    {
+      "id": "B16",
+      "category": "indexer-schema",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Indexer runtime DDL is removed and its additive projection schema uses a chain-scoped transaction key, but no reviewed runner/adoption proof or receipt, raw-log, canonical, finalized, fork, and repair schema exists.",
+      "resolution": "Wire the migration ledger and populated adoption path, then add receipt/raw-log, canonical/finalized, fork, repair-journal, checkpoint, and query structures through reviewed additive migrations.",
+      "evidenceIds": ["tgt-indexer-schema-boundary", "tgt-indexer-chain-scoped-tx-key"]
+    },
+    {
+      "id": "B17",
+      "category": "indexer-ingestion",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "The fabricated startup sync is removed, leaving no canonical ingestion of blocks, transactions, receipts, raw logs, or decoded logs.",
+      "resolution": "Fetch canonical RPC objects, validate chain IDs and hashes, atomically persist blocks/transactions/receipts/logs and decode supported events.",
+      "evidenceIds": ["tgt-indexer-fake-sync-absent", "tgt-indexer-public-routes"]
+    },
+    {
+      "id": "B18",
+      "category": "indexer-checkpoint",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "The in-memory cursor is removed with fake sync, but no durable per-chain checkpoint, lease, or atomic advancement exists.",
+      "resolution": "Use a leased durable per-chain checkpoint advanced in the same transaction as canonical block ingestion.",
+      "evidenceIds": ["tgt-indexer-inert-state", "tgt-indexer-schema-boundary"]
+    },
+    {
+      "id": "B19",
+      "category": "indexer-reorg-finality",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "There is no parent-hash continuity, reorg rollback/replay or chain-specific finality state machine.",
+      "resolution": "Track canonical ancestry and finalized head, detect divergence, orphan/replay affected records and test multi-block reorgs.",
+      "evidenceIds": ["tgt-indexer-no-reorg-model", "tgt-indexer-fake-sync-absent"]
+    },
+    {
+      "id": "B20",
+      "category": "indexer-backfill",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Backfill range, concurrency, retries, provider quotas, cancellation, progress and resume semantics are undefined.",
+      "resolution": "Implement bounded resumable jobs with leases, adaptive rate limiting, poison-record handling and immutable progress audit.",
+      "evidenceIds": ["tgt-indexer-post-sync", "tgt-indexer-inert-state"]
+    },
+    {
+      "id": "B21",
+      "category": "reconciliation",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "A2.7's fixture ledger, A2.8's static SQL/decoder fixture and A2.11's mechanical store extraction are deterministic synthetic evidence, not reconciliation; no comparison proves market results, event aggregates, indexed chain state or ranking entitlements against their distinct live authorities.",
+      "resolution": "Create domain-specific checksums, counts, bounded mismatch samples and repair workflows against authoritative snapshots; never join the four authorities into one write model or treat synthetic fixtures or static SQL inspection as parity.",
+      "evidenceIds": ["src-live-market-query", "src-admin-revenue-authority", "tgt-identity-free-stub", "tgt-identity-a2-7-entitlement-snapshot-contract", "tgt-identity-a2-8-core-snapshot-adapter-contract", "tgt-identity-a2-11-ranking-store-extraction-contract", "tgt-indexer-fake-sync-absent"]
+    },
+    {
+      "id": "B22",
+      "category": "observability",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Health, freshness, lag, error-budget, queue/cursor and reconciliation telemetry are not production-proven.",
+      "resolution": "Expose internal authenticated metrics and dependency-aware readiness with alerts for stale market data, ingest loss, chain lag/reorg and projection gaps.",
+      "evidenceIds": ["tgt-market-health-shallow", "tgt-event-prometheus-hidden", "tgt-indexer-shallow-health"]
+    },
+    {
+      "id": "B23",
+      "category": "deployment",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "Deployment manifests expose only the market analytics workload, event analytics and indexer production wiring are absent, service naming conflicts remain, and checked-in identity/analytics configuration still advertises the A2.9-removed 50052 SSE surface.",
+      "resolution": "Add distinct immutable-image workloads, secrets, policies, probes, resources and gateway URLs, then validate rendered manifests offline and staging behavior separately.",
+      "evidenceIds": ["tgt-k8s-market-service", "tgt-k8s-market-only-probe", "tgt-gateway-event-port", "tgt-indexer-db-default", "tgt-k8s-identity-sse-config-stale", "tgt-identity-a2-9-event-containment-contract"]
+    },
+    {
+      "id": "B24",
+      "category": "cutover-rollback",
+      "severity": "stop",
+      "status": "blocked",
+      "summary": "There is no measured shadow, backfill, parity, cutover or rollback procedure for any of the four domains.",
+      "resolution": "Run domain-by-domain shadow reads/ingestion, compare bounded metrics, freeze writers where required and retain a tested rollback checkpoint.",
+      "evidenceIds": ["src-auth-ranking-route", "src-analytics-schema", "tgt-market-route-shape", "tgt-event-routes", "tgt-indexer-inert-state"]
+    }
+  ],
+  "ownershipRules": [
+    {
+      "id": "O01",
+      "status": "required-unproven",
+      "rule": "Market analytics owns market-provider normalization and ranking query execution, not plan decisions."
+    },
+    {
+      "id": "O02",
+      "status": "required-unproven",
+      "rule": "Event analytics owns append-only product events and derived aggregates, not financial truth."
+    },
+    {
+      "id": "O03",
+      "status": "required-unproven",
+      "rule": "Indexer owns canonical chain projections and never fabricates or authoritatively changes payment state."
+    },
+    {
+      "id": "O04",
+      "status": "required-unproven",
+      "rule": "Identity owns the wallet-to-active-plan ranking-offset projection; frontend and market services do not compute it."
+    },
+    {
+      "id": "O05",
+      "status": "required-unproven",
+      "rule": "Authenticated owner keys come from verified canonical subjects, never request bodies, paths or forwarding headers."
+    },
+    {
+      "id": "O06",
+      "status": "required-unproven",
+      "rule": "Admin reads require admin audience plus exact read permission; mutations/internal operations require their exact manage identity."
+    },
+    {
+      "id": "O07",
+      "status": "required-unproven",
+      "rule": "Cross-domain joins are read models with provenance and revision metadata, never hidden shared-table ownership."
+    }
+  ],
+  "freshnessRules": [
+    {
+      "id": "F01",
+      "status": "required-unproven",
+      "rule": "Every market response carries provider, observed-at, cache age and stale state."
+    },
+    {
+      "id": "F02",
+      "status": "required-unproven",
+      "rule": "A market-provider outage cannot turn fixtures or old cache data into an unlabeled live response."
+    },
+    {
+      "id": "F03",
+      "status": "required-unproven",
+      "rule": "Event aggregates expose an as-of watermark and late-event policy."
+    },
+    {
+      "id": "F04",
+      "status": "required-unproven",
+      "rule": "Indexer responses expose canonical/finalized status and indexed-head lag per chain."
+    },
+    {
+      "id": "F05",
+      "status": "required-unproven",
+      "rule": "Ranking-offset responses carry an entitlement projection revision and effective interval."
+    },
+    {
+      "id": "F06",
+      "status": "required-unproven",
+      "rule": "UI live/stale/offline labels are computed from backend freshness metadata."
+    }
+  ],
+  "backfillReconciliationRules": [
+    {
+      "id": "R01",
+      "status": "required-unproven",
+      "rule": "Indexer backfills are bounded, leased, resumable, observable and idempotent per chain/range."
+    },
+    {
+      "id": "R02",
+      "status": "required-unproven",
+      "rule": "Reorg repair orphans and rebuilds all dependent transaction/log projections atomically."
+    },
+    {
+      "id": "R03",
+      "status": "required-unproven",
+      "rule": "Event migration backfills preserve source IDs and deduplicate repeated runs."
+    },
+    {
+      "id": "R04",
+      "status": "required-unproven",
+      "rule": "Revenue aggregates reconcile to finalized payment/subscription authority by period and currency."
+    },
+    {
+      "id": "R05",
+      "status": "required-unproven",
+      "rule": "Ranking offsets reconcile active plan assignments to the identity projection with repairable mismatches."
+    },
+    {
+      "id": "R06",
+      "status": "required-unproven",
+      "rule": "Market shadow results compare normalized filter/pagination/ranking outputs without writing source systems."
+    },
+    {
+      "id": "R07",
+      "status": "required-unproven",
+      "rule": "Every reconciliation emits counts, checksums, mismatch samples and a reviewed repair outcome."
+    }
+  ],
+  "observabilityRules": [
+    {
+      "id": "M01",
+      "status": "required-unproven",
+      "rule": "Dependency-aware readiness distinguishes process liveness from usable service readiness."
+    },
+    {
+      "id": "M02",
+      "status": "required-unproven",
+      "rule": "Market metrics cover upstream latency/errors/throttling, cache age/hits and stale responses."
+    },
+    {
+      "id": "M03",
+      "status": "required-unproven",
+      "rule": "Event metrics cover accepted/rejected/deduplicated events, aggregation watermark and schema violations."
+    },
+    {
+      "id": "M04",
+      "status": "required-unproven",
+      "rule": "Indexer metrics cover canonical/finalized heads, lag, reorg depth, RPC errors and backfill progress."
+    },
+    {
+      "id": "M05",
+      "status": "required-unproven",
+      "rule": "Identity projection metrics cover query latency, authority failures, stream gaps and reconciliation mismatches."
+    },
+    {
+      "id": "M06",
+      "status": "required-unproven",
+      "rule": "Metrics endpoints are internal-only and alerts have owners, thresholds and runbooks."
+    }
+  ],
+  "cutoverRules": [
+    {
+      "id": "C01",
+      "status": "required-unproven",
+      "rule": "Cut over one domain at a time behind an explicit route owner."
+    },
+    {
+      "id": "C02",
+      "status": "required-unproven",
+      "rule": "Shadow traffic is read-only or idempotently isolated and never creates dual write authority."
+    },
+    {
+      "id": "C03",
+      "status": "required-unproven",
+      "rule": "Promotion requires a recorded parity window, error budget and zero unresolved reconciliation drift."
+    },
+    {
+      "id": "C04",
+      "status": "required-unproven",
+      "rule": "Rollback restores the prior route owner without discarding newly accepted durable facts."
+    },
+    {
+      "id": "C05",
+      "status": "required-unproven",
+      "rule": "Production deployment remains a separate explicitly authorized action after readiness passes."
+    }
+  ],
+  "nonProductionSurfaces": [
+    {
+      "id": "N01",
+      "reason": "Market and event analytics service identity/routing collides.",
+      "evidenceIds": ["tgt-market-route-shape", "tgt-event-routes", "tgt-k8s-market-service"]
+    },
+    {
+      "id": "N02",
+      "reason": "Market authority errors now fail closed, A2.10 exports an unwired workload-auth composition, and A2.11 extracts a library-only store, but analytics sends no metadata, no concrete verifier/TLS/owner delegation or certified store activation exists, and identity requests remain unavailable without a live authoritative projection.",
+      "evidenceIds": ["tgt-market-a2-6-authority-failure-contract", "tgt-identity-free-stub", "tgt-identity-a2-10-authenticated-ranking-rpc-contract", "tgt-identity-a2-11-ranking-store-extraction-contract"]
+    },
+    {
+      "id": "N03",
+      "reason": "Analytics, authenticated portfolio, and the home market preview are intentionally unavailable without verified market and owner loaders.",
+      "evidenceIds": ["tgt-ui-rankings-unavailable", "tgt-ui-payloads-ignored", "tgt-home-market-unavailable", "tgt-portfolio-unavailable"]
+    },
+    {
+      "id": "N04",
+      "reason": "Event analytics has a static schema boundary but no reviewed runner, populated-baseline adoption, source upgrade, or live database proof.",
+      "evidenceIds": ["tgt-event-schema-boundary"]
+    },
+    {
+      "id": "N05",
+      "reason": "Event subject attribution is discarded.",
+      "evidenceIds": ["tgt-event-verified-subject-attribution"]
+    },
+    {
+      "id": "N06",
+      "reason": "Revenue is a subscription-created event count, not financial truth.",
+      "evidenceIds": ["tgt-event-revenue-fail-closed"]
+    },
+    {
+      "id": "N07",
+      "reason": "Indexer has a chain-scoped additive projection schema but no runner/adoption proof or complete canonical-chain state model.",
+      "evidenceIds": ["tgt-indexer-schema-boundary", "tgt-indexer-chain-scoped-tx-key"]
+    },
+    {
+      "id": "N08",
+      "reason": "Indexer fake sync is removed, leaving no canonical ingestion worker.",
+      "evidenceIds": ["tgt-indexer-fake-sync-absent"]
+    },
+    {
+      "id": "N09",
+      "reason": "Indexer sync is service-local and fail-closed, but no durable checkpoint, lease, or bounded worker exists.",
+      "evidenceIds": ["tgt-indexer-inert-state", "tgt-indexer-post-sync"]
+    },
+    {
+      "id": "N10",
+      "reason": "A2.9 removes the unsafe identity event mounts, but no authenticated durable ranking-event replacement exists and checked-in 50052 configuration remains stale.",
+      "evidenceIds": ["tgt-identity-a2-9-event-containment-contract", "tgt-k8s-identity-sse-config-stale"]
+    },
+    {
+      "id": "N11",
+      "reason": "Frontend ranking loading exists but lacks live reconciliation and complete browser/runtime proof, while event tracking still swallows upstream failure.",
+      "evidenceIds": ["tgt-frontend-rankings-loader", "tgt-frontend-track-upstream-status"]
+    },
+    {
+      "id": "N12",
+      "reason": "Production manifests do not prove separately deployed event analytics and indexer workloads.",
+      "evidenceIds": ["tgt-k8s-market-service", "tgt-gateway-event-port", "tgt-indexer-db-default"]
+    }
+  ],
+  "durableStateDependencies": [
+    "reviewed event analytics migration runner, schema-version ledger and populated-baseline adoption",
+    "event producer idempotency and versioned schema catalog",
+    "wallet-compatible analytics subject attribution and retention controls",
+    "reviewed chain-scoped blocks transactions receipts and logs migrations plus populated-baseline adoption",
+    "durable per-chain indexer checkpoint and lease",
+    "canonical/finalized/reorg state with repair journal",
+    "bounded backfill jobs with progress and cancellation",
+    "plan-assignment-to-ranking-offset projection with revision",
+    "ranking projection outbox and durable consumer cursor",
+    "domain-specific reconciliation runs and mismatch repair audit"
+  ],
+  "deploymentDependencies": [
+    "distinct immutable market-analytics and event-analytics images/services",
+    "an immutable indexer image/service with private sync ingress",
+    "explicit gateway URLs and path rewrites for each domain",
+    "secret-backed database/provider configuration without credential defaults",
+    "dependency-aware startup/readiness probes and disruption budgets",
+    "internal metrics scraping, alerts and runbooks",
+    "network policies for provider, database, gRPC and any future durable ranking-event transport",
+    "staging shadow/parity jobs plus reviewed cutover and rollback artifacts"
+  ],
+  "requiredExecutionOrder": [
+    "Freeze the four domain boundaries, names, authorities and compatibility routes.",
+    "Define typed route, status, envelope, freshness and error contracts from the pinned source.",
+    "Implement direct-service authentication and canonical ownership before exposing any non-health route.",
+    "Wire reviewed runners, version ledgers and populated-baseline adoption for the additive analytics and indexer schema boundaries; extend them through later migrations.",
+    "Keep A2.9's removed public identity event surface absent, A2.10's auth-before-wallet/query composition unwired, and A2.11's extracted store unactivated until trusted credential verification, analytics metadata, TLS, owner delegation, certified schema/query-plan evidence and reconciliation exist; add only a durable authenticated replacement event transport.",
+    "Implement real canonical index ingestion, checkpoints, finality and reorg repair.",
+    "Build bounded leased backfill with progress, pause, cancel, retry and resume semantics.",
+    "Version event taxonomy, attribution, idempotency, privacy, retention and authoritative aggregates.",
+    "Wire BFF/UI to typed live data with truthful stale/error/empty states and strict browser tests.",
+    "Run domain-specific observability and reconciliation with explicit mismatch repair evidence.",
+    "Shadow and cut over one domain at a time with recorded parity windows and tested rollback checkpoints.",
+    "Obtain separate explicit production deployment authorization only after this STOP contract has no blockers."
+  ]
+}

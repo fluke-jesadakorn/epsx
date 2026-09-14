@@ -34,10 +34,10 @@ pub struct GetWalletStatsResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WalletStatsDto {
-    pub total_users: i32,
-    pub active_users: i32,
-    pub inactive_users: i32,
-    pub new_users_30_days: i32,
-    pub active_users_30_days: i32,
+    pub total_users: i64,
+    pub active_users: i64,
+    pub inactive_users: i64,
+    pub new_users_30_days: i64,
+    pub active_users_30_days: i64,
     pub growth_rate: f64,
 }

@@ -1,30 +1,30 @@
 # EPSX Backend - Rust API server for production deployment
+#
+# Build context: the WORKSPACE ROOT (not apps/backend). The
+# monolith's `epsx` lib has workspace-relative path deps to
+# `epsx-contracts` and other shared kernel crates; the
+# workspace root `Cargo.toml` + `Cargo.lock` must be in scope.
+# `.dockerignore` keeps the build context manageable.
+#
+# Build strategy: single cargo build (no stub-swap). The previous
+# stub-swap pattern was producing 332KB stub binaries.
 
 FROM rust:slim-bookworm AS builder
-WORKDIR /app
+WORKDIR /workspace
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    pkg-config libssl-dev libpq-dev && rm -rf /var/lib/apt/lists/*
+    pkg-config libssl-dev libpq-dev ca-certificates && rm -rf /var/lib/apt/lists/*
 
-COPY apps/backend/Cargo.toml apps/backend/Cargo.lock ./
+ENV CARGO_TARGET_DIR=/workspace/target
 
-RUN mkdir -p src/bin && \
-    echo "fn main() {}" > src/main.rs && \
-    echo "fn main() {}" > src/bin/blockchain_monitor.rs && \
-    echo "fn main() {}" > src/bin/migrate.rs && \
-    echo "fn main() {}" > src/bin/grant_wallet_permission.rs
+COPY . .
 
-RUN --mount=type=cache,sharing=private,target=/usr/local/cargo/registry \
-    --mount=type=cache,sharing=private,target=/usr/local/cargo/git \
-    cargo build --release --bin epsx && rm -rf src
-
-COPY apps/backend/src/ ./src/
-COPY apps/backend/migrations/ ./migrations/
-
+WORKDIR /workspace/apps/backend
 RUN --mount=type=cache,sharing=private,target=/usr/local/cargo/registry \
     --mount=type=cache,sharing=private,target=/usr/local/cargo/git \
     cargo build --release --features="cli-tools" --bin epsx --bin migrate
 
+# ============================================================================
 FROM debian:bookworm-slim AS runtime
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -33,8 +33,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN useradd --create-home --shell /bin/bash --user-group --uid 1001 nonroot
 WORKDIR /app
 
-COPY --from=builder --chown=nonroot:nonroot /app/target/release/epsx ./epsx
-COPY --from=builder --chown=nonroot:nonroot /app/target/release/migrate ./migrate
+COPY --from=builder --chown=nonroot:nonroot /workspace/target/release/epsx ./epsx
+COPY --from=builder --chown=nonroot:nonroot /workspace/target/release/migrate ./migrate
 
 USER nonroot:nonroot
 

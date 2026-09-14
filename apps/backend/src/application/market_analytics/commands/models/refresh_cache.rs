@@ -1,8 +1,8 @@
 // Refresh Cache Command
 // Force refresh analytics cache
 
-use serde::{Deserialize, Serialize};
 use crate::application::shared::Command;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone)]
 pub struct RefreshCacheCommand {

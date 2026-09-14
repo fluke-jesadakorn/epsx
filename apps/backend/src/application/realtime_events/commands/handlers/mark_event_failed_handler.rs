@@ -1,9 +1,9 @@
-use crate::prelude::*;
-use crate::application::shared::{CommandHandler, ApplicationResult, ApplicationError};
 use crate::application::realtime_events::commands::{
-    MarkEventFailedCommand, MarkEventFailedResponse
+    MarkEventFailedCommand, MarkEventFailedResponse,
 };
-use crate::domain::realtime_events::{EventRepositoryPort, aggregates::EventStatus};
+use crate::application::shared::{ApplicationError, ApplicationResult, CommandHandler};
+use crate::domain::realtime_events::{aggregates::EventStatus, EventRepositoryPort};
+use crate::prelude::*;
 
 /// Handler for marking events as failed
 pub struct MarkEventFailedCommandHandler {
@@ -18,16 +18,21 @@ impl MarkEventFailedCommandHandler {
 
 #[async_trait]
 impl CommandHandler<MarkEventFailedCommand> for MarkEventFailedCommandHandler {
-    async fn handle(&self, command: MarkEventFailedCommand) -> ApplicationResult<MarkEventFailedResponse> {
+    async fn handle(
+        &self,
+        command: MarkEventFailedCommand,
+    ) -> ApplicationResult<MarkEventFailedResponse> {
         // 1. Retrieve event
-        let mut event = self.event_repository
+        let mut event = self
+            .event_repository
             .find_by_id(&command.event_id)
             .await
             .map_err(ApplicationError::infrastructure)?
             .ok_or_else(|| ApplicationError::not_found("event", command.event_id.to_string()))?;
 
         // 2. Mark as failed (will retry if attempts < max)
-        event.mark_failed(command.failure_reason.clone())
+        event
+            .mark_failed(command.failure_reason.clone())
             .map_err(|e| ApplicationError::business_rule(e.to_string()))?;
 
         let status = event.status().clone();

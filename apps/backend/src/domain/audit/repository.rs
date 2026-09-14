@@ -1,6 +1,6 @@
-use async_trait::async_trait;
 use crate::domain::shared_kernel::entities::audit::{AuditLogEntry, AuditQuery};
 use anyhow::Result;
+use async_trait::async_trait;
 
 #[async_trait]
 pub trait AuditLogRepository: Send + Sync {

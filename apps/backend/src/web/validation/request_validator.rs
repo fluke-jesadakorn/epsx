@@ -1,7 +1,7 @@
 // Comprehensive request validator
-use super::types::{ValidationErrorResponse, ValidationResult};
-use super::sanitizers::validate_and_sanitize_text;
 use super::constants::limits;
+use super::sanitizers::validate_and_sanitize_text;
+use super::types::{ValidationErrorResponse, ValidationResult};
 
 /// Request validator for comprehensive input validation
 pub struct RequestValidator {
@@ -81,14 +81,7 @@ impl RequestValidator {
     /// Validate API endpoint access
     pub fn validate_api_access(&self, endpoint: &str, method: &str) -> ValidationResult<()> {
         // Check for suspicious endpoint patterns
-        let blocked_patterns = [
-            "/admin/",
-            "/internal/",
-            "/debug/",
-            "/test/",
-            "/../",
-            "/./",
-        ];
+        let blocked_patterns = ["/admin/", "/internal/", "/debug/", "/test/", "/../", "/./"];
 
         for pattern in &blocked_patterns {
             if endpoint.contains(pattern) {

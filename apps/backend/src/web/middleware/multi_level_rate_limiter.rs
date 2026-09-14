@@ -5,14 +5,16 @@
 //! 2. Plan-based - Limits per subscription plan
 //! 3. API Key - Per-key limits (uses existing UnifiedRateLimiter)
 
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
-use serde::{Deserialize, Serialize};
 use tracing::{debug, warn};
 
-use crate::infrastructure::cache::Cache;
+use super::rate_limiter::{
+    ClientId, RateLimitConfig, RateLimitError, RateLimitResult, UnifiedRateLimiter,
+};
 use crate::config::Config;
-use super::rate_limiter::{UnifiedRateLimiter, RateLimitConfig, ClientId, RateLimitError, RateLimitResult};
+use crate::infrastructure::cache::Cache;
 
 // ============================================================================
 // Global Rate Limit Configuration
@@ -32,8 +34,8 @@ pub struct GlobalRateLimitConfig {
 impl Default for GlobalRateLimitConfig {
     fn default() -> Self {
         Self {
-            requests_per_second: 10000,   // 10k/sec default
-            requests_per_minute: 500000,  // 500k/min default
+            requests_per_second: 10000,  // 10k/sec default
+            requests_per_minute: 500000, // 500k/min default
             enabled: true,
         }
     }
@@ -247,8 +249,10 @@ impl GlobalRateLimiter {
         if !allowed {
             warn!(
                 "Global rate limit exceeded: {}/{} per second, {}/{} per minute",
-                entry.second_count, self.config.requests_per_second,
-                entry.minute_count, self.config.requests_per_minute
+                entry.second_count,
+                self.config.requests_per_second,
+                entry.minute_count,
+                self.config.requests_per_minute
             );
         }
 
@@ -258,14 +262,16 @@ impl GlobalRateLimiter {
     /// Get current global rate limit statistics
     pub async fn get_stats(&self) -> Option<(u32, u32, u32, u32)> {
         self.cache.get(Self::CACHE_KEY).and_then(|data| {
-            serde_json::from_str::<GlobalRateLimitEntry>(&data).ok().map(|entry| {
-                (
-                    entry.second_count,
-                    self.config.requests_per_second,
-                    entry.minute_count,
-                    self.config.requests_per_minute,
-                )
-            })
+            serde_json::from_str::<GlobalRateLimitEntry>(&data)
+                .ok()
+                .map(|entry| {
+                    (
+                        entry.second_count,
+                        self.config.requests_per_second,
+                        entry.minute_count,
+                        self.config.requests_per_minute,
+                    )
+                })
         })
     }
 }
@@ -360,8 +366,12 @@ impl PlanRateLimiter {
         entry.last_updated = now;
 
         // Check limits
-        let allowed = config.requests_per_minute.is_none_or(|l| entry.minute_count <= l)
-            && config.requests_per_hour.is_none_or(|l| entry.hour_count <= l)
+        let allowed = config
+            .requests_per_minute
+            .is_none_or(|l| entry.minute_count <= l)
+            && config
+                .requests_per_hour
+                .is_none_or(|l| entry.hour_count <= l)
             && config.requests_per_day.is_none_or(|l| entry.day_count <= l);
 
         // Save updated entry
@@ -410,8 +420,8 @@ impl PlanRateLimiter {
 pub struct MultiLevelRateLimitResult {
     pub allowed: bool,
     pub blocked_at_level: Option<RateLimitLevel>,
-    pub global_remaining: Option<(u32, u32)>,  // (current, limit)
-    pub plan_remaining: Option<(u32, u32)>,    // (current, limit)
+    pub global_remaining: Option<(u32, u32)>, // (current, limit)
+    pub plan_remaining: Option<(u32, u32)>,   // (current, limit)
     pub api_key_remaining: Option<(u32, u32)>, // (current, limit)
     pub retry_after_seconds: Option<u64>,
 }
@@ -444,8 +454,6 @@ impl MultiLevelRateLimiter {
     /// Create a new multi-level rate limiter
     pub fn new(cache: Arc<dyn Cache>, _config: Arc<Config>) -> Self {
         let global_config = GlobalRateLimitConfig::from_env();
-        
-
 
         Self {
             global: GlobalRateLimiter::new(cache.clone(), global_config),
@@ -490,7 +498,7 @@ impl MultiLevelRateLimiter {
         if let (Some(uid), Some(limits)) = (user_id, plan_limits) {
             let plan_result = self.plan.check(uid, limits).await?;
             plan_remaining = Some((plan_result.current_count, plan_result.limit));
-            
+
             if !plan_result.allowed {
                 return Ok(MultiLevelRateLimitResult {
                     allowed: false,
@@ -508,7 +516,10 @@ impl MultiLevelRateLimiter {
         if let Some(key_id) = api_key_id {
             let config = api_key_config.cloned().unwrap_or_default();
             let client_id = ClientId::ApiKey(key_id.to_string());
-            let key_result = self.api_key.check_client_rate_limit(&client_id, endpoint, method, &config).await?;
+            let key_result = self
+                .api_key
+                .check_client_rate_limit(&client_id, endpoint, method, &config)
+                .await?;
             api_key_remaining = Some((key_result.current_count, key_result.limit));
 
             if !key_result.allowed {
@@ -545,14 +556,8 @@ impl MultiLevelRateLimiter {
         user_id: &str,
         plan_limits: &PlanRateLimits,
     ) -> Result<MultiLevelRateLimitResult, RateLimitError> {
-        self.check(
-            Some(user_id),
-            Some(plan_limits),
-            None,
-            None,
-            "*",
-            "*",
-        ).await
+        self.check(Some(user_id), Some(plan_limits), None, None, "*", "*")
+            .await
     }
 
     /// Check all levels for API key requests
@@ -572,7 +577,8 @@ impl MultiLevelRateLimiter {
             Some(api_key_config),
             endpoint,
             method,
-        ).await
+        )
+        .await
     }
 
     /// Get global rate limit statistics
@@ -638,7 +644,7 @@ mod tests {
         let limiter = MultiLevelRateLimiter::new(cache, config);
 
         let plan_limits = PlanRateLimits::free();
-        
+
         // Check user rate limit
         let result = limiter.check_user("user456", &plan_limits).await.unwrap();
         assert!(result.allowed);

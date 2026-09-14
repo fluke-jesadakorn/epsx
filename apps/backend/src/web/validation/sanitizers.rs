@@ -17,7 +17,9 @@ pub fn sanitize_string(input: &str) -> String {
 /// Sanitize HTML input more aggressively
 pub fn sanitize_html(input: &str) -> String {
     // Remove all HTML tags and sanitize special characters
-    let no_tags = regex::Regex::new(r"<[^>]*>").unwrap().replace_all(input, "");
+    let no_tags = regex::Regex::new(r"<[^>]*>")
+        .unwrap()
+        .replace_all(input, "");
     sanitize_string(&no_tags)
 }
 

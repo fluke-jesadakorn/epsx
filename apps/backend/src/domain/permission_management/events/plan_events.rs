@@ -1,5 +1,5 @@
-use crate::prelude::*;
 use crate::domain::shared_kernel::{DomainEvent, EventMetadata};
+use crate::prelude::*;
 use uuid::Uuid;
 
 /// Event emitted when a plan is created
@@ -35,16 +35,30 @@ impl PlanCreatedEvent {
 }
 
 impl DomainEvent for PlanCreatedEvent {
-    fn event_id(&self) -> Uuid { self.metadata.event_id }
-    fn event_type(&self) -> &'static str { "PlanCreated" }
-    fn aggregate_type(&self) -> &'static str { "Plan" }
-    fn occurred_at(&self) -> DateTime<Utc> { self.metadata.occurred_at }
-    fn aggregate_version(&self) -> u64 { self.metadata.aggregate_version }
-    fn aggregate_id(&self) -> String { self.metadata.aggregate_id.clone() }
+    fn event_id(&self) -> Uuid {
+        self.metadata.event_id
+    }
+    fn event_type(&self) -> &'static str {
+        "PlanCreated"
+    }
+    fn aggregate_type(&self) -> &'static str {
+        "Plan"
+    }
+    fn occurred_at(&self) -> DateTime<Utc> {
+        self.metadata.occurred_at
+    }
+    fn aggregate_version(&self) -> u64 {
+        self.metadata.aggregate_version
+    }
+    fn aggregate_id(&self) -> String {
+        self.metadata.aggregate_id.clone()
+    }
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)
     }
-    fn as_any(&self) -> &dyn std::any::Any { self }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 /// Event emitted when a plan is updated
@@ -56,7 +70,12 @@ pub struct PlanUpdatedEvent {
 }
 
 impl PlanUpdatedEvent {
-    pub fn new(aggregate_id: String, aggregate_version: u64, plan_id: String, updated_at: DateTime<Utc>) -> Self {
+    pub fn new(
+        aggregate_id: String,
+        aggregate_version: u64,
+        plan_id: String,
+        updated_at: DateTime<Utc>,
+    ) -> Self {
         Self {
             metadata: EventMetadata::new(aggregate_id, aggregate_version),
             plan_id,
@@ -66,16 +85,30 @@ impl PlanUpdatedEvent {
 }
 
 impl DomainEvent for PlanUpdatedEvent {
-    fn event_id(&self) -> Uuid { self.metadata.event_id }
-    fn event_type(&self) -> &'static str { "PlanUpdated" }
-    fn aggregate_type(&self) -> &'static str { "Plan" }
-    fn occurred_at(&self) -> DateTime<Utc> { self.metadata.occurred_at }
-    fn aggregate_version(&self) -> u64 { self.metadata.aggregate_version }
-    fn aggregate_id(&self) -> String { self.metadata.aggregate_id.clone() }
+    fn event_id(&self) -> Uuid {
+        self.metadata.event_id
+    }
+    fn event_type(&self) -> &'static str {
+        "PlanUpdated"
+    }
+    fn aggregate_type(&self) -> &'static str {
+        "Plan"
+    }
+    fn occurred_at(&self) -> DateTime<Utc> {
+        self.metadata.occurred_at
+    }
+    fn aggregate_version(&self) -> u64 {
+        self.metadata.aggregate_version
+    }
+    fn aggregate_id(&self) -> String {
+        self.metadata.aggregate_id.clone()
+    }
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)
     }
-    fn as_any(&self) -> &dyn std::any::Any { self }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 /// Event emitted when a plan is deleted
@@ -87,7 +120,12 @@ pub struct PlanDeletedEvent {
 }
 
 impl PlanDeletedEvent {
-    pub fn new(aggregate_id: String, aggregate_version: u64, plan_id: String, deleted_at: DateTime<Utc>) -> Self {
+    pub fn new(
+        aggregate_id: String,
+        aggregate_version: u64,
+        plan_id: String,
+        deleted_at: DateTime<Utc>,
+    ) -> Self {
         Self {
             metadata: EventMetadata::new(aggregate_id, aggregate_version),
             plan_id,
@@ -97,16 +135,30 @@ impl PlanDeletedEvent {
 }
 
 impl DomainEvent for PlanDeletedEvent {
-    fn event_id(&self) -> Uuid { self.metadata.event_id }
-    fn event_type(&self) -> &'static str { "PlanDeleted" }
-    fn aggregate_type(&self) -> &'static str { "Plan" }
-    fn occurred_at(&self) -> DateTime<Utc> { self.metadata.occurred_at }
-    fn aggregate_version(&self) -> u64 { self.metadata.aggregate_version }
-    fn aggregate_id(&self) -> String { self.metadata.aggregate_id.clone() }
+    fn event_id(&self) -> Uuid {
+        self.metadata.event_id
+    }
+    fn event_type(&self) -> &'static str {
+        "PlanDeleted"
+    }
+    fn aggregate_type(&self) -> &'static str {
+        "Plan"
+    }
+    fn occurred_at(&self) -> DateTime<Utc> {
+        self.metadata.occurred_at
+    }
+    fn aggregate_version(&self) -> u64 {
+        self.metadata.aggregate_version
+    }
+    fn aggregate_id(&self) -> String {
+        self.metadata.aggregate_id.clone()
+    }
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)
     }
-    fn as_any(&self) -> &dyn std::any::Any { self }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 /// Event emitted when a wallet is assigned to a plan
@@ -136,16 +188,30 @@ impl WalletAssignedToPlanEvent {
 }
 
 impl DomainEvent for WalletAssignedToPlanEvent {
-    fn event_id(&self) -> Uuid { self.metadata.event_id }
-    fn event_type(&self) -> &'static str { "WalletAssignedToPlan" }
-    fn aggregate_type(&self) -> &'static str { "Plan" }
-    fn occurred_at(&self) -> DateTime<Utc> { self.metadata.occurred_at }
-    fn aggregate_version(&self) -> u64 { self.metadata.aggregate_version }
-    fn aggregate_id(&self) -> String { self.metadata.aggregate_id.clone() }
+    fn event_id(&self) -> Uuid {
+        self.metadata.event_id
+    }
+    fn event_type(&self) -> &'static str {
+        "WalletAssignedToPlan"
+    }
+    fn aggregate_type(&self) -> &'static str {
+        "Plan"
+    }
+    fn occurred_at(&self) -> DateTime<Utc> {
+        self.metadata.occurred_at
+    }
+    fn aggregate_version(&self) -> u64 {
+        self.metadata.aggregate_version
+    }
+    fn aggregate_id(&self) -> String {
+        self.metadata.aggregate_id.clone()
+    }
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)
     }
-    fn as_any(&self) -> &dyn std::any::Any { self }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 /// Event emitted when a wallet is removed from a plan
@@ -175,16 +241,30 @@ impl WalletRemovedFromPlanEvent {
 }
 
 impl DomainEvent for WalletRemovedFromPlanEvent {
-    fn event_id(&self) -> Uuid { self.metadata.event_id }
-    fn event_type(&self) -> &'static str { "WalletRemovedFromPlan" }
-    fn aggregate_type(&self) -> &'static str { "Plan" }
-    fn occurred_at(&self) -> DateTime<Utc> { self.metadata.occurred_at }
-    fn aggregate_version(&self) -> u64 { self.metadata.aggregate_version }
-    fn aggregate_id(&self) -> String { self.metadata.aggregate_id.clone() }
+    fn event_id(&self) -> Uuid {
+        self.metadata.event_id
+    }
+    fn event_type(&self) -> &'static str {
+        "WalletRemovedFromPlan"
+    }
+    fn aggregate_type(&self) -> &'static str {
+        "Plan"
+    }
+    fn occurred_at(&self) -> DateTime<Utc> {
+        self.metadata.occurred_at
+    }
+    fn aggregate_version(&self) -> u64 {
+        self.metadata.aggregate_version
+    }
+    fn aggregate_id(&self) -> String {
+        self.metadata.aggregate_id.clone()
+    }
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)
     }
-    fn as_any(&self) -> &dyn std::any::Any { self }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 // Type aliases for backward compatibility during migration

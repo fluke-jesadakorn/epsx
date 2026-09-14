@@ -1,0 +1,139 @@
+{
+  "personal": [
+    {
+      "id": "1day",
+      "category": "personal",
+      "title": "1 Day Package",
+      "price": "$1",
+      "price_usd": 1.0,
+      "original_price": "$5",
+      "original_usd": 5.0,
+      "discount_pct": 80,
+      "savings": "Save $4",
+      "badge": "SALE",
+      "countdown_hours": 24,
+      "sale_active": true,
+      "features": [
+        "Basic analytics view",
+        "Rankings from position 6+",
+        "Basic trading features",
+        "24-hour access",
+        "Explore the platform"
+      ]
+    },
+    {
+      "id": "1month",
+      "category": "personal",
+      "title": "1 Month Package",
+      "price": "$9.9",
+      "price_usd": 9.9,
+      "original_price": "$99",
+      "original_usd": 99.0,
+      "discount_pct": 90,
+      "savings": "Save $89.1",
+      "badge": "SALE",
+      "countdown_hours": 168,
+      "sale_active": true,
+      "features": [
+        "Advanced analytics view",
+        "25 stock rankings",
+        "Basic analytic features",
+        "Price alerts",
+        "Email support",
+        "30-day access"
+      ]
+    },
+    {
+      "id": "lifetime",
+      "category": "personal",
+      "title": "Lifetime Package",
+      "price": "$4999",
+      "price_usd": 4999.0,
+      "original_price": "$9999",
+      "original_usd": 9999.0,
+      "discount_pct": 50,
+      "savings": "Save $5000",
+      "badge": "SALE",
+      "countdown_hours": 720,
+      "sale_active": true,
+      "features": [
+        "Advanced analytics suite",
+        "Full rankings access (Rank 1+)",
+        "API read access",
+        "Basic & Pro trading",
+        "Priority support",
+        "Lifetime access"
+      ]
+    }
+  ],
+  "api": [
+    {
+      "id": "api-personal",
+      "category": "api",
+      "title": "API Personal",
+      "price": "$999",
+      "price_usd": 999.0,
+      "original_price": "$3999",
+      "original_usd": 3999.0,
+      "discount_pct": 75,
+      "savings": "Save $3000",
+      "badge": "SALE",
+      "countdown_hours": 360,
+      "sale_active": true,
+      "features": [
+        "Analytics view access",
+        "API read access",
+        "Data export capability",
+        "Full developer documentation",
+        "30-day access"
+      ]
+    },
+    {
+      "id": "api-company",
+      "category": "api",
+      "title": "API Company",
+      "price": "$2999",
+      "price_usd": 2999.0,
+      "original_price": "$6999",
+      "original_usd": 6999.0,
+      "discount_pct": 57,
+      "savings": "Save $4000",
+      "badge": "SALE",
+      "countdown_hours": 360,
+      "sale_active": true,
+      "features": [
+        "Advanced analytics suite",
+        "Full trading suite (Basic, Pro & Advanced)",
+        "API read & write access",
+        "Data export",
+        "Notifications management",
+        "365-day company access",
+        "Dedicated support"
+      ]
+    }
+  ],
+  "custom": [
+    {
+      "id": "revenue-share",
+      "category": "custom",
+      "title": "Custom",
+      "price": "Revenue Share",
+      "price_usd": 0.0,
+      "original_price": "",
+      "original_usd": 0.0,
+      "discount_pct": 0,
+      "savings": "Volume-based",
+      "badge": "",
+      "countdown_hours": 0,
+      "sale_active": false,
+      "features": [
+        "Custom feature set & permissions",
+        "Dedicated support & SLA",
+        "Volume-based pricing",
+        "Custom API rate limits",
+        "White-label options",
+        "Priority onboarding"
+      ]
+    }
+  ]
+}

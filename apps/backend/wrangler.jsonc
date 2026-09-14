@@ -1,0 +1,81 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "epsx-backend",
+  "compatibility_date": "2024-09-23",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "main": "src/worker.js",
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "ENV": "local",
+    "R2_PUBLIC_URL": "http://localhost:8788/assets",
+    "JWT_SECRET": "local-dev-jwt-secret-do-not-use-in-prod"
+  },
+  "r2_buckets": [
+    {
+      "binding": "R2_ASSETS",
+      "bucket_name": "epsx-assets-local",
+      "preview_bucket_name": "epsx-assets-local"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "SESSION",
+      "id": "local-session-kv",
+      "preview_id": "local-session-kv"
+    },
+    {
+      "binding": "CACHE",
+      "id": "local-cache-kv",
+      "preview_id": "local-cache-kv"
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "ANALYTICS_D1",
+      "database_name": "epsx-analytics-local",
+      "database_id": "local-analytics-d1",
+      "preview_database_id": "local-analytics-d1"
+    },
+    {
+      "binding": "NOTIFICATIONS_D1",
+      "database_name": "epsx-notifications-local",
+      "database_id": "local-notifications-d1",
+      "preview_database_id": "local-notifications-d1"
+    },
+    {
+      "binding": "PAYMENTS_D1",
+      "database_name": "epsx-payments-local",
+      "database_id": "local-payments-d1",
+      "preview_database_id": "local-payments-d1"
+    }
+  ],
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE_CORE",
+      "id": "local-hyperdrive-core",
+      "localConnectionString": "postgresql://epsx_user:epsx@localhost:5432/epsx_prod?sslmode=disable"
+    }
+  ],
+  "queues": {
+    "producers": [
+      {
+        "binding": "NOTIFICATION_QUEUE",
+        "queue": "epsx-notifications-local"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "epsx-notifications-local",
+        "max_batch_size": 10,
+        "max_batch_timeout": 5
+      }
+    ]
+  },
+  "dev": {
+    "port": 8788
+  }
+}

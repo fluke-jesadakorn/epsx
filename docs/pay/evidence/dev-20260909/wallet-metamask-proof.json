@@ -1,0 +1,16 @@
+{
+  "order_id": "0baefa8e-ba50-4f91-aa32-a2c0116b8a42",
+  "payment_id": "pi_172294f9d6b24375a340166770f9c539",
+  "token": "USDT",
+  "amount": "5",
+  "chain_id": 31337,
+  "transaction_hash": "0x6188f884dd7f338a36df1041e4ab56c14b9981c98a9511e36be99e2f5c943335",
+  "payment_status": "succeeded",
+  "fulfillment_status": "granted",
+  "transport": "Browser MetaMask; user confirmed the wallet popup",
+  "admin_verified": true,
+  "webhook_status": "delivered",
+  "webhook_http_status": 200,
+  "webhook_attempts": 1,
+  "service_restart_preserved": true
+}

@@ -1,6 +1,6 @@
-use crate::prelude::*;
-use crate::domain::permission_management::{PermissionPlan, PlanId, entities::PlanAssignment};
+use crate::domain::permission_management::{entities::PlanAssignment, PermissionPlan, PlanId};
 use crate::domain::wallet_management::WalletAddress;
+use crate::prelude::*;
 
 /// Domain service for plan assignment logic
 pub struct PlanAssignmentService;
@@ -14,16 +14,17 @@ impl PlanAssignmentService {
         // Check if plan is active
         if !plan.is_active() {
             return Err(AppError::validation_error(
-                "Cannot assign wallet to inactive plan"
+                "Cannot assign wallet to inactive plan",
             ));
         }
 
         // Check member limit
         if let Some(max_members) = plan.max_members() {
             if current_member_count >= max_members as i64 {
-                return Err(AppError::validation_error(
-                    format!("Plan has reached maximum member limit of {}", max_members)
-                ));
+                return Err(AppError::validation_error(format!(
+                    "Plan has reached maximum member limit of {}",
+                    max_members
+                )));
             }
         }
 

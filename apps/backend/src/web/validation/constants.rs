@@ -3,10 +3,12 @@
 /// Common validation patterns
 pub mod patterns {
     pub const EMAIL_REGEX: &str = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$";
-    pub const PASSWORD_REGEX: &str = r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$";
+    pub const PASSWORD_REGEX: &str =
+        r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$";
     pub const PHONE_REGEX: &str = r"^\+?[1-9]\d{1,14}$";
     pub const URL_REGEX: &str = r"^https?://[^\s/$.?#].[^\s]*$";
-    pub const UUID_REGEX: &str = r"^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$";
+    pub const UUID_REGEX: &str =
+        r"^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$";
     pub const ALPHANUMERIC_REGEX: &str = r"^[a-zA-Z0-9]+$";
     pub const SLUG_REGEX: &str = r"^[a-z0-9-]+$";
     pub const SAFE_TEXT_REGEX: &str = r"^[a-zA-Z0-9\s\-_.,!?()]+$";

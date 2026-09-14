@@ -1,0 +1,53 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "epsx-pay-bff",
+  "compatibility_date": "2024-09-23",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "main": "src/worker.js",
+  "assets": {
+    "directory": "dist",
+    "not_found_handling": "single-page-application"
+  },
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "ENV": "local",
+    "API_URL": "http://localhost:8788",
+    "R2_PUBLIC_URL": "http://localhost:8790/assets"
+  },
+  "r2_buckets": [
+    {
+      "binding": "ASSETS",
+      "bucket_name": "epsx-pay-assets-local",
+      "preview_bucket_name": "epsx-pay-assets-local"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "SESSION",
+      "id": "local-session-kv",
+      "preview_id": "local-session-kv"
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "PAYMENTS_D1",
+      "database_name": "epsx-payments-local",
+      "database_id": "local-payments-d1",
+      "preview_database_id": "local-payments-d1"
+    }
+  ],
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE_CORE",
+      "id": "local-hyperdrive-core",
+      "localConnectionString": "postgresql://epsx_user:epsx@localhost:5432/epsx_payments_prod?sslmode=disable"
+    }
+  ],
+  "dev": {
+    "port": 8790
+  }
+}

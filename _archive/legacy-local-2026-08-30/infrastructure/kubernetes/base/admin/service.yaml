@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: epsx-admin
+spec:
+  selector:
+    app: epsx-admin
+  ports:
+    # wave11(k8s-frontend-migration): the Rust admin BFF
+    # binds on 3001, not 3000. Service + NodePort both
+    # follow.
+    - name: http
+      port: 3001
+      targetPort: 3001

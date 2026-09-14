@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "contractId": "A11.5",
+  "productionReady": false,
+  "owner": "verified wallet principal",
+  "routes": {
+    "stream": {
+      "method": "GET",
+      "servicePath": "/api/v1/notification/stream",
+      "bffPath": "/api/v1/notifications/stream",
+      "cursor": "Last-Event-ID or persisted owner replay cursor",
+      "status": ["200 text/event-stream", "400 invalid cursor", "410 cursor expired", "429 capacity", "503 dependency"]
+    },
+    "acknowledge": {
+      "method": "POST",
+      "servicePath": "/api/v1/notification/stream/ack",
+      "body": {"event_id": "bounded opaque source event id"},
+      "status": ["200 accepted", "400 invalid", "404 foreign event", "503 dependency"]
+    },
+    "push": {
+      "status": "GET /api/v1/notification/push",
+      "subscribe": "PUT /api/v1/notification/push",
+      "unsubscribe": "DELETE /api/v1/notification/push",
+      "keyRotation": "subscriptions persist a bounded vapid_key_id; active and optional previous server-configured VAPID pairs allow queued deliveries to survive rotation, while revoked endpoints are never active"
+    }
+  },
+  "limits": {
+    "maxConnections": 256,
+    "pollIntervalSeconds": 1,
+    "replayBatch": 100,
+    "endpointBytes": 2048
+  },
+  "deferredProof": [
+    "multi-instance Redis fanout and loss recovery",
+    "browser permission and live provider delivery",
+    "quiet-hour enforcement before job creation",
+    "runtime database and reconnect integration"
+  ]
+}

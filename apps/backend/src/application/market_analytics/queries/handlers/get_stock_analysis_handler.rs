@@ -1,9 +1,9 @@
-use crate::prelude::*;
-use crate::application::shared::{QueryHandler, ApplicationResult, ApplicationError};
 use crate::application::market_analytics::queries::{
-    GetStockAnalysisQuery, GetStockAnalysisResponse, RankingSummary
+    GetStockAnalysisQuery, GetStockAnalysisResponse, RankingSummary,
 };
+use crate::application::shared::{ApplicationError, ApplicationResult, QueryHandler};
 use crate::domain::market_analytics::{StockAnalysisRepositoryPort, StockSymbol};
+use crate::prelude::*;
 
 /// Query handler for getting a single stock analysis
 pub struct GetStockAnalysisQueryHandler {
@@ -20,18 +20,25 @@ impl GetStockAnalysisQueryHandler {
 
 #[async_trait]
 impl QueryHandler<GetStockAnalysisQuery> for GetStockAnalysisQueryHandler {
-    async fn handle(&self, query: GetStockAnalysisQuery) -> ApplicationResult<GetStockAnalysisResponse> {
+    async fn handle(
+        &self,
+        query: GetStockAnalysisQuery,
+    ) -> ApplicationResult<GetStockAnalysisResponse> {
         // 1. Validate symbol
         let symbol = StockSymbol::new(query.symbol.clone())
             .map_err(|e| ApplicationError::validation("symbol", e.to_string()))?;
 
         // 2. Find stock analysis
-        let stock_analysis = self.stock_analysis_repository.find_by_symbol(&symbol).await
+        let stock_analysis = self
+            .stock_analysis_repository
+            .find_by_symbol(&symbol)
+            .await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?
             .ok_or_else(|| ApplicationError::not_found("symbol", "Stock analysis not found"))?;
 
         // 3. Map rankings to summary
-        let rankings: Vec<RankingSummary> = stock_analysis.rankings()
+        let rankings: Vec<RankingSummary> = stock_analysis
+            .rankings()
             .iter()
             .map(|(category, ranking)| RankingSummary {
                 ranking_id: format!("{:?}", category),
@@ -52,7 +59,10 @@ impl QueryHandler<GetStockAnalysisQuery> for GetStockAnalysisQueryHandler {
             sector: stock_analysis.sector().name().to_string(),
             country: stock_analysis.country().name().to_string(),
             analysis_score: stock_analysis.analysis_score().overall_score,
-            investment_recommendation: stock_analysis.investment_recommendation().as_str().to_string(),
+            investment_recommendation: stock_analysis
+                .investment_recommendation()
+                .as_str()
+                .to_string(),
             rankings,
             last_updated: stock_analysis.last_updated(),
         })

@@ -1,27 +1,29 @@
 // Core EPS Rankings Business Logic
 // Focused module handling EPS rankings endpoint and business logic
-// Uses UnifiedPermissionService for permission checking
+// Uses WalletRankingOffsetQuery port (wave10 R6 migration).
 
 use axum::{
-    extract::{Query, Extension},
+    extract::{Extension, Query},
     response::Json,
 };
 use std::sync::Arc;
 use tracing::{debug, info, warn};
 
-use crate::core::errors::AppError;
-use crate::domain::shared_kernel::services::eps_ranking_service::{EPSRankingService, EPSRankingParams};
-use crate::auth::UnifiedPermissionService;
+use super::{enhancement::enhance_with_websocket_data, types::*};
+use crate::domain::market_analytics::services::eps_ranking_service::{
+    EPSRankingParams, EPSRankingService,
+};
 use crate::web::pagination::Pagination;
-use super::{types::*, enhancement::enhance_with_websocket_data};
+use epsx_contracts::errors::AppError;
+use epsx_contracts::wallet_ranking_offset_query::WalletRankingOffsetQuery;
 
 /// GET /api/analytics/eps-rankings
 /// Returns top EPS growth stocks with filtering and pagination
 pub async fn get_eps_rankings(
-    wallet_ext: Option<Extension<String>>,  // Wallet from Bearer token (injected by auth middleware)
+    wallet_ext: Option<Extension<String>>, // Wallet from Bearer token (injected by auth middleware)
     Query(params): Query<EPSRankingQueryParams>,
     Extension(service): Extension<Arc<EPSRankingService>>,
-    Extension(permission_service): Extension<Arc<UnifiedPermissionService>>,
+    Extension(permission_service): Extension<Arc<dyn WalletRankingOffsetQuery>>,
 ) -> Result<Json<EPSRankingsApiResponse>, AppError> {
     debug!("EPS Rankings API called with params: {:?}", params);
 
@@ -32,11 +34,13 @@ pub async fn get_eps_rankings(
     let (rank_offset, limit_cap) = if let Some(ref wallet) = wallet_address {
         calculate_ranking_config_from_permissions(&permission_service, wallet).await
     } else {
-        (crate::core::constants::FREE_PLAN_RANKING_OFFSET, -1) // Default free tier offset and limit for anonymous users
+        (epsx_contracts::constants::FREE_PLAN_RANKING_OFFSET, -1) // Default free tier offset and limit for anonymous users
     };
 
-    debug!("Calculated ranking config: offset={}, limit={} for wallet: {:?}",
-           rank_offset, limit_cap, wallet_address);
+    debug!(
+        "Calculated ranking config: offset={}, limit={} for wallet: {:?}",
+        rank_offset, limit_cap, wallet_address
+    );
 
     // Pagination with default 50, max 100 (params.page and params.limit are Option<i32>)
     let pg = Pagination::from_signed(params.page, params.limit, 50, 100);
@@ -46,12 +50,12 @@ pub async fn get_eps_rankings(
         country: params.country.clone(),
         sector: params.sector.clone(),
         sort_by: params.sort_by.clone().or(Some("growth_factor".to_string())),
-        page: pg.page as i32, // FIXED: Add missing page parameter
-        limit: pg.limit as i32, // FIXED: Use correct i32 type
-        min_eps: params.min_eps, // FIXED: Use correct field name (not market_cap_min)
+        page: pg.page as i32,          // FIXED: Add missing page parameter
+        limit: pg.limit as i32,        // FIXED: Use correct i32 type
+        min_eps: params.min_eps,       // FIXED: Use correct field name (not market_cap_min)
         min_growth: params.min_growth, // FIXED: Add missing min_growth parameter
-        rank_offset, // SECURITY: Enforced from user permissions
-        limit_cap,   // SECURITY: Enforced from user permissions
+        rank_offset,                   // SECURITY: Enforced from user permissions
+        limit_cap,                     // SECURITY: Enforced from user permissions
     };
 
     debug!("Converted to service params: {:?}", service_params);
@@ -59,49 +63,61 @@ pub async fn get_eps_rankings(
     // Note: Additional parameter validation could be added in EPSRankingService if needed
 
     // Log request details for debugging
-    info!("Processing EPS rankings request - Country: {:?}, Sort: {:?}, Page: {}, Limit: {}", 
-          service_params.country, service_params.sort_by, service_params.page, service_params.limit);
+    info!(
+        "Processing EPS rankings request - Country: {:?}, Sort: {:?}, Page: {}, Limit: {}",
+        service_params.country, service_params.sort_by, service_params.page, service_params.limit
+    );
 
     // Get rankings from service with enhanced WebSocket data when available
     let start_time = std::time::Instant::now();
-    let mut result = service.get_eps_rankings(service_params).await.map_err(|e| AppError {
-        kind: crate::core::errors::ErrorKind::InternalError,
-        message: format!("Failed to get EPS rankings: {}", e),
-        context: Box::new(crate::core::errors::ErrorContext::default()),
-        correlation_id: uuid::Uuid::new_v4().to_string(),
-        timestamp: chrono::Utc::now(),
-        stack_trace: None,
-    })?;
+    let mut result = service
+        .get_eps_rankings(service_params)
+        .await
+        .map_err(|e| AppError {
+            kind: epsx_contracts::errors::ErrorKind::InternalError,
+            message: format!("Failed to get EPS rankings: {}", e),
+            context: Box::new(epsx_contracts::errors::ErrorContext::default()),
+            correlation_id: uuid::Uuid::new_v4().to_string(),
+            timestamp: chrono::Utc::now(),
+            stack_trace: None,
+        })?;
     let duration = start_time.elapsed();
-    
+
     // TEMPORARILY DISABLED: WebSocket enhancement causes 50+ second response times
     // The TradingView data is already real (not hardcoded), so WebSocket enhancement is optional
     #[allow(clippy::overly_complex_bool_expr)]
     if false && result.rankings.len() <= 20 && !result.rankings.is_empty() {
-        debug!("Enhancing {} rankings with WebSocket EPS data", result.rankings.len());
-        
+        debug!(
+            "Enhancing {} rankings with WebSocket EPS data",
+            result.rankings.len()
+        );
+
         // Extract symbols for WebSocket enhancement
-        let symbols: Vec<String> = result.rankings.iter()
-            .map(|r| r.symbol.clone())
-            .collect();
-        
+        let symbols: Vec<String> = result.rankings.iter().map(|r| r.symbol.clone()).collect();
+
         // Try to enhance with WebSocket data
         match enhance_with_websocket_data(&symbols, &mut result.rankings).await {
             Ok(enhanced_count) => {
                 info!("Enhanced {} rankings with WebSocket data", enhanced_count);
             }
             Err(e) => {
-                warn!("Failed to enhance with WebSocket data: {}, using screener data", e);
+                warn!(
+                    "Failed to enhance with WebSocket data: {}, using screener data",
+                    e
+                );
             }
         }
     }
-    
+
     info!("Using fast TradingView API data (WebSocket enhancement disabled for performance)");
 
     // Log performance metrics
     debug!("EPS rankings query completed in {:?}", duration);
-    info!("Returning {} EPS rankings (total: {})",
-          result.rankings.len(), result.pagination.total);
+    info!(
+        "Returning {} EPS rankings (total: {})",
+        result.rankings.len(),
+        result.pagination.total
+    );
 
     // Convert to API response format
     let total = result.pagination.total;
@@ -118,8 +134,9 @@ pub async fn get_eps_rankings(
             has_prev: pg.has_prev(),
         },
         access_info: super::types::AccessInfo {
-            min_accessible_rank: rank_offset,
-            locked_ranks_count: rank_offset.max(1) - 1,  // Ranks 1 to (offset-1) are locked
+            min_accessible_rank: rank_offset.max(0).saturating_add(1),
+            locked_ranks_count: rank_offset.max(0),
+            max_accessible_rank: None,
         },
     };
 
@@ -129,10 +146,10 @@ pub async fn get_eps_rankings(
 /// Convert StockScreeningResult to legacy EPSRanking format
 /// This function bridges legacy market data entities to the expected EPSRanking structure
 pub fn convert_screening_result_to_eps_ranking(
-    result: crate::domain::shared_kernel::entities::market_data::StockScreeningResult
+    result: crate::domain::shared_kernel::entities::market_data::StockScreeningResult,
 ) -> crate::domain::shared_kernel::entities::eps_growth::EPSRanking {
     use crate::domain::shared_kernel::entities::eps_growth::EPSRanking;
-    
+
     // Use real EPS data from TradingView instead of calculating from price/PE
     let current_eps = result.current_eps.or_else(|| {
         // Fallback: calculate from price/PE if real EPS not available
@@ -149,10 +166,10 @@ pub fn convert_screening_result_to_eps_ranking(
     let market_cap = result.market_cap;
     let _volume = Some(result.volume as i64);
     let ranking_position = Some(1); // Default ranking position
-    
+
     // Calculate price from available metrics (if available)
     let price_current = Some(result.price); // Use actual price field
-    
+
     EPSRanking::from_eps_data(
         crate::domain::shared_kernel::entities::eps_growth::EPSGrowthData {
             symbol: result.symbol,
@@ -179,10 +196,9 @@ pub fn convert_screening_result_to_eps_ranking(
                     .unwrap_or_default()
             }),
         },
-        ranking_position
+        ranking_position,
     )
 }
-
 
 /// Dynamic EPS validation for ranking updates - no hardcoded country/stock limits
 pub fn is_valid_eps_for_ranking(eps: f64) -> bool {
@@ -192,7 +208,7 @@ pub fn is_valid_eps_for_ranking(eps: f64) -> bool {
     }
 
     // Allow very wide range to handle all markets and currencies
-    // US stocks: 0.01 to 50+ USD per share  
+    // US stocks: 0.01 to 50+ USD per share
     // International stocks: much higher (Taiwan stocks in TWD, Japanese stocks in JPY)
     // Accept any reasonable positive value up to 50,000 to handle all currencies and markets
     if eps > 50000.0 {
@@ -211,21 +227,33 @@ pub fn is_valid_eps_for_ranking(eps: f64) -> bool {
 }
 
 /// Calculate rank offset and limit based on user's plan metadata.
-/// Uses get_wallet_ranking_offset which reads from plan_metadata directly.
+/// Uses the `WalletRankingOffsetQuery` port (wave10 R6 migration).
 async fn calculate_ranking_config_from_permissions(
-    permission_service: &Arc<UnifiedPermissionService>,
+    permission_service: &Arc<dyn WalletRankingOffsetQuery>,
     wallet_address: &str,
 ) -> (i32, i32) {
     // Get offset directly from plan metadata (not permission strings)
-    match permission_service.get_wallet_ranking_offset(wallet_address).await {
+    match permission_service
+        .get_wallet_ranking_offset(wallet_address)
+        .await
+    {
         Ok(offset) => {
-            info!("Wallet {} has ranking offset: {} (from plan metadata)", wallet_address, offset);
+            info!(
+                "Wallet {} has ranking offset: {} (from plan metadata)",
+                wallet_address,
+                offset.value()
+            );
             // limit_cap is -1 (unlimited) since we're using offset-based access
-            (offset, -1)
-        },
+            (offset.value(), -1)
+        }
         Err(e) => {
-            warn!("Failed to get ranking offset for {}: {}, using {} default", wallet_address, e, crate::core::constants::FREE_PLAN_NAME);
-            (crate::core::constants::FREE_PLAN_RANKING_OFFSET, -1) // Free Plan default
+            warn!(
+                "Failed to get ranking offset for {}: {}, using {} default",
+                wallet_address,
+                e,
+                epsx_contracts::constants::FREE_PLAN_NAME
+            );
+            (epsx_contracts::constants::FREE_PLAN_RANKING_OFFSET, -1) // Free Plan default
         }
     }
 }
@@ -255,8 +283,8 @@ mod tests {
             limit: params.limit.unwrap_or(50),
             min_eps: params.min_eps,
             min_growth: params.min_growth,
-            rank_offset: 0,  // No rank restriction for test
-            limit_cap: 100,  // Default limit cap for test
+            rank_offset: 0, // No rank restriction for test
+            limit_cap: 100, // Default limit cap for test
         };
 
         assert_eq!(service_params.page, 1);
@@ -273,5 +301,83 @@ mod tests {
         assert!(!is_valid_eps_for_ranking(-1.0));
         assert!(!is_valid_eps_for_ranking(f64::NAN));
         assert!(!is_valid_eps_for_ranking(f64::INFINITY));
+    }
+
+    /// wave11(track-c): unit test that exercises the
+    /// `WalletRankingOffsetQuery` port call path. The handler
+    /// extracts `(rank_offset, limit_cap)` from the port's
+    /// response. A mock port that returns a custom offset
+    /// verifies the call goes through the port (not a concrete
+    /// `UnifiedPermissionService`).
+    #[tokio::test]
+    async fn test_calculate_ranking_config_from_permissions_uses_port() {
+        use std::sync::atomic::{AtomicU32, Ordering};
+        use std::sync::Arc;
+
+        struct MockPort {
+            offset: i32,
+            call_count: Arc<AtomicU32>,
+        }
+
+        #[async_trait::async_trait]
+        impl epsx_contracts::wallet_ranking_offset_query::WalletRankingOffsetQuery for MockPort {
+            async fn get_wallet_ranking_offset(
+                &self,
+                _wallet_address: &str,
+            ) -> Result<epsx_contracts::value_objects::ranking_offset::RankingOffset, AppError>
+            {
+                self.call_count.fetch_add(1, Ordering::SeqCst);
+                Ok(epsx_contracts::value_objects::ranking_offset::RankingOffset::from(self.offset))
+            }
+        }
+
+        let mock = Arc::new(MockPort {
+            offset: 250,
+            call_count: Arc::new(AtomicU32::new(0)),
+        });
+
+        let (rank_offset, limit_cap) = calculate_ranking_config_from_permissions(
+            &(mock.clone() as Arc<dyn WalletRankingOffsetQuery>),
+            "0xtest",
+        )
+        .await;
+
+        assert_eq!(
+            rank_offset, 250,
+            "port offset should flow through unchanged"
+        );
+        assert_eq!(
+            limit_cap, -1,
+            "limit_cap is -1 (unlimited) for offset-based access"
+        );
+        assert_eq!(
+            mock.call_count.load(Ordering::SeqCst),
+            1,
+            "port method called exactly once"
+        );
+
+        // Test the free-plan fallback path (port returns Err).
+        struct ErrPort;
+        #[async_trait::async_trait]
+        impl epsx_contracts::wallet_ranking_offset_query::WalletRankingOffsetQuery for ErrPort {
+            async fn get_wallet_ranking_offset(
+                &self,
+                _wallet_address: &str,
+            ) -> Result<epsx_contracts::value_objects::ranking_offset::RankingOffset, AppError>
+            {
+                Err(AppError::not_found("plan"))
+            }
+        }
+
+        let err_port: Arc<dyn WalletRankingOffsetQuery> = Arc::new(ErrPort);
+        let (rank_offset, limit_cap) =
+            calculate_ranking_config_from_permissions(&err_port, "0xtest").await;
+
+        assert_eq!(
+            rank_offset,
+            epsx_contracts::constants::FREE_PLAN_RANKING_OFFSET,
+            "error path should fall back to FREE_PLAN_RANKING_OFFSET"
+        );
+        assert_eq!(limit_cap, -1);
     }
 }

@@ -1,0 +1,161 @@
+name: Rust migration E2E
+
+on:
+  push:
+    branches: [migration/dioxus-microservices]
+  pull_request:
+    branches: [migration/dioxus-microservices, development]
+  workflow_dispatch:
+    inputs:
+      group:
+        description: Optional campaign group (0-9); blank runs every group
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  manifest-and-evidence:
+    name: Migration manifest and immutable evidence
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@1.91.1
+      - uses: Swatinem/rust-cache@v2
+      - name: Verify migration source and evidence ancestry
+        run: cargo xtask sync-audit
+      - name: Validate selected group
+        env:
+          GROUP: ${{ inputs.group }}
+        run: |
+          if [ -n "$GROUP" ]; then
+            case "$GROUP" in
+              0|1|2|3|4|5|6|7|8|9) ;;
+              *) echo "group must be 0 through 9" >&2; exit 1 ;;
+            esac
+            cargo xtask e2e doctor --group "$GROUP"
+            cargo xtask e2e report --group "$GROUP"
+            cargo xtask e2e verify-artifacts --group "$GROUP"
+          else
+            cargo xtask e2e doctor
+            cargo xtask e2e report
+            cargo xtask e2e verify-artifacts
+          fi
+
+  webdriver-linux:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'push' }}
+    name: WebDriver group ${{ matrix.group }} (${{ matrix.browser }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { group: 0, browser: chromium }
+          - { group: 1, browser: chromium }
+          - { group: 2, browser: chromium }
+          - { group: 3, browser: chromium }
+          - { group: 4, browser: chromium }
+          - { group: 5, browser: chromium }
+          - { group: 6, browser: chromium }
+          - { group: 7, browser: chromium }
+          - { group: 8, browser: chromium }
+          - { group: 9, browser: chromium }
+          - { group: 9, browser: firefox }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@1.91.1
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - uses: browser-actions/setup-chrome@48ad923757ca74d66703209fe939badbdf80f2f4 # v2.2.0
+        if: ${{ matrix.browser == 'chromium' && (inputs.group == '' || inputs.group == format('{0}', matrix.group)) }}
+      - uses: browser-actions/setup-geckodriver@eb8b0670366f719ca31703766a8cb7e3ea2c56ed # v0.0.0
+        if: ${{ matrix.browser == 'firefox' && (inputs.group == '' || inputs.group == format('{0}', matrix.group)) }}
+      - name: Prepare production-shaped TLS edge
+        if: ${{ inputs.group == '' || inputs.group == format('{0}', matrix.group) }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes nginx
+          printf '%s\n' '127.0.0.1 epsx.e2e.localhost admin.e2e.localhost api.epsx.test' | sudo tee -a /etc/hosts
+          openssl req -x509 -newkey rsa:2048 -sha256 -nodes -days 1 \
+            -subj '/CN=EPSX E2E Local CA' \
+            -addext 'basicConstraints=critical,CA:TRUE' \
+            -addext 'keyUsage=critical,keyCertSign,cRLSign' \
+            -keyout /tmp/epsx-e2e-ca.key \
+            -out /tmp/epsx-e2e-ca.crt
+          openssl req -new -newkey rsa:2048 -sha256 -nodes \
+            -subj '/CN=epsx.e2e.localhost' \
+            -addext 'subjectAltName=DNS:epsx.e2e.localhost,DNS:admin.e2e.localhost,DNS:api.epsx.test' \
+            -addext 'basicConstraints=critical,CA:FALSE' \
+            -addext 'keyUsage=critical,digitalSignature,keyEncipherment' \
+            -addext 'extendedKeyUsage=serverAuth' \
+            -keyout /tmp/epsx-e2e-edge.key \
+            -out /tmp/epsx-e2e-edge.csr
+          openssl x509 -req -days 1 -sha256 \
+            -in /tmp/epsx-e2e-edge.csr \
+            -CA /tmp/epsx-e2e-ca.crt \
+            -CAkey /tmp/epsx-e2e-ca.key \
+            -CAcreateserial \
+            -copy_extensions copy \
+            -out /tmp/epsx-e2e-edge.crt
+          openssl verify -CAfile /tmp/epsx-e2e-ca.crt /tmp/epsx-e2e-edge.crt
+          sudo nginx -t -c "$PWD/e2e/production-shape/nginx.conf"
+      - name: Start WebDriver
+        if: ${{ inputs.group == '' || inputs.group == format('{0}', matrix.group) }}
+        env:
+          BROWSER: ${{ matrix.browser }}
+        run: |
+          if [ "$BROWSER" = chromium ]; then
+            chromedriver --port=4444 > /tmp/webdriver.log 2>&1 &
+          else
+            geckodriver --port 4444 > /tmp/webdriver.log 2>&1 &
+          fi
+      - name: Build browser runtime and start Dioxus surfaces
+        if: ${{ inputs.group == '' || inputs.group == format('{0}', matrix.group) }}
+        env:
+          E2E_FIXTURE_TOKEN: epsx-e2e-ci-reset-token
+        run: |
+          cargo install wasm-bindgen-cli --version 0.2.123 --locked
+          cargo xtask browser-runtime build
+          cargo build -p xtask
+          cargo build --release -p epsx-frontend -p epsx-admin
+          target/debug/xtask e2e fixture-serve --bind 127.0.0.1:48080 --token "$E2E_FIXTURE_TOKEN" --issuer https://api.epsx.test:4443 > /tmp/fixture.log 2>&1 &
+          EPSX_ENV=production SSL_CERT_FILE=/tmp/epsx-e2e-ca.crt PORT=4200 EPSX_BROWSER_RUNTIME_DIR="$PWD/target/epsx-browser-runtime" API_URL=https://api.epsx.test:4443 BACKEND_URL=https://api.epsx.test:4443 CONTENT_SERVICE_URL=https://api.epsx.test:4443 NOTIFICATION_SERVICE_URL=https://api.epsx.test:4443 OIDC_ISSUER=https://api.epsx.test:4443 target/release/bff-frontend > /tmp/frontend.log 2>&1 &
+          EPSX_ENV=production SSL_CERT_FILE=/tmp/epsx-e2e-ca.crt PORT=4201 EPSX_BROWSER_RUNTIME_DIR="$PWD/target/epsx-browser-runtime" API_URL=https://api.epsx.test:4443 BACKEND_URL=https://api.epsx.test:4443 CONTENT_SERVICE_URL=https://api.epsx.test:4443 NOTIFICATION_SERVICE_URL=https://api.epsx.test:4443 OIDC_ISSUER=https://api.epsx.test:4443 target/release/bff-admin > /tmp/admin.log 2>&1 &
+          sudo nginx -c "$PWD/e2e/production-shape/nginx.conf"
+          for attempt in $(seq 1 120); do
+            if curl -fsS http://127.0.0.1:48080/api/health >/dev/null && curl --cacert /tmp/epsx-e2e-ca.crt -fsS https://api.epsx.test:4443/api/health >/dev/null && curl --cacert /tmp/epsx-e2e-ca.crt -fsS https://epsx.e2e.localhost:4443/api/health >/dev/null && curl --cacert /tmp/epsx-e2e-ca.crt -fsS https://admin.e2e.localhost:4443/api/health >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          tail -n 100 /tmp/fixture.log /tmp/frontend.log /tmp/admin.log /tmp/epsx-e2e-edge-error.log /tmp/epsx-e2e-edge-access.log
+          exit 1
+      - name: Run Rust WebDriver campaign
+        if: ${{ inputs.group == '' || inputs.group == format('{0}', matrix.group) }}
+        env:
+          GROUP: ${{ matrix.group }}
+          BROWSER: ${{ matrix.browser }}
+          E2E_RUNTIME_PROFILE: production-shaped
+          E2E_TARGET_FRONTEND_URL: https://epsx.e2e.localhost:4443
+          E2E_TARGET_ADMIN_URL: https://admin.e2e.localhost:4443
+          E2E_FIXTURE_URL: http://127.0.0.1:48080
+          E2E_FIXTURE_TOKEN: epsx-e2e-ci-reset-token
+        run: |
+          if ! cargo xtask e2e run --group "$GROUP" --browser "$BROWSER"; then
+            tail -n 200 /tmp/webdriver.log /tmp/fixture.log /tmp/frontend.log /tmp/admin.log /tmp/epsx-e2e-edge-error.log /tmp/epsx-e2e-edge-access.log || true
+            exit 1
+          fi
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ always() && (inputs.group == '' || inputs.group == format('{0}', matrix.group)) }}
+        with:
+          name: rust-e2e-group-${{ matrix.group }}-${{ matrix.browser }}
+          path: e2e/rust-artifacts/
+          if-no-files-found: warn
+          retention-days: 14

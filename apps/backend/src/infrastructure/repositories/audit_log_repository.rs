@@ -1,15 +1,15 @@
-use async_trait::async_trait;
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
 use crate::domain::audit::repository::AuditLogRepository;
-use crate::domain::shared_kernel::entities::audit::{AuditLogEntry, AuditQuery, AuditAction, ResourceType, AuditResult};
+use crate::domain::shared_kernel::entities::audit::{
+    AuditAction, AuditLogEntry, AuditQuery, AuditResult, ResourceType,
+};
+use crate::infrastructure::database::diesel_connection_manager::{
+    get_analytics_pool, get_payments_pool,
+};
 use crate::infrastructure::models::audit::{AuditLogDb, NewAuditLogDb};
-use crate::infrastructure::database::diesel_connection_manager::{get_analytics_pool, get_payments_pool};
-use crate::schemas::analytics::audit_logs;
-use anyhow::{Result, Context};
-use crate::domain::shared_kernel::value_objects::UserId;
+use anyhow::{Context, Result};
+use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use diesel::sql_types::{Text, Nullable, Timestamptz, Jsonb, BigInt};
+use epsx_contracts::value_objects::UserId;
 
 pub struct DieselAuditLogRepository;
 
@@ -32,9 +32,7 @@ impl DieselAuditLogRepository {
         limit: i64,
         offset: i64,
     ) -> Result<(Vec<AuditLogEntry>, i64)> {
-        let pool = get_analytics_pool().await?;
-        let mut conn = pool.get().await
-            .map_err(|e| anyhow::anyhow!("Analytics pool error: {:?}", e))?;
+        let pool = get_analytics_pool().await.map_err(|e| anyhow::anyhow!(e))?;
 
         // Build sub-selects based on category filter
         let mut unions: Vec<&str> = Vec::new();
@@ -91,37 +89,36 @@ impl DieselAuditLogRepository {
 
         // Whitelist category to prevent SQL injection — only known values are interpolated
         let valid_category = match category {
-            Some("system") | Some("permission") | Some("wallet") | Some("plan") |
-            Some("auth") | Some("developer") | Some("notification") | Some("payment") |
-            Some("all") => category,
-            Some(_) => None, // reject unknown categories
-            None => None,
+            Some("system") | Some("permission") | Some("wallet") | Some("plan") | Some("auth")
+            | Some("developer") | Some("notification") | Some("payment") | Some("all") => category,
+            _ => None,
         };
 
-        let unified_filtered = match valid_category {
-            Some(cat) => format!("{} WHERE category = '{}'", unified_base, cat),
-            None => unified_base.to_string(),
-        };
-
+        let custom_category_sql;
         match valid_category {
             Some("system") => unions.push(audit_logs_sql),
             Some("permission") => unions.push(permission_sql),
             Some("wallet") => unions.push(wallet_sql),
             Some("plan") => unions.push(assignment_sql),
-            Some("auth") | Some("developer") | Some("notification") => {}, // only in unified_audit_log
-            _ => {
+            Some("all") | None => {
                 unions.push(audit_logs_sql);
                 unions.push(permission_sql);
                 unions.push(wallet_sql);
                 unions.push(assignment_sql);
+                unions.push(unified_base);
+            }
+            Some(cat) => {
+                custom_category_sql = format!(
+                    "{} WHERE category = '{}'",
+                    unified_base,
+                    cat.replace('\'', "''")
+                );
+                unions.push(&custom_category_sql);
             }
         }
-        // Always include unified_audit_log (filtered by category when applicable)
-        unions.push(&unified_filtered);
 
-        let union_sql = unions.join("\n            UNION ALL\n");
+        let union_sql = unions.join(" UNION ALL ");
 
-        // Resolve search term from search param or wallet_address
         let bind_search: Option<String> = search
             .filter(|s| !s.is_empty())
             .map(|s| s.to_string())
@@ -129,27 +126,24 @@ impl DieselAuditLogRepository {
         let bind_from: Option<DateTime<Utc>> = query.from_date;
         let bind_to: Option<DateTime<Utc>> = query.to_date;
 
-        // Always reference all 3 filter params using IS NULL trick
-        let where_clause = "WHERE ($1::text IS NULL OR wallet_address ILIKE '%' || $1 || '%') AND ($2::timestamptz IS NULL OR created_at >= $2) AND ($3::timestamptz IS NULL OR created_at <= $3)";
+        let where_clause = "WHERE ($1::text IS NULL OR COALESCE(wallet_address, '') ILIKE '%' || $1 || '%' OR action ILIKE '%' || $1 || '%' OR COALESCE(resource_id, '') ILIKE '%' || $1 || '%') AND ($2::timestamptz IS NULL OR created_at >= $2) AND ($3::timestamptz IS NULL OR created_at <= $3)";
 
-        // Count query
         let count_sql = format!(
             "SELECT COUNT(*)::bigint as cnt FROM ({union}) unified {where_clause}",
             union = union_sql,
             where_clause = where_clause
         );
 
-        #[derive(QueryableByName)]
+        #[derive(sqlx::FromRow)]
         struct CountRow {
-            #[diesel(sql_type = BigInt)]
             cnt: i64,
         }
 
-        let count_result = diesel::sql_query(&count_sql)
-            .bind::<Nullable<Text>, _>(&bind_search)
-            .bind::<Nullable<Timestamptz>, _>(&bind_from)
-            .bind::<Nullable<Timestamptz>, _>(&bind_to)
-            .get_result::<CountRow>(&mut conn)
+        let count_result: CountRow = sqlx::query_as(&count_sql)
+            .bind(&bind_search)
+            .bind(bind_from)
+            .bind(bind_to)
+            .fetch_one(&pool)
             .await
             .context("Failed to count analytics audit logs")?;
 
@@ -160,44 +154,34 @@ impl DieselAuditLogRepository {
             where_clause = where_clause
         );
 
-        #[derive(QueryableByName, Debug)]
+        #[derive(sqlx::FromRow, Debug)]
         struct UnifiedRow {
-            #[diesel(sql_type = Text)]
             id: String,
-            #[diesel(sql_type = Nullable<Text>)]
             wallet_address: Option<String>,
-            #[diesel(sql_type = Text)]
             action: String,
-            #[diesel(sql_type = Text)]
             resource_type: String,
-            #[diesel(sql_type = Nullable<Text>)]
             resource_id: Option<String>,
-            #[diesel(sql_type = Text)]
             result: String,
-            #[diesel(sql_type = Nullable<Text>)]
             ip_address: Option<String>,
-            #[diesel(sql_type = Nullable<Text>)]
             user_agent: Option<String>,
-            #[diesel(sql_type = Nullable<Jsonb>)]
             details: Option<serde_json::Value>,
-            #[diesel(sql_type = Timestamptz)]
             created_at: DateTime<Utc>,
-            #[diesel(sql_type = Text)]
             category: String,
         }
 
-        let rows = diesel::sql_query(&data_sql)
-            .bind::<Nullable<Text>, _>(&bind_search)
-            .bind::<Nullable<Timestamptz>, _>(&bind_from)
-            .bind::<Nullable<Timestamptz>, _>(&bind_to)
-            .bind::<BigInt, _>(limit)
-            .bind::<BigInt, _>(offset)
-            .get_results::<UnifiedRow>(&mut conn)
+        let rows: Vec<UnifiedRow> = sqlx::query_as(&data_sql)
+            .bind(&bind_search)
+            .bind(bind_from)
+            .bind(bind_to)
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(&pool)
             .await
             .context("Failed to query analytics audit logs")?;
 
-        let entries: Vec<AuditLogEntry> = rows.into_iter().map(|r| {
-            AuditLogEntry {
+        let entries: Vec<AuditLogEntry> = rows
+            .into_iter()
+            .map(|r| AuditLogEntry {
                 id: r.id,
                 wallet_address: r.wallet_address.map(UserId::from_string_unchecked),
                 action: parse_action(&r.action),
@@ -211,8 +195,8 @@ impl DieselAuditLogRepository {
                 category: Some(r.category),
                 action_raw: Some(r.action),
                 resource_type_raw: Some(r.resource_type),
-            }
-        }).collect();
+            })
+            .collect();
 
         Ok((entries, count_result.cnt))
     }
@@ -224,9 +208,7 @@ impl DieselAuditLogRepository {
         limit: i64,
         offset: i64,
     ) -> Result<(Vec<AuditLogEntry>, i64)> {
-        let pool = get_payments_pool().await?;
-        let mut conn = pool.get().await
-            .map_err(|e| anyhow::anyhow!("Payments pool error: {:?}", e))?;
+        let pool = get_payments_pool().await.map_err(|e| anyhow::anyhow!(e))?;
 
         let bind_search: Option<String> = search
             .filter(|s| !s.is_empty())
@@ -237,43 +219,32 @@ impl DieselAuditLogRepository {
 
         let where_clause = "WHERE ($1::text IS NULL OR COALESCE(performed_by, '') ILIKE '%' || $1 || '%') AND ($2::timestamptz IS NULL OR created_at >= $2) AND ($3::timestamptz IS NULL OR created_at <= $3)";
 
-        #[derive(QueryableByName)]
+        #[derive(sqlx::FromRow)]
         struct CountRow {
-            #[diesel(sql_type = BigInt)]
             cnt: i64,
         }
 
-        let count_sql = format!(
-            "SELECT COUNT(*)::bigint as cnt FROM payment_audit_log {where_clause}"
-        );
+        let count_sql =
+            format!("SELECT COUNT(*)::bigint as cnt FROM payment_audit_log {where_clause}");
 
-        let count_result = diesel::sql_query(&count_sql)
-            .bind::<Nullable<Text>, _>(&bind_search)
-            .bind::<Nullable<Timestamptz>, _>(&bind_from)
-            .bind::<Nullable<Timestamptz>, _>(&bind_to)
-            .get_result::<CountRow>(&mut conn)
+        let count_result: CountRow = sqlx::query_as(&count_sql)
+            .bind(&bind_search)
+            .bind(bind_from)
+            .bind(bind_to)
+            .fetch_one(&pool)
             .await
             .context("Failed to count payment audit logs")?;
 
-        #[derive(QueryableByName, Debug)]
+        #[derive(sqlx::FromRow, Debug)]
         struct PaymentRow {
-            #[diesel(sql_type = Text)]
             id: String,
-            #[diesel(sql_type = Nullable<Text>)]
             wallet_address: Option<String>,
-            #[diesel(sql_type = Text)]
             action: String,
-            #[diesel(sql_type = Nullable<Text>)]
             resource_id: Option<String>,
-            #[diesel(sql_type = Nullable<Text>)]
             old_status: Option<String>,
-            #[diesel(sql_type = Nullable<Text>)]
             new_status: Option<String>,
-            #[diesel(sql_type = Nullable<Text>)]
             reason: Option<String>,
-            #[diesel(sql_type = Nullable<Jsonb>)]
             metadata: Option<serde_json::Value>,
-            #[diesel(sql_type = Timestamptz)]
             created_at: DateTime<Utc>,
         }
 
@@ -281,39 +252,48 @@ impl DieselAuditLogRepository {
             "SELECT id::text, performed_by as wallet_address, action, payment_id::text as resource_id, old_status, new_status, reason, metadata, created_at FROM payment_audit_log {where_clause} ORDER BY created_at DESC LIMIT $4 OFFSET $5"
         );
 
-        let rows = diesel::sql_query(&data_sql)
-            .bind::<Nullable<Text>, _>(&bind_search)
-            .bind::<Nullable<Timestamptz>, _>(&bind_from)
-            .bind::<Nullable<Timestamptz>, _>(&bind_to)
-            .bind::<BigInt, _>(limit)
-            .bind::<BigInt, _>(offset)
-            .get_results::<PaymentRow>(&mut conn)
+        let rows: Vec<PaymentRow> = sqlx::query_as(&data_sql)
+            .bind(&bind_search)
+            .bind(bind_from)
+            .bind(bind_to)
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(&pool)
             .await
             .context("Failed to query payment audit logs")?;
 
-        let entries: Vec<AuditLogEntry> = rows.into_iter().map(|r| {
-            let mut details = r.metadata.unwrap_or(serde_json::json!({}));
-            if let Some(obj) = details.as_object_mut() {
-                if let Some(old) = &r.old_status { obj.insert("old_status".into(), serde_json::json!(old)); }
-                if let Some(new) = &r.new_status { obj.insert("new_status".into(), serde_json::json!(new)); }
-                if let Some(reason) = &r.reason { obj.insert("reason".into(), serde_json::json!(reason)); }
-            }
-            AuditLogEntry {
-                id: r.id,
-                wallet_address: r.wallet_address.map(UserId::from_string_unchecked),
-                action: parse_action(&r.action),
-                resource_type: ResourceType::Payment,
-                resource_id: r.resource_id,
-                result: AuditResult::Success,
-                ip_address: None,
-                user_agent: None,
-                additional_data: Some(details),
-                timestamp: r.created_at,
-                category: Some("payment".to_string()),
-                action_raw: Some(r.action),
-                resource_type_raw: Some("payment".to_string()),
-            }
-        }).collect();
+        let entries: Vec<AuditLogEntry> = rows
+            .into_iter()
+            .map(|r| {
+                let mut details = r.metadata.unwrap_or(serde_json::json!({}));
+                if let Some(obj) = details.as_object_mut() {
+                    if let Some(old) = &r.old_status {
+                        obj.insert("old_status".into(), serde_json::json!(old));
+                    }
+                    if let Some(new) = &r.new_status {
+                        obj.insert("new_status".into(), serde_json::json!(new));
+                    }
+                    if let Some(reason) = &r.reason {
+                        obj.insert("reason".into(), serde_json::json!(reason));
+                    }
+                }
+                AuditLogEntry {
+                    id: r.id,
+                    wallet_address: r.wallet_address.map(UserId::from_string_unchecked),
+                    action: parse_action(&r.action),
+                    resource_type: ResourceType::Payment,
+                    resource_id: r.resource_id,
+                    result: AuditResult::Success,
+                    ip_address: None,
+                    user_agent: None,
+                    additional_data: Some(details),
+                    timestamp: r.created_at,
+                    category: Some("payment".to_string()),
+                    action_raw: Some(r.action),
+                    resource_type_raw: Some("payment".to_string()),
+                }
+            })
+            .collect();
 
         Ok((entries, count_result.cnt))
     }
@@ -373,7 +353,7 @@ impl DieselAuditLogRepository {
             Ok((all_entries, total))
         } else {
             // Sort by timestamp desc, then paginate in Rust
-            all_entries.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+            all_entries.sort_by_key(|item| std::cmp::Reverse(item.timestamp));
             let result: Vec<AuditLogEntry> = all_entries
                 .into_iter()
                 .skip(offset as usize)
@@ -395,7 +375,9 @@ fn parse_action(s: &str) -> AuditAction {
         "PermissionGranted" | "permission_granted" | "granted" => AuditAction::PermissionGranted,
         "PermissionRevoked" | "permission_revoked" => AuditAction::PermissionRevoked,
         "PaymentInitiated" | "payment_initiated" | "initiated" => AuditAction::PaymentInitiated,
-        "PaymentCompleted" | "payment_completed" | "completed" | "confirmed" => AuditAction::PaymentCompleted,
+        "PaymentCompleted" | "payment_completed" | "completed" | "confirmed" => {
+            AuditAction::PaymentCompleted
+        }
         "Export" | "export" => AuditAction::Export,
         _ => AuditAction::Update,
     }
@@ -449,8 +431,7 @@ impl From<AuditLogDb> for AuditLogEntry {
 #[async_trait]
 impl AuditLogRepository for DieselAuditLogRepository {
     async fn save(&self, entry: AuditLogEntry) -> Result<AuditLogEntry> {
-        let pool = get_analytics_pool().await?;
-        let mut conn = pool.get().await.map_err(|e| anyhow::anyhow!("Failed to get DB connection: {:?}", e))?;
+        let pool = get_analytics_pool().await.map_err(|e| anyhow::anyhow!(e))?;
 
         let new_log = NewAuditLogDb {
             wallet_address: entry.wallet_address.map(|w| w.to_string()),
@@ -463,11 +444,28 @@ impl AuditLogRepository for DieselAuditLogRepository {
             details: entry.additional_data.clone(),
         };
 
-        let inserted: AuditLogDb = diesel::insert_into(audit_logs::table)
-            .values(&new_log)
-            .get_result(&mut conn)
-            .await
-            .context("Failed to insert audit log")?;
+        let inserted: AuditLogDb = sqlx::query_as(
+            r#"
+            INSERT INTO audit_logs (
+                wallet_address, action, resource_type, resource_id,
+                result, ip_address, user_agent, details
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            RETURNING id, wallet_address, action, resource_type, resource_id,
+                      result, ip_address, user_agent, details, created_at
+            "#,
+        )
+        .bind(&new_log.wallet_address)
+        .bind(&new_log.action)
+        .bind(&new_log.resource_type)
+        .bind(&new_log.resource_id)
+        .bind(&new_log.result)
+        .bind(&new_log.ip_address)
+        .bind(&new_log.user_agent)
+        .bind(&new_log.details)
+        .fetch_one(&pool)
+        .await
+        .context("Failed to insert audit log")?;
 
         Ok(inserted.into())
     }

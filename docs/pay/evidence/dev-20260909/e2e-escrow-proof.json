@@ -1,0 +1,148 @@
+[
+  {
+    "token": "BNB",
+    "scenario": "release",
+    "payment_id": "pi_990fdedb59cb4e4db5a558d8f74ef8e7",
+    "status": "succeeded",
+    "transactions": [
+      "0x4242c04945075e6b3a3af7940cc05f688bb49fb678502ed813ce87a4fc2a6567",
+      "0x28a6ae5f86cab39ee7fd88fc29dbf09442a98f7f203112ae5f972024df59e711"
+    ]
+  },
+  {
+    "token": "BNB",
+    "scenario": "refund",
+    "payment_id": "pi_096b1d5f89dc445091ff9f4be531c03c",
+    "status": "refunded",
+    "transactions": [
+      "0xeb0a33d791574b6c1bc8c97073dcf236c67008725dbdba3d933b2b37ee21b1fa",
+      "0x23992e8d6cae60be3ccfc36082e3913637b2f22cb2a2536bce51fb05e14d0101"
+    ]
+  },
+  {
+    "token": "BNB",
+    "scenario": "resolve-release",
+    "payment_id": "pi_99c2879dfad74d25b0759fb899b7b5b5",
+    "status": "succeeded",
+    "transactions": [
+      "0x75a028ec2e3cbdf350687c89d3653ff9678641e5bb3787a1d0b6bab3519eb466",
+      "0x92585fab9591ea698f2c044824a660ae1bcf1f045c96d88f9ecefc1533573da3",
+      "0x28a5907c0bb28a072ac637a0505a312fc60e66473eac869f4908f3974721534e"
+    ]
+  },
+  {
+    "token": "BNB",
+    "scenario": "resolve-refund",
+    "payment_id": "pi_9aa00479cb07452a8c1f057815f1b377",
+    "status": "refunded",
+    "transactions": [
+      "0x601e545976f5671f2f21db5b1d7d19f4059a2f85d9a2a4ddbf07a41a1d19b983",
+      "0x34830bc44181859d993480d7c376b5b0d657b97cfa86c77ac9390904193fc383",
+      "0xa7843f34f462402dede6debdd3f47e92ab9035fae868c64c2e23f1749fc559cc"
+    ]
+  },
+  {
+    "token": "USDT",
+    "scenario": "release",
+    "payment_id": "pi_d38d7add634e4e4dad5cda6b72b1d860",
+    "status": "succeeded",
+    "transactions": [
+      "0xee7357f35288314e7ffd3c54f5e02069ec588fadd7723dcd43acd43dba63e362",
+      "0x89a8b106061f8d12dc00bbfd2453acfa7d634567d8a80917844fd5e897c61776"
+    ]
+  },
+  {
+    "token": "USDT",
+    "scenario": "refund",
+    "payment_id": "pi_64a44f830e4f45ddb6303d0b909626b4",
+    "status": "refunded",
+    "transactions": [
+      "0x03e7df830631937e64777e60b28945313ab2dd56622315d2e830dc69b3e77361",
+      "0xe716ac5009590d6a66f6cbfe7015b94c37f1db54fb030753b0d55f453ba00640"
+    ]
+  },
+  {
+    "token": "USDT",
+    "scenario": "resolve-release",
+    "payment_id": "pi_860d2842020b47959f694890da18f17d",
+    "status": "succeeded",
+    "transactions": [
+      "0x981703bd7e4fc41915119a2ec5780e7e8dd9e0642835f3a311735a66ab4df2c2",
+      "0xa919ee48c9d0dc05d4a17da2f4aeaf6b4ead4aac65ffc25203f03b2058495c25",
+      "0x34372287a55111685b4feddf565ed550fa7a4d805ec40a221170528626019538"
+    ]
+  },
+  {
+    "token": "USDT",
+    "scenario": "resolve-refund",
+    "payment_id": "pi_17b68fed9b7e4e53935f2492bf38ce46",
+    "status": "refunded",
+    "transactions": [
+      "0xd8f44f42c4a22bd191dde87fd55d279890d89c6a5326cbeccb39f5d5bb81142a",
+      "0x3c637f3f8775f8b94bbbab7d86aeaff1a8cd52eb2fd49aa6a58098fd6caacba5",
+      "0xc169d34ca531307e82785a032148c5ef0ff101e4a7fdd246932ed8b1e8258da5"
+    ]
+  },
+  {
+    "token": "USDC",
+    "scenario": "release",
+    "payment_id": "pi_b52c077fbb494808815e193802d3745c",
+    "status": "succeeded",
+    "transactions": [
+      "0x1474279da05b34d344e644c48631650af8b7cfea0d63cafe921a33a7a4ec8753",
+      "0xe9cf9a37740d649d2cc810dee6caaa66ae0ddf318fe3963a7f78926779044cd8"
+    ]
+  },
+  {
+    "token": "USDC",
+    "scenario": "refund",
+    "payment_id": "pi_146ace778411438a8d5629c3156373a8",
+    "status": "refunded",
+    "transactions": [
+      "0xa364ea51ab94078e88426a51c7d610a72d05192757489b0cbfad1d1a3f4d6c39",
+      "0xaf762e698f8b94fc79c48eeb7936a2420e31490e333ec33e4e1e26187c9ea04c"
+    ]
+  },
+  {
+    "token": "USDC",
+    "scenario": "resolve-release",
+    "payment_id": "pi_d7efb61c2e1a44e0868d2e5919eab0ba",
+    "status": "succeeded",
+    "transactions": [
+      "0xc3627397cd69688dbf980d260425e33228e6b74632aadeb3f3142cabfb8b88c5",
+      "0x3d2dc4f8e4cb01cde2b1be5cbc31e55c290cf13bac8ce899db43c04e426447c0",
+      "0x463489e2b167f6ce4ed05c6649d46987ae03553b6cb7488e09004248e357f948"
+    ]
+  },
+  {
+    "token": "USDC",
+    "scenario": "resolve-refund",
+    "payment_id": "pi_e8da28fcb02c4c1797a2e9610acf2dcf",
+    "status": "refunded",
+    "transactions": [
+      "0xcc061f557708a74a1105043d63519fe13a92b33d60473754d9e8b91460e41150",
+      "0x647327d7171ef709e085aad20cdbfc329176269339cc8680d9a8721378630f44",
+      "0x6ad534ed63b3cc71b13e10e44681f253aed89bd13f80cef616409041067bb469"
+    ]
+  },
+  {
+    "mode": "direct",
+    "paused": true,
+    "tx_hash": "0xdd9ac4ac02ae55904cee869e68757931a8af19ad976b82e6cde68930c0c15b0c"
+  },
+  {
+    "mode": "direct",
+    "paused": false,
+    "tx_hash": "0x0d48048c93dfc65ee0eeb820765a95afed140acb36c089fc313366e18b955d57"
+  },
+  {
+    "mode": "escrow",
+    "paused": true,
+    "tx_hash": "0xf766de3513d8d92de3401645d29b1468e73313744d9029c2c6c8cc2d2cb1eb2b"
+  },
+  {
+    "mode": "escrow",
+    "paused": false,
+    "tx_hash": "0xa0a6a54ac4441d67305e0ec8bb20ebab3baa36c584de74d746d213d408748513"
+  }
+]

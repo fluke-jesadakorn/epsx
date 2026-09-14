@@ -4,13 +4,11 @@ use axum::{
     response::Json as JsonResponse,
     Json,
 };
-use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
+use utoipa::ToSchema;
 
 use crate::infrastructure::services::audit_service::{AuditCtx, AuditEntry};
 use crate::web::auth::AppState;
@@ -80,40 +78,22 @@ pub async fn list_promotions_handler(
     State(app_state): State<AppState>,
     Query(_query): Query<HashMap<String, String>>,
 ) -> Result<JsonResponse<serde_json::Value>, StatusCode> {
-    let mut conn = match app_state.db_pool.get().await {
-        Ok(c) => c,
-        Err(err) => {
-            tracing::error!(error = %err, "Failed to get database connection");
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        }
-    };
-
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct CampaignRow {
-        #[diesel(sql_type = diesel::sql_types::Integer)]
         id: i32,
-        #[diesel(sql_type = diesel::sql_types::Text)]
         name: String,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
         description: Option<String>,
-        #[diesel(sql_type = diesel::sql_types::Text)]
         campaign_type: String,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Bool>)]
         is_active: Option<bool>,
-        #[diesel(sql_type = diesel::sql_types::Timestamptz)]
         start_date: DateTime<Utc>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
         end_date: Option<DateTime<Utc>>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
         created_at: Option<DateTime<Utc>>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
         updated_at: Option<DateTime<Utc>>,
         #[allow(dead_code)]
-        #[diesel(sql_type = diesel::sql_types::Integer)]
         plan_count: i32,
     }
 
-    let query = diesel::sql_query(
+    let campaigns = sqlx::query_as::<_, CampaignRow>(
         r#"
         SELECT
             pc.id,
@@ -130,18 +110,14 @@ pub async fn list_promotions_handler(
         LEFT JOIN plan_promotions pp ON pp.campaign_id = pc.id
         GROUP BY pc.id
         ORDER BY pc.created_at DESC
-        "#
+        "#,
     )
-    .load::<CampaignRow>(&mut conn)
-    .await;
-
-    let campaigns = match query {
-        Ok(rows) => rows,
-        Err(err) => {
-            tracing::error!(error = %err, "Failed to fetch promotional campaigns");
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        }
-    };
+    .fetch_all(app_state.db_pool.as_ref())
+    .await
+    .map_err(|err| {
+        tracing::error!(error = %err, "Failed to fetch promotional campaigns");
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
 
     let promotions: Vec<PromotionResponse> = campaigns
         .into_iter()
@@ -197,29 +173,20 @@ pub async fn list_promotions_handler(
 )]
 pub async fn create_promotion_handler(
     State(app_state): State<AppState>,
-    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    axum::Extension(user_ctx): axum::Extension<
+        crate::web::middleware::bearer_middleware::OpenIDUserContext,
+    >,
     headers: axum::http::HeaderMap,
     Json(request): Json<CreatePromotionRequest>,
 ) -> Result<JsonResponse<PromotionResponse>, StatusCode> {
-    let mut conn = match app_state.db_pool.get().await {
-        Ok(c) => c,
-        Err(err) => {
-            tracing::error!(error = %err, "Failed to get database connection");
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        }
-    };
-
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct InsertResult {
-        #[diesel(sql_type = diesel::sql_types::Integer)]
         id: i32,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
         created_at: Option<DateTime<Utc>>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
         updated_at: Option<DateTime<Utc>>,
     }
 
-    let result = diesel::sql_query(
+    let result = sqlx::query_as::<_, InsertResult>(
         r#"
         INSERT INTO promotional_campaigns (
             name, description, campaign_type, is_active,
@@ -227,15 +194,15 @@ pub async fn create_promotion_handler(
         )
         VALUES ($1, $2, $3, $4, $5, $6, 1)
         RETURNING id, created_at, updated_at
-        "#
+        "#,
     )
-    .bind::<diesel::sql_types::Text, _>(&request.name)
-    .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(request.description.as_deref())
-    .bind::<diesel::sql_types::Text, _>(&request.discount_type)
-    .bind::<diesel::sql_types::Bool, _>(request.is_active)
-    .bind::<diesel::sql_types::Timestamptz, _>(request.start_date)
-    .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(request.end_date)
-    .get_result::<InsertResult>(&mut conn)
+    .bind(&request.name)
+    .bind(request.description.as_deref())
+    .bind(&request.discount_type)
+    .bind(request.is_active)
+    .bind(request.start_date)
+    .bind(request.end_date)
+    .fetch_one(app_state.db_pool.as_ref())
     .await;
 
     match result {
@@ -298,49 +265,31 @@ pub async fn get_promotion_handler(
     State(app_state): State<AppState>,
     Path(id): Path<i32>,
 ) -> Result<JsonResponse<PromotionResponse>, StatusCode> {
-    let mut conn = match app_state.db_pool.get().await {
-        Ok(c) => c,
-        Err(err) => {
-            tracing::error!(error = %err, "Failed to get database connection");
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        }
-    };
-
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct PromotionRow {
-        #[diesel(sql_type = diesel::sql_types::Integer)]
         id: i32,
-        #[diesel(sql_type = diesel::sql_types::Text)]
         name: String,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
         description: Option<String>,
-        #[diesel(sql_type = diesel::sql_types::Text)]
         campaign_type: String,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Bool>)]
         is_active: Option<bool>,
-        #[diesel(sql_type = diesel::sql_types::Timestamptz)]
         start_date: DateTime<Utc>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
         end_date: Option<DateTime<Utc>>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
         created_at: Option<DateTime<Utc>>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
         updated_at: Option<DateTime<Utc>>,
     }
 
-    let result = diesel::sql_query(
+    let result = sqlx::query_as::<_, PromotionRow>(
         r#"
         SELECT
             id, name, description, campaign_type, is_active,
             start_date, end_date, created_at, updated_at
         FROM promotional_campaigns
         WHERE id = $1
-        "#
+        "#,
     )
-    .bind::<diesel::sql_types::Integer, _>(id)
-    .get_result::<PromotionRow>(&mut conn)
-    .await
-    .optional();
+    .bind(id)
+    .fetch_optional(app_state.db_pool.as_ref())
+    .await;
 
     match result {
         Ok(Some(row)) => {
@@ -388,42 +337,27 @@ pub async fn get_promotion_handler(
 )]
 pub async fn update_promotion_handler(
     State(app_state): State<AppState>,
-    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    axum::Extension(user_ctx): axum::Extension<
+        crate::web::middleware::bearer_middleware::OpenIDUserContext,
+    >,
     headers: axum::http::HeaderMap,
     Path(id): Path<i32>,
     Json(request): Json<UpdatePromotionRequest>,
 ) -> Result<JsonResponse<PromotionResponse>, StatusCode> {
-    let mut conn = match app_state.db_pool.get().await {
-        Ok(c) => c,
-        Err(err) => {
-            tracing::error!(error = %err, "Failed to get database connection");
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        }
-    };
-
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct UpdateResult {
-        #[diesel(sql_type = diesel::sql_types::Integer)]
         id: i32,
-        #[diesel(sql_type = diesel::sql_types::Text)]
         name: String,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
         description: Option<String>,
-        #[diesel(sql_type = diesel::sql_types::Text)]
         campaign_type: String,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Bool>)]
         is_active: Option<bool>,
-        #[diesel(sql_type = diesel::sql_types::Timestamptz)]
         start_date: DateTime<Utc>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
         end_date: Option<DateTime<Utc>>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
         created_at: Option<DateTime<Utc>>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
         updated_at: Option<DateTime<Utc>>,
     }
 
-    let result = diesel::sql_query(
+    let result = sqlx::query_as::<_, UpdateResult>(
         r#"
         UPDATE promotional_campaigns
         SET
@@ -434,15 +368,14 @@ pub async fn update_promotion_handler(
         WHERE id = $4
         RETURNING id, name, description, campaign_type, is_active,
                   start_date, end_date, created_at, updated_at
-        "#
+        "#,
     )
-    .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(request.name.as_deref())
-    .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(request.description.as_deref())
-    .bind::<diesel::sql_types::Nullable<diesel::sql_types::Bool>, _>(request.is_active)
-    .bind::<diesel::sql_types::Integer, _>(id)
-    .get_result::<UpdateResult>(&mut conn)
-    .await
-    .optional();
+    .bind(request.name.as_deref())
+    .bind(request.description.as_deref())
+    .bind(request.is_active)
+    .bind(id)
+    .fetch_optional(app_state.db_pool.as_ref())
+    .await;
 
     match result {
         Ok(Some(row)) => {
@@ -452,7 +385,10 @@ pub async fn update_promotion_handler(
                 code: row.name.to_uppercase().replace(' ', ""),
                 description: row.description.clone(),
                 discount_type: row.campaign_type.clone(),
-                discount_value: request.discount_value.map(|d| d.to_string()).unwrap_or_else(|| "10".to_string()),
+                discount_value: request
+                    .discount_value
+                    .map(|d| d.to_string())
+                    .unwrap_or_else(|| "10".to_string()),
                 max_discount_amount: Some("100".to_string()),
                 min_purchase_amount: Some("0".to_string()),
                 usage_limit: request.usage_limit.or(Some(1000)),
@@ -502,37 +438,30 @@ pub async fn update_promotion_handler(
 )]
 pub async fn delete_promotion_handler(
     State(app_state): State<AppState>,
-    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    axum::Extension(user_ctx): axum::Extension<
+        crate::web::middleware::bearer_middleware::OpenIDUserContext,
+    >,
     headers: axum::http::HeaderMap,
     Path(id): Path<i32>,
 ) -> Result<JsonResponse<serde_json::Value>, StatusCode> {
-    let mut conn = match app_state.db_pool.get().await {
-        Ok(c) => c,
-        Err(err) => {
-            tracing::error!(error = %err, "Failed to get database connection");
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        }
-    };
-
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct DeleteResult {
         #[allow(dead_code)]
-        #[diesel(sql_type = diesel::sql_types::Integer)]
         id: i32,
     }
 
-    let result = diesel::sql_query("DELETE FROM promotional_campaigns WHERE id = $1 RETURNING id")
-        .bind::<diesel::sql_types::Integer, _>(id)
-        .get_result::<DeleteResult>(&mut conn)
-        .await
-        .optional();
+    let result = sqlx::query_as::<_, DeleteResult>(
+        "DELETE FROM promotional_campaigns WHERE id = $1 RETURNING id",
+    )
+    .bind(id)
+    .fetch_optional(app_state.db_pool.as_ref())
+    .await;
 
     match result {
         Ok(Some(_)) => {
             // Audit log
             let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
-            let entry = AuditEntry::new("promotion", "delete", "system")
-                .id(&id.to_string());
+            let entry = AuditEntry::new("promotion", "delete", "system").id(&id.to_string());
             app_state.audit.log(ctx, entry);
 
             Ok(JsonResponse(serde_json::json!({

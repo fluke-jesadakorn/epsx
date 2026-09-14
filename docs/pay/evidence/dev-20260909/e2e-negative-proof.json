@@ -1,0 +1,7 @@
+{
+  "insufficient_funds_intent": "pi_372061c5b0954b28b3daf38fb17ab385",
+  "insufficient_funds_status": "awaiting_payment",
+  "expired_intent": "pi_2c2c2b6b5c0b47baad37583b5a204b52",
+  "expired_status": "expired",
+  "expired_prepare_rejected": true
+}

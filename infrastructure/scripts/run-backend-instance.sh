@@ -9,7 +9,7 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-BACKEND_BIN="$REPO_ROOT/apps/backend/target/release/epsx"
+BACKEND_BIN="$REPO_ROOT/target/release/epsx"
 ENV_DIR="$REPO_ROOT/.secret/backend"
 ENV_FILE="$ENV_DIR/$ENV_NAME.env"
 

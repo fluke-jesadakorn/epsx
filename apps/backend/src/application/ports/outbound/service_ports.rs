@@ -6,8 +6,12 @@ use async_trait::async_trait;
 #[async_trait]
 pub trait NotificationServicePort: Send + Sync {
     type Error: std::error::Error + Send + Sync + 'static;
-    
-    async fn send_push_notification(&self, device_token: &str, message: &str) -> Result<(), Self::Error>;
+
+    async fn send_push_notification(
+        &self,
+        device_token: &str,
+        message: &str,
+    ) -> Result<(), Self::Error>;
 }
 
 // External API Service Port - REMOVED
@@ -17,7 +21,7 @@ pub trait NotificationServicePort: Send + Sync {
 #[async_trait]
 pub trait SecurityMonitoringServicePort: Send + Sync {
     type Error: std::error::Error + Send + Sync + 'static;
-    
+
     async fn log_security_event(&self, event: SecurityEvent) -> Result<(), Self::Error>;
     async fn check_threat_level(&self, ip: &str) -> Result<ThreatLevel, Self::Error>;
 }

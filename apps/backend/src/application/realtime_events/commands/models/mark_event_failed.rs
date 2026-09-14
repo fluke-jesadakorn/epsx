@@ -1,7 +1,7 @@
-use crate::prelude::*;
 use crate::application::shared::Command;
-use crate::domain::realtime_events::value_objects::EventId;
 use crate::domain::realtime_events::aggregates::EventStatus;
+use crate::domain::realtime_events::value_objects::EventId;
+use crate::prelude::*;
 
 /// Command to mark event as failed
 #[derive(Debug, Clone)]

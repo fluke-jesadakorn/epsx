@@ -1,13 +1,13 @@
-pub mod stock_analysis;
 pub mod eps_ranking;
+pub mod stock_analysis;
 
 // Re-export aggregates and their types
 pub use stock_analysis::{
-    StockAnalysis, AnalysisScore, Ranking, RankingCategory,
-    InvestmentRecommendation, StockAnalysisCreated, StockAnalysisUpdated, StockRankingUpdated
+    AnalysisScore, InvestmentRecommendation, Ranking, RankingCategory, StockAnalysis,
+    StockAnalysisCreated, StockAnalysisUpdated, StockRankingUpdated,
 };
 
 pub use eps_ranking::{
-    EPSRanking, RankingEntry, RankingType, RankingPeriod, RankingStatistics,
-    EPSRankingCreated, StockAddedToRanking, StockRemovedFromRanking
+    EPSRanking, EPSRankingCreated, RankingEntry, RankingPeriod, RankingStatistics, RankingType,
+    StockAddedToRanking, StockRemovedFromRanking,
 };

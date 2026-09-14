@@ -1,0 +1,215 @@
+syntax = "proto3";
+
+package epsx.subscription.v1;
+
+option rust_module = "subscription_v1";
+
+service SubscriptionService {
+  // Plans
+  rpc CreatePlan(CreatePlanRequest) returns (CreatePlanResponse);
+  rpc GetPlan(GetPlanRequest) returns (GetPlanResponse);
+  rpc ListPlans(ListPlansRequest) returns (ListPlansResponse);
+  rpc UpdatePlan(UpdatePlanRequest) returns (UpdatePlanResponse);
+  rpc DeletePlan(DeletePlanRequest) returns (DeletePlanResponse);
+  
+  // Subscriptions
+  rpc CreateSubscription(CreateSubscriptionRequest) returns (CreateSubscriptionResponse);
+  rpc GetSubscription(GetSubscriptionRequest) returns (GetSubscriptionResponse);
+  rpc ListSubscriptions(ListSubscriptionsRequest) returns (ListSubscriptionsResponse);
+  rpc CancelSubscription(CancelSubscriptionRequest) returns (CancelSubscriptionResponse);
+  rpc PauseSubscription(PauseSubscriptionRequest) returns (PauseSubscriptionResponse);
+  rpc ResumeSubscription(ResumeSubscriptionRequest) returns (ResumeSubscriptionResponse);
+  
+  // Invoices
+  rpc GetInvoice(GetInvoiceRequest) returns (GetInvoiceResponse);
+  rpc ListInvoices(ListInvoicesRequest) returns (ListInvoicesResponse);
+  
+  // On-chain
+  rpc GetVaultConfig(GetVaultConfigRequest) returns (GetVaultConfigResponse);
+}
+
+message CreatePlanRequest {
+  string merchant_id = 1;
+  string name = 2;
+  string description = 3.
+  string amount = 4.
+  string currency = 5.
+  string chain_id = 6.
+  int32 interval = 7; // Seconds
+  int32 interval_count = 8.
+  int32 trial_period = 9.
+  map<string, string> metadata = 10.
+}
+
+message CreatePlanResponse {
+  Plan plan = 1.
+}
+
+message GetPlanRequest {
+  string plan_id = 1.
+}
+
+message GetPlanResponse {
+  Plan plan = 1.
+}
+
+message ListPlansRequest {
+  string merchant_id = 1.
+  bool active_only = 2.
+}
+
+message ListPlansResponse {
+  repeated Plan plans = 1.
+}
+
+message UpdatePlanRequest {
+  string plan_id = 1.
+  string name = 2.
+  string description = 3.
+  bool active = 4.
+}
+
+message UpdatePlanResponse {
+  Plan plan = 1.
+}
+
+message DeletePlanRequest {
+  string plan_id = 1.
+}
+
+message DeletePlanResponse {
+  bool success = 1.
+}
+
+message CreateSubscriptionRequest {
+  string user_id = 1.
+  string plan_id = 2.
+  string account_id = 3. // Wallet to charge
+  string payment_token = 4. // USDT, USDC
+  map<string, string> metadata = 5.
+}
+
+message CreateSubscriptionResponse {
+  Subscription subscription = 1.
+  string client_token = 2. // For frontend approval
+}
+
+message GetSubscriptionRequest {
+  string subscription_id = 1.
+}
+
+message GetSubscriptionResponse {
+  Subscription subscription = 1.
+}
+
+message ListSubscriptionsRequest {
+  string user_id = 1.
+  string merchant_id = 2.
+  string status = 3.
+}
+
+message ListSubscriptionsResponse {
+  repeated Subscription subscriptions = 1.
+  int64 total = 2.
+}
+
+message CancelSubscriptionRequest {
+  string subscription_id = 1.
+  string reason = 2.
+}
+
+message CancelSubscriptionResponse {
+  Subscription subscription = 1.
+}
+
+message PauseSubscriptionRequest {
+  string subscription_id = 1.
+}
+
+message PauseSubscriptionResponse {
+  Subscription subscription = 1.
+}
+
+message ResumeSubscriptionRequest {
+  string subscription_id = 1.
+}
+
+message ResumeSubscriptionResponse {
+  Subscription subscription = 1.
+}
+
+message GetInvoiceRequest {
+  string invoice_id = 1.
+}
+
+message GetInvoiceResponse {
+  Invoice invoice = 1.
+}
+
+message ListInvoicesRequest {
+  string subscription_id = 1.
+  int32 page = 2.
+  int32 page_size = 3.
+}
+
+message ListInvoicesResponse {
+  repeated Invoice invoices = 1.
+  int64 total = 2.
+}
+
+message GetVaultConfigRequest {
+  string chain_id = 1.
+}
+
+message GetVaultConfigResponse {
+  string vault_address = 1.
+  string token_address = 2.
+  string stream_rate = 3. // Per second
+}
+
+message Plan {
+  string id = 1.
+  string merchant_id = 2.
+  string name = 3.
+  string description = 4.
+  string amount = 5.
+  string currency = 6.
+  string chain_id = 7.
+  int32 interval = 8.
+  int32 interval_count = 9.
+  int32 trial_period = 10.
+  bool active = 11.
+  map<string, string> metadata = 12.
+  int64 created_at = 13.
+  int64 updated_at = 14.
+}
+
+message Subscription {
+  string id = 1.
+  string user_id = 2.
+  string plan_id = 3.
+  string merchant_id = 4.
+  string account_id = 5.
+  string payment_token = 6.
+  string status = 7. // active, paused, cancelled, expired, past_due
+  string vault_position_id = 8. // On-chain vault ID
+  int64 current_period_start = 9.
+  int64 current_period_end = 10.
+  int64 trial_end = 11.
+  int64 cancelled_at = 12.
+  map<string, string> metadata = 13.
+  int64 created_at = 14.
+  int64 updated_at = 15.
+}
+
+message Invoice {
+  string id = 1.
+  string subscription_id = 2.
+  string amount = 3.
+  string currency = 4.
+  string status = 5. // pending, paid, failed, refunded
+  string tx_hash = 6.
+  int64 due_at = 7.
+  int64 paid_at = 8.
+  int64 created_at = 9.
+}

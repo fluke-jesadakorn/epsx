@@ -1,0 +1,165 @@
+{
+  "deployment": {
+    "old_release": "/opt/epsx/releases/20260914-analytics-cards-portfolio-auth-0d4850281",
+    "new_release": "/opt/epsx/releases/20260914-country-filter-6f59b7a7b",
+    "status": "deployed",
+    "commit": "6f59b7a7b56e0b6d371606adffeccf2f09a38b22",
+    "started_at": "2026-09-14T07:47:05Z",
+    "readiness": {
+      "wallet": true,
+      "subscription": true,
+      "analytics": true,
+      "notification": true,
+      "pay-service": true,
+      "epsx": true,
+      "bff-frontend": true,
+      "bff-admin": true,
+      "bff-pay": true
+    },
+    "countries": {
+      "thailand": 10,
+      "germany": 0
+    },
+    "finished_at": "2026-09-14T07:47:27Z"
+  },
+  "package": {
+    "commit": "6f59b7a7b56e0b6d371606adffeccf2f09a38b22",
+    "files": 508,
+    "manifest_sha256": "09b0975928b021136b1b510d51aa99bd7c1d5d4fe6510348f8f2f12f94647899",
+    "working_tree_dirty": true,
+    "dirty_scope": "Only the untracked target symlink used for the shared Cargo build cache",
+    "checksums_verified": true,
+    "migrations_identical": true
+  },
+  "validation": {
+    "passed": 2313,
+    "ignored": 44,
+    "failed": 0,
+    "workspace_exit_code": 0,
+    "clippy_exit_code": 0,
+    "format_exit_code": 0,
+    "foundry_passed": 33,
+    "migration_files_identical_to_production": 131,
+    "commit": "6f59b7a7b"
+  },
+  "service_readiness": {
+    "epsx": true,
+    "wallet": true,
+    "subscription": true,
+    "analytics": true,
+    "notification": true,
+    "pay-service": true,
+    "bff-frontend": true,
+    "bff-admin": true,
+    "bff-pay": true,
+    "minio": true,
+    "tunnel": true,
+    "postgresql": true,
+    "redis": true
+  },
+  "production_api": [
+    {
+      "country": "america",
+      "http": 200,
+      "cards": 10
+    },
+    {
+      "country": "thailand",
+      "http": 200,
+      "cards": 10
+    },
+    {
+      "country": "japan",
+      "http": 200,
+      "cards": 10
+    },
+    {
+      "country": "china",
+      "http": 200,
+      "cards": 10
+    },
+    {
+      "country": "uk",
+      "http": 200,
+      "cards": 0
+    },
+    {
+      "country": "germany",
+      "http": 200,
+      "cards": 0
+    },
+    {
+      "country": "singapore",
+      "http": 200,
+      "cards": 0
+    },
+    {
+      "country": "hongkong",
+      "http": 200,
+      "cards": 0
+    },
+    {
+      "country": "vietnam",
+      "http": 200,
+      "cards": 0
+    },
+    {
+      "country": "australia",
+      "http": 200,
+      "cards": 0
+    },
+    {
+      "country": "bahrain",
+      "http": 200,
+      "cards": 0
+    },
+    {
+      "country": "iceland",
+      "http": 200,
+      "cards": 0
+    }
+  ],
+  "production_browser": {
+    "url": "https://epsx.io/analytics?page=1&limit=10&country=america",
+    "http": 200,
+    "helpCount": 0,
+    "countries": [
+      {
+        "country": "thailand",
+        "http": 200,
+        "cards": 10,
+        "apiHttp": 200,
+        "symbolsMatch": true
+      },
+      {
+        "country": "germany",
+        "http": 200,
+        "cards": 0,
+        "apiHttp": 200,
+        "symbolsMatch": true
+      },
+      {
+        "country": "japan",
+        "http": 200,
+        "cards": 10,
+        "apiHttp": 200,
+        "symbolsMatch": true
+      },
+      {
+        "country": "america",
+        "http": 200,
+        "cards": 10,
+        "apiHttp": 200,
+        "symbolsMatch": true
+      }
+    ],
+    "pageErrors": []
+  },
+  "installed_manifest_verified": true,
+  "development_analytics_http": 200,
+  "notes": [
+    "Country filtering preserves backend ranking permissions; a country may have no companies in the accessible rank range.",
+    "The browser check waits for data-dioxus-hydrated before interacting. The initial probe acted on SSR markup before hydration and timed out.",
+    "Production configuration, signing keys, database schemas, and tunnel routes were not changed."
+  ]
+}

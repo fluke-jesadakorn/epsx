@@ -1,5 +1,6 @@
--- Remove grace_period_hours column
-ALTER TABLE plans DROP COLUMN IF EXISTS grace_period_hours;
+-- The consolidated v6 baseline owns grace_period_hours, so rollback must not
+-- remove the baseline column or its data. The function body below restores the
+-- pre-grace-period behavior while preserving the additive schema.
 
 -- Restore original permission function without grace period
 CREATE OR REPLACE FUNCTION public.get_wallet_permissions_detailed_working(p_wallet_address character varying)

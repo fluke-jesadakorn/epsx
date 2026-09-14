@@ -1,0 +1,134 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: epsx-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: epsx-backend
+  template:
+    metadata:
+      labels:
+        app: epsx-backend
+    spec:
+      # BIG-BANG: host.docker.internal via hostAliases hardcodes 192.168.5.1 (Colima IP drift).
+      # Phase infra done: ExternalName Services `postgres-external`/`redis-external`/`minio-external`
+      # now available as `postgres-external:5432` etc. Switch DB_URL to `postgres-external`
+      # when ready: `DATABASE_URL=postgres://...@postgres-external:5432/epsx_prod`.
+      # hostAliases kept for one release for rollback.
+      hostAliases:
+        - ip: "192.168.5.1"
+          hostnames:
+            - "host.docker.internal"
+      initContainers:
+        - name: migrate
+          image: epsx-backend:prod
+          imagePullPolicy: IfNotPresent
+          command: ["./migrate", "up"]
+          envFrom:
+            - secretRef:
+                name: epsx-backend
+          env:
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: epsx-postgres
+                  key: POSTGRES_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: epsx-postgres
+                  key: POSTGRES_PASSWORD
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: epsx-postgres
+                  key: POSTGRES_DB
+      containers:
+        - name: epsx-backend
+          image: epsx-backend:prod
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - secretRef:
+                name: epsx-backend
+          env:
+            # Connection overrides (bare-metal services via Colima host.docker.internal)
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: epsx-postgres
+                  key: POSTGRES_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: epsx-postgres
+                  key: POSTGRES_PASSWORD
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: epsx-postgres
+                  key: POSTGRES_DB
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: epsx-redis
+                  key: REDIS_PASSWORD
+            - name: REDIS_URL
+              value: "redis://:$(REDIS_PASSWORD)@host.docker.internal:6379"
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: epsx-minio
+                  key: MINIO_ROOT_USER
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: epsx-minio
+                  key: MINIO_ROOT_PASSWORD
+            - name: MINIO_PUBLIC_URL
+              valueFrom:
+                secretKeyRef:
+                  name: epsx-minio
+                  key: MINIO_PUBLIC_URL
+            - name: MINIO_ENDPOINT
+              value: "http://host.docker.internal:9100"
+            - name: HOST
+              value: "0.0.0.0"
+            - name: PORT
+              value: "8080"
+          ports:
+            - containerPort: 8080
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            limits:
+              memory: 2Gi
+              cpu: "4"
+            requests:
+              memory: 512Mi
+              cpu: "1"
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 100Mi

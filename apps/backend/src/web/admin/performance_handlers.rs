@@ -1,8 +1,8 @@
 // Performance monitoring handlers for authentication system
 // Provides cache statistics and performance metrics
 
-use axum::{ extract::State, http::StatusCode, response::Json };
-use serde_json::{ json, Value };
+use axum::{extract::State, http::StatusCode, response::Json};
+use serde_json::{json, Value};
 use tracing::info;
 
 use crate::web::auth::AppState;
@@ -23,19 +23,15 @@ use crate::web::auth::AppState;
     ),
     security(("bearerAuth" = []))
 )]
-pub async fn get_auth_cache_performance(State(
-  _app_state,
-): State<AppState>) -> Result<Json<Value>, StatusCode> {
-  info!("Fetching authentication cache performance metrics");
+pub async fn get_auth_cache_performance(
+    State(_app_state): State<AppState>,
+) -> Result<Json<Value>, StatusCode> {
+    info!("Fetching authentication cache performance metrics");
 
-  Ok(
-    Json(
-      json!({
+    Ok(Json(json!({
         "status": "unavailable",
         "timestamp": chrono::Utc::now().to_rfc3339()
-    })
-    )
-  )
+    })))
 }
 
 /// Get cache statistics summary
@@ -54,20 +50,15 @@ pub async fn get_auth_cache_performance(State(
     ),
     security(("bearerAuth" = []))
 )]
-pub async fn get_cache_summary(State(_app_state): State<AppState>) -> Result<
-  Json<Value>,
-  StatusCode
-> {
-  info!("Fetching authentication cache summary");
+pub async fn get_cache_summary(
+    State(_app_state): State<AppState>,
+) -> Result<Json<Value>, StatusCode> {
+    info!("Fetching authentication cache summary");
 
-  Ok(
-    Json(
-      json!({
+    Ok(Json(json!({
         "status": "unavailable",
         "timestamp": chrono::Utc::now().to_rfc3339()
-    })
-    )
-  )
+    })))
 }
 
 /// Clear authentication cache
@@ -87,25 +78,26 @@ pub async fn get_cache_summary(State(_app_state): State<AppState>) -> Result<
     security(("bearerAuth" = []))
 )]
 pub async fn clear_auth_cache(
-  State(app_state): State<AppState>,
-  axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
-  headers: axum::http::HeaderMap,
-) -> Result<
-  Json<Value>,
-  StatusCode
-> {
-  info!("Clearing authentication cache");
+    State(app_state): State<AppState>,
+    axum::Extension(user_ctx): axum::Extension<
+        crate::web::middleware::bearer_middleware::OpenIDUserContext,
+    >,
+    headers: axum::http::HeaderMap,
+) -> Result<Json<Value>, StatusCode> {
+    info!("Clearing authentication cache");
 
-  let ctx = crate::infrastructure::services::audit_service::AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
-  app_state.audit.log(ctx, crate::infrastructure::services::audit_service::AuditEntry::new("cache", "clear", "system"));
+    let ctx = crate::infrastructure::services::audit_service::AuditCtx::from_wallet(
+        &user_ctx.wallet_address,
+        &headers,
+    );
+    app_state.audit.log(
+        ctx,
+        crate::infrastructure::services::audit_service::AuditEntry::new("cache", "clear", "system"),
+    );
 
-  Ok(
-    Json(
-      json!({
+    Ok(Json(json!({
         "status": "unavailable",
         "message": "Cache clear requested",
         "timestamp": chrono::Utc::now().to_rfc3339()
-    })
-    )
-  )
+    })))
 }

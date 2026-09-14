@@ -1,11 +1,10 @@
 // Get Cached Rankings Query
 
-use serde::{Deserialize, Serialize};
-use crate::application::shared::Query;
 use crate::application::market_analytics::dtos::{
-    UnifiedAnalyticsRankingsResponse,
-    EPSRankingQueryParams,
+    EPSRankingQueryParams, UnifiedAnalyticsRankingsResponse,
 };
+use crate::application::shared::Query;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone)]
 pub struct GetCachedRankingsQuery {

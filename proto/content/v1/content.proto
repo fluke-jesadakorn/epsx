@@ -1,0 +1,277 @@
+syntax = "proto3";
+
+package epsx.content.v1;
+
+option rust_module = "content_v1";
+
+service ContentService {
+  // Pages
+  rpc GetPage(GetPageRequest) returns (GetPageResponse);
+  rpc ListPages(ListPagesRequest) returns (ListPagesResponse);
+  rpc CreatePage(CreatePageRequest) returns (CreatePageResponse);
+  rpc UpdatePage(UpdatePageRequest) returns (UpdatePageResponse);
+  rpc DeletePage(DeletePageRequest) returns (DeletePageResponse);
+  rpc PublishPage(PublishPageRequest) returns (PublishPageResponse);
+  
+  // Blocks
+  rpc GetBlockRegistry(GetBlockRegistryRequest) returns (GetBlockRegistryResponse);
+  rpc GetBlockSchema(GetBlockSchemaRequest) returns (GetBlockSchemaResponse);
+  
+  // Themes
+  rpc GetTheme(GetThemeRequest) returns (GetThemeResponse);
+  rpc ListThemes(ListThemesRequest) returns (ListThemesResponse);
+  rpc UpdateTheme(UpdateThemeRequest) returns (UpdateThemeResponse);
+  
+  // Navigation
+  rpc GetNavigation(GetNavigationRequest) returns (GetNavigationResponse);
+  rpc UpdateNavigation(UpdateNavigationRequest) returns (UpdateNavigationResponse);
+  
+  // Edit Mode
+  rpc StartEditSession(StartEditSessionRequest) returns (StartEditSessionResponse);
+  rpc UpdateBlock(UpdateBlockRequest) returns (UpdateBlockResponse);
+  rpc CommitEditSession(CommitEditSessionRequest) returns (CommitEditSessionResponse);
+  
+  // Preview
+  rpc CreatePreview(CreatePreviewRequest) returns (CreatePreviewResponse);
+  rpc GetPreview(GetPreviewRequest) returns (GetPreviewResponse);
+}
+
+message GetPageRequest {
+  string slug = 1;
+  bool include_blocks = 2;
+  string locale = 3;
+}
+
+message GetPageResponse {
+  Page page = 1;
+}
+
+message ListPagesRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+  string locale = 3;
+  string status = 4; // draft, published, archived
+}
+
+message ListPagesResponse {
+  repeated Page pages = 1;
+  int64 total = 2;
+}
+
+message CreatePageRequest {
+  string slug = 1;
+  string title = 2;
+  string locale = 3;
+  string status = 4; // draft
+  repeated PageBlock blocks = 5;
+  map<string, string> seo = 6;
+}
+
+message CreatePageResponse {
+  Page page = 1;
+}
+
+message UpdatePageRequest {
+  string page_id = 1;
+  string title = 2;
+  repeated PageBlock blocks = 3;
+  map<string, string> seo = 4;
+}
+
+message UpdatePageResponse {
+  Page page = 1;
+}
+
+message DeletePageRequest {
+  string page_id = 1;
+}
+
+message DeletePageResponse {
+  bool success = 1;
+}
+
+message PublishPageRequest {
+  string page_id = 1;
+  string commit_message = 2;
+}
+
+message PublishPageResponse {
+  Page page = 1;
+  string commit_hash = 2;
+}
+
+message GetBlockRegistryRequest {
+  string category = 1; // all, marketing, layout, content, commerce
+}
+
+message GetBlockRegistryResponse {
+  repeated BlockType blocks = 1;
+}
+
+message GetBlockSchemaRequest {
+  string block_type = 1;
+}
+
+message GetBlockSchemaResponse {
+  BlockSchema schema = 1;
+}
+
+message GetThemeRequest {
+  string theme_id = 1; // "default" or "dark"
+}
+
+message GetThemeResponse {
+  Theme theme = 1;
+}
+
+message ListThemesRequest {}
+
+message ListThemesResponse {
+  repeated Theme themes = 1;
+}
+
+message UpdateThemeRequest {
+  string theme_id = 1;
+  string colors_json = 2;
+  string fonts_json = 3;
+  string spacing_json = 4;
+  string breakpoints_json = 5;
+}
+
+message UpdateThemeResponse {
+  Theme theme = 1;
+}
+
+message GetNavigationRequest {
+  string menu_id = 1; // main, footer
+}
+
+message GetNavigationResponse {
+  Navigation navigation = 1;
+}
+
+message UpdateNavigationRequest {
+  string menu_id = 1;
+  repeated NavigationItem items = 2;
+}
+
+message UpdateNavigationResponse {
+  Navigation navigation = 1;
+}
+
+message StartEditSessionRequest {
+  string page_id = 1;
+  string user_id = 2;
+  string session_token = 3; // JWT with edit permissions
+}
+
+message StartEditSessionResponse {
+  string session_id = 1;
+  Page page = 2;
+  string ws_url = 3; // For collaborative editing
+}
+
+message UpdateBlockRequest {
+  string session_id = 1;
+  int32 block_index = 2;
+  string block_type = 3;
+  string props_json = 4;
+}
+
+message UpdateBlockResponse {
+  PageBlock block = 1;
+}
+
+message CommitEditSessionRequest {
+  string session_id = 1;
+  string commit_message = 2;
+  bool publish = 3;
+}
+
+message CommitEditSessionResponse {
+  Page page = 1;
+  string commit_hash = 2;
+  bool published = 3;
+}
+
+message CreatePreviewRequest {
+  string page_id = 1;
+  string base_url = 2; // preview.epsx.io
+}
+
+message CreatePreviewResponse {
+  string preview_url = 1;
+  int64 expires_at = 2;
+}
+
+message GetPreviewRequest {
+  string preview_token = 1;
+}
+
+message GetPreviewResponse {
+  Page page = 1;
+}
+
+message Page {
+  string id = 1;
+  string slug = 2;
+  string title = 3;
+  string locale = 4;
+  string status = 5; // draft, published, archived
+  repeated PageBlock blocks = 6;
+  map<string, string> seo = 7;
+  int64 created_at = 8;
+  int64 updated_at = 9;
+  int64 published_at = 10;
+  string published_commit = 11;
+}
+
+message PageBlock {
+  int32 index = 1;
+  string type = 2;
+  string props_json = 3;
+  string theme_overrides_json = 4;
+}
+
+message BlockType {
+  string type = 1;
+  string name = 2;
+  string category = 3; // marketing, layout, content, commerce
+  string description = 4;
+  string icon = 5;
+  string schema_json = 6; // JSON Schema for props
+  string default_props_json = 7;
+  string preview_image = 8;
+}
+
+message BlockSchema {
+  string type = 1;
+  string schema_json = 2; // Full JSON Schema
+  string ui_schema_json = 3; // For form generation
+}
+
+message Theme {
+  string id = 1;
+  string name = 2;
+  string colors_json = 3; // CSS variables
+  string fonts_json = 4;
+  string spacing_json = 5;
+  string breakpoints_json = 6;
+  bool is_default = 7;
+}
+
+message Navigation {
+  string menu_id = 1;
+  repeated NavigationItem items = 2;
+  int64 updated_at = 3;
+}
+
+message NavigationItem {
+  string id = 1;
+  string label = 2;
+  string url = 3;
+  string target = 4; // _self, _blank
+  repeated NavigationItem children = 5;
+  int32 order = 6;
+  bool visible = 7;
+}

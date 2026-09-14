@@ -1,0 +1,23 @@
+[package]
+name = "epsx-identity"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "identity"
+path = "src/main.rs"
+
+[dependencies]
+epsx-observability = { path = "../../shared/rust/observability" }
+epsx-service-auth = { path = "../../shared/rust/epsx-service-auth" }
+axum.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+serde_json.workspace = true
+clap.workspace = true
+reqwest.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+async-trait.workspace = true
+tower.workspace = true

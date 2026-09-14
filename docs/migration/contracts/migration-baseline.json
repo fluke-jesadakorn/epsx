@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "sourceRef": "development",
+  "sourceSha": "6fe4d5bb3e170ba0644c07979735482bcc0f17c6",
+  "targetBranch": "migration/dioxus-microservices",
+  "targetSha": "fec45147534eae35b7a8ff40c26cc4f7ac21adbd",
+  "evidenceSha": "fec45147534eae35b7a8ff40c26cc4f7ac21adbd",
+  "readinessLevel": "source-integrated-static-only",
+  "stagingReady": false,
+  "productionReady": false
+}

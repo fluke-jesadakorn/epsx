@@ -1,0 +1,7 @@
+{
+  "database": "epsx_test_sales_20260909190156",
+  "restore_succeeded": true,
+  "migration_repeatable": true,
+  "existing_orders_preserved": true,
+  "old_orders_no_invented_sale_snapshot": true
+}

@@ -3,9 +3,9 @@ use axum::{
     http::StatusCode,
     response::Json,
 };
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use chrono::{DateTime, Utc};
 
 use crate::web::auth::AppState;
 
@@ -137,7 +137,7 @@ impl SecurityMonitoringHandlers {
     ) -> Result<Json<SecurityEventsResponse>, StatusCode> {
         // In production, integrate with actual ThreatDetectionService
         let events = Self::mock_security_events(&query);
-        
+
         let response = SecurityEventsResponse {
             total_count: events.len(),
             events,
@@ -280,19 +280,17 @@ impl SecurityMonitoringHandlers {
 
     fn mock_security_trends() -> SecurityTrends {
         SecurityTrends {
-            hourly_events: vec![
-                HourlyEventCount {
-                    hour: Utc::now(),
-                    count: 12,
-                    severity_breakdown: {
-                        let mut breakdown = HashMap::new();
-                        breakdown.insert("Low".to_string(), 8);
-                        breakdown.insert("Medium".to_string(), 3);
-                        breakdown.insert("High".to_string(), 1);
-                        breakdown
-                    },
+            hourly_events: vec![HourlyEventCount {
+                hour: Utc::now(),
+                count: 12,
+                severity_breakdown: {
+                    let mut breakdown = HashMap::new();
+                    breakdown.insert("Low".to_string(), 8);
+                    breakdown.insert("Medium".to_string(), 3);
+                    breakdown.insert("High".to_string(), 1);
+                    breakdown
                 },
-            ],
+            }],
             severity_trends: vec![
                 SeverityTrend {
                     severity: "High".to_string(),
@@ -305,48 +303,42 @@ impl SecurityMonitoringHandlers {
                     change_percentage: 2.1,
                 },
             ],
-            threat_score_trend: vec![
-                ThreatScoreTrend {
-                    timestamp: Utc::now(),
-                    avg_score: 34.5,
-                    max_score: 89.0,
-                    min_score: 5.0,
-                },
-            ],
+            threat_score_trend: vec![ThreatScoreTrend {
+                timestamp: Utc::now(),
+                avg_score: 34.5,
+                max_score: 89.0,
+                min_score: 5.0,
+            }],
         }
     }
 
     fn mock_security_alerts() -> Vec<SecurityAlert> {
-        vec![
-            SecurityAlert {
-                id: "alert_001".to_string(),
-                alert_type: "HighThreatScore".to_string(),
-                message: "Multiple users with threat scores above 80".to_string(),
-                severity: "High".to_string(),
-                timestamp: Utc::now(),
-                auto_resolved: false,
-                affected_users: vec!["user_123".to_string(), "user_456".to_string()],
-            },
-        ]
+        vec![SecurityAlert {
+            id: "alert_001".to_string(),
+            alert_type: "HighThreatScore".to_string(),
+            message: "Multiple users with threat scores above 80".to_string(),
+            severity: "High".to_string(),
+            timestamp: Utc::now(),
+            auto_resolved: false,
+            affected_users: vec!["user_123".to_string(), "user_456".to_string()],
+        }]
     }
 
     fn mock_user_events(wallet_address: &str) -> Vec<SecurityEventDto> {
-        vec![
-            SecurityEventDto {
-                id: "evt_user_001".to_string(),
-                wallet_address: wallet_address.to_string(),
-                event_type: "SuspiciousLogin".to_string(),
-                severity: "Medium".to_string(),
-                description: "Login from new device".to_string(),
-                risk_score: 45.0,
-                device_fingerprint: Some("fp_new_device".to_string()),
-                ip_address: "203.0.113.1".to_string(),
-                user_agent: "Mozilla/5.0...".to_string(),
-                timestamp: Utc::now(),
-                resolved: false,
-                recommended_actions: vec!["Verify device ownership".to_string()],
-                metadata: HashMap::new(),
-            },
-        ]
+        vec![SecurityEventDto {
+            id: "evt_user_001".to_string(),
+            wallet_address: wallet_address.to_string(),
+            event_type: "SuspiciousLogin".to_string(),
+            severity: "Medium".to_string(),
+            description: "Login from new device".to_string(),
+            risk_score: 45.0,
+            device_fingerprint: Some("fp_new_device".to_string()),
+            ip_address: "203.0.113.1".to_string(),
+            user_agent: "Mozilla/5.0...".to_string(),
+            timestamp: Utc::now(),
+            resolved: false,
+            recommended_actions: vec!["Verify device ownership".to_string()],
+            metadata: HashMap::new(),
+        }]
     }
 }

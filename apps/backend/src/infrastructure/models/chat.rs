@@ -1,17 +1,13 @@
 use chrono::{DateTime, Utc};
-use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 use utoipa::ToSchema;
-
-use crate::schemas::primary::{chat_topics, chat_conversations, chat_messages};
-
+use uuid::Uuid;
 // ============================================================================
 // TOPIC MODELS
 // ============================================================================
 
-#[derive(Debug, Queryable, Selectable, Serialize, ToSchema)]
-#[diesel(table_name = chat_topics)]
+#[derive(Debug, Serialize, ToSchema, sqlx::FromRow)]
+
 pub struct ChatTopicDb {
     pub id: Uuid,
     pub name: String,
@@ -27,8 +23,8 @@ pub struct ChatTopicDb {
 // CONVERSATION MODELS
 // ============================================================================
 
-#[derive(Debug, Queryable, Selectable, Serialize, ToSchema)]
-#[diesel(table_name = chat_conversations)]
+#[derive(Debug, Serialize, ToSchema, sqlx::FromRow)]
+
 pub struct ChatConversationDb {
     pub id: Uuid,
     pub topic_id: Uuid,
@@ -44,8 +40,8 @@ pub struct ChatConversationDb {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Insertable)]
-#[diesel(table_name = chat_conversations)]
+#[derive(Debug, Clone, sqlx::Type)]
+
 pub struct NewConversation {
     pub topic_id: Uuid,
     pub wallet_address: String,
@@ -57,8 +53,8 @@ pub struct NewConversation {
 // MESSAGE MODELS
 // ============================================================================
 
-#[derive(Debug, Queryable, Selectable, Serialize, ToSchema)]
-#[diesel(table_name = chat_messages)]
+#[derive(Debug, Serialize, ToSchema, sqlx::FromRow)]
+
 pub struct ChatMessageDb {
     pub id: Uuid,
     pub conversation_id: Uuid,
@@ -70,8 +66,8 @@ pub struct ChatMessageDb {
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Insertable)]
-#[diesel(table_name = chat_messages)]
+#[derive(Debug, Clone, sqlx::Type)]
+
 pub struct NewMessage {
     pub conversation_id: Uuid,
     pub sender_type: String,

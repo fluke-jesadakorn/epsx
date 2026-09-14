@@ -1,0 +1,341 @@
+{
+  "schemaVersion": 1,
+  "contractId": "A3.10-content-schema-boundary",
+  "purpose": "offline-static-content-schema-boundary-only",
+  "productionReady": false,
+  "integrityExit": 0,
+  "readinessExit": 3,
+  "scope": {
+    "service": "services/content",
+    "database": "epsx_content",
+    "schema": "public",
+    "tables": ["themes", "pages", "block_types", "edit_sessions"],
+    "status": "partial"
+  },
+  "safety": {
+    "deploymentAuthorized": false,
+    "databaseAccessAuthorized": false,
+    "migrationExecutionAuthorized": false,
+    "networkAccessAuthorized": false,
+    "runtimeMutationAuthorized": false,
+    "sampleDataAuthorized": false,
+    "readinessMeaning": "Integrity proves local source, migration bytes, and static SQL/model boundaries only; it is not upgrade, adoption, reconciliation, or live database evidence."
+  },
+  "developmentNewsBoundary": {
+    "sourceRef": "origin/development",
+    "sourceRefRole": "provenance-label-only",
+    "sourceCommit": "373bd231cb7a616c3d4c0ddc1d60e0099a88a5db",
+    "scopeDecision": "legacy-news-authority-inspected-but-not-imported-by-this-content-schema-slice",
+    "evidence": [
+      {
+        "id": "news-table",
+        "file": "apps/backend/migrations/core/20260227000000_create_news/up.sql",
+        "blob": "b1421b397c7920bf22c733fb8315e6b2dbc13583",
+        "anchor": "CREATE TABLE IF NOT EXISTS news_articles ("
+      },
+      {
+        "id": "news-indexes",
+        "file": "apps/backend/migrations/core/20260228000000_add_news_perf_indexes/up.sql",
+        "blob": "c16cae0ad31756d7c1a3d105a4f3d83b3439756c",
+        "anchor": "CREATE INDEX IF NOT EXISTS idx_news_status_published"
+      },
+      {
+        "id": "news-pin-columns",
+        "file": "apps/backend/migrations/core/20260301000000_add_pin_to_news/up.sql",
+        "blob": "5a6d92b58ca2f6b651ac69a07d9ba20adeac3103",
+        "anchor": "ADD COLUMN IF NOT EXISTS is_pinned BOOLEAN NOT NULL DEFAULT FALSE"
+      },
+      {
+        "id": "news-model",
+        "file": "apps/backend/src/infrastructure/models/news.rs",
+        "blob": "2eff9158fea8ccdad2e1306356172af3d47fe70f",
+        "anchor": "pub struct NewsArticleDb {"
+      },
+      {
+        "id": "news-repository",
+        "file": "apps/backend/src/infrastructure/repositories/news_repository.rs",
+        "blob": "3a20f29fa878db8ddcaa9d2085c052423c9fbc14",
+        "anchor": ".filter(news_articles::status.eq(\"published\"))"
+      },
+      {
+        "id": "news-public-api",
+        "file": "apps/backend/src/web/public/news_handlers.rs",
+        "blob": "882e4356842318964936d385f6ef70f76b45fd76",
+        "anchor": "let limit = query.limit.unwrap_or(10).clamp(1, 100);"
+      },
+      {
+        "id": "news-admin-api",
+        "file": "apps/backend/src/web/admin/news_handlers.rs",
+        "blob": "24f589a296247407c0a97caf8fa04ee397eebdbe",
+        "anchor": "pub async fn create_news("
+      }
+    ]
+  },
+  "runtimeBoundary": {
+    "rustRoot": "services/content",
+    "rustInventory": [
+      "services/content/src/lib.rs",
+      "services/content/src/main.rs"
+    ],
+    "scannerFindingBefore": 4,
+    "scannerFindingAfter": 0,
+    "removedAnchors": [
+      "CREATE TABLE IF NOT EXISTS pages (",
+      "CREATE TABLE IF NOT EXISTS themes (",
+      "CREATE TABLE IF NOT EXISTS block_types (",
+      "CREATE TABLE IF NOT EXISTS edit_sessions ("
+    ],
+    "compatibilityQueryConstant": "CONTENT_SCHEMA_COMPATIBILITY_QUERY",
+    "compatibilityFunction": "verify_schema_compatibility",
+    "compatibilityQueryBytes": 15196,
+    "compatibilityQuerySha256": "65a6e45346adc594b4a87f9090a346a924fe666a89c06715be145e46886ced61",
+    "qualifiedRelationOccurrences": {
+      "public.pages": 8,
+      "public.themes": 5,
+      "public.block_types": 3,
+      "public.edit_sessions": 3
+    },
+    "jsonbTextProjectionOccurrences": 38,
+    "returningStarOccurrences": 0,
+    "queryRequiredAnchors": [
+      "WITH expected_columns (",
+      "LEFT JOIN information_schema.columns AS actual",
+      "AND COALESCE(\n            CASE expected.default_kind",
+      "SELECT COUNT(*) = 34 AS compatible",
+      "table_record.relpersistence = 'p'",
+      "constraint_record.contype = 'p'",
+      "constraint_record.contype = 'u'",
+      "constraint_record.contype = 'f'",
+      "COUNT(DISTINCT (table_record.relname, attribute_record.attname)) = 3",
+      "NOT constraint_record.condeferrable",
+      "NOT constraint_record.condeferred",
+      "constraint_record.confdeltype = 'c'",
+      "index_record.indisvalid",
+      "index_record.indisready",
+      "index_record.indimmediate",
+      "index_record.indpred IS NULL",
+      "unique_index_inventory_compatibility AS (",
+      "FROM pg_catalog.pg_index AS index_record",
+      "LEFT JOIN pg_catalog.pg_constraint AS constraint_record",
+      "constraint_record.oid IS NOT NULL",
+      "COUNT(DISTINCT (\n            table_record.relname,\n            attribute_record.attname,\n            constraint_record.contype\n       )) = 7",
+      "index_record.indcollation[0] = attribute_record.attcollation",
+      "access_method.amname = 'btree'",
+      "opclass_record.opcname = 'uuid_ops'",
+      "opclass_record.opcname = 'text_ops'",
+      "OR (\n              target_namespace.nspname = 'public'",
+      "to_regclass('public.pages') IS NOT NULL",
+      "to_regclass('public.themes') IS NOT NULL",
+      "to_regclass('public.block_types') IS NOT NULL",
+      "to_regclass('public.edit_sessions') IS NOT NULL",
+      "AND COALESCE((SELECT compatible FROM column_compatibility), false)"
+    ],
+    "modelAndBindAnchors": [
+      "struct DbPage {",
+      "blocks_json::text AS blocks_json",
+      "seo_json::text AS seo_json",
+      "struct DbBlockType {\n    id: uuid::Uuid,",
+      "struct EditSession {\n    id: uuid::Uuid,\n    page_id: uuid::Uuid,\n    user_id: uuid::Uuid,",
+      "started_at: chrono::DateTime<chrono::Utc>",
+      ".bind(&schema)",
+      ".bind(&block.default_props)",
+      "uuid::Uuid::parse_str(&req.page_id)",
+      "uuid::Uuid::parse_str(&req.user_id)",
+      "uuid::Uuid::parse_str(&req.session_id)"
+    ],
+    "mainSequence": [
+      "sqlx::PgPool::connect(&args.database_url)",
+      "verify_schema_compatibility(&db)",
+      "sync_blocks_to_db(&db, &*block_registry.read().await)",
+      "sync_themes_to_db(&db, &content_path)",
+      "tokio::net::TcpListener::bind(addr)",
+      "axum::serve(listener, app)"
+    ]
+  },
+  "migrationRoot": {
+    "path": "services/content/migrations",
+    "runner": null,
+    "transactionOwner": "future-reviewed-runner",
+    "orderedMigrations": [
+      {
+        "version": "20260722030000",
+        "path": "services/content/migrations/20260722030000_create_content_tables.sql",
+        "bytes": 1656,
+        "sha256": "b4eaf9ec57b1a823e0dad8a2a5fdb1b574488d6c7ebceb1187784cd505bba24d",
+        "guards": [
+          "CREATE TABLE IF NOT EXISTS public.themes (",
+          "CREATE TABLE IF NOT EXISTS public.pages (",
+          "CREATE TABLE IF NOT EXISTS public.block_types (",
+          "CREATE TABLE IF NOT EXISTS public.edit_sessions ("
+        ]
+      }
+    ]
+  },
+  "requiredTables": [
+    {
+      "name": "themes",
+      "columns": [
+        {"ordinal": 1, "name": "id", "sqlAnchor": "id UUID PRIMARY KEY DEFAULT gen_random_uuid(),"},
+        {"ordinal": 2, "name": "name", "sqlAnchor": "name VARCHAR(100) UNIQUE NOT NULL,"},
+        {"ordinal": 3, "name": "colors_json", "sqlAnchor": "colors_json JSONB NOT NULL DEFAULT '{}',"},
+        {"ordinal": 4, "name": "fonts_json", "sqlAnchor": "fonts_json JSONB NOT NULL DEFAULT '{}',"},
+        {"ordinal": 5, "name": "spacing_json", "sqlAnchor": "spacing_json JSONB NOT NULL DEFAULT '{}',"},
+        {"ordinal": 6, "name": "breakpoints_json", "sqlAnchor": "breakpoints_json JSONB NOT NULL DEFAULT '{}',"},
+        {"ordinal": 7, "name": "radius_json", "sqlAnchor": "radius_json JSONB DEFAULT '{}',"},
+        {"ordinal": 8, "name": "is_default", "sqlAnchor": "is_default BOOLEAN NOT NULL DEFAULT false"}
+      ]
+    },
+    {
+      "name": "pages",
+      "columns": [
+        {"ordinal": 1, "name": "id", "sqlAnchor": "id UUID PRIMARY KEY DEFAULT gen_random_uuid(),"},
+        {"ordinal": 2, "name": "slug", "sqlAnchor": "slug VARCHAR(255) UNIQUE NOT NULL,"},
+        {"ordinal": 3, "name": "title", "sqlAnchor": "title VARCHAR(255) NOT NULL,"},
+        {"ordinal": 4, "name": "locale", "sqlAnchor": "locale VARCHAR(10) NOT NULL DEFAULT 'en',"},
+        {"ordinal": 5, "name": "status", "sqlAnchor": "status VARCHAR(20) NOT NULL DEFAULT 'draft',"},
+        {"ordinal": 6, "name": "blocks_json", "sqlAnchor": "blocks_json JSONB NOT NULL DEFAULT '[]',"},
+        {"ordinal": 7, "name": "seo_json", "sqlAnchor": "seo_json JSONB DEFAULT '{}',"},
+        {"ordinal": 8, "name": "theme_id", "sqlAnchor": "theme_id UUID,"},
+        {"ordinal": 9, "name": "created_at", "sqlAnchor": "created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),"},
+        {"ordinal": 10, "name": "updated_at", "sqlAnchor": "updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),"},
+        {"ordinal": 11, "name": "published_at", "sqlAnchor": "published_at TIMESTAMPTZ"}
+      ]
+    },
+    {
+      "name": "block_types",
+      "columns": [
+        {"ordinal": 1, "name": "id", "sqlAnchor": "id UUID PRIMARY KEY DEFAULT gen_random_uuid(),"},
+        {"ordinal": 2, "name": "block_type", "sqlAnchor": "block_type VARCHAR(50) UNIQUE NOT NULL,"},
+        {"ordinal": 3, "name": "name", "sqlAnchor": "name VARCHAR(100) NOT NULL,"},
+        {"ordinal": 4, "name": "category", "sqlAnchor": "category VARCHAR(50) NOT NULL,"},
+        {"ordinal": 5, "name": "description", "sqlAnchor": "description TEXT,"},
+        {"ordinal": 6, "name": "schema_json", "sqlAnchor": "schema_json JSONB NOT NULL DEFAULT '{}',"},
+        {"ordinal": 7, "name": "default_props_json", "sqlAnchor": "default_props_json JSONB NOT NULL DEFAULT '{}',"},
+        {"ordinal": 8, "name": "admin_only", "sqlAnchor": "admin_only BOOLEAN NOT NULL DEFAULT false,"},
+        {"ordinal": 9, "name": "updated_at", "sqlAnchor": "updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()"}
+      ]
+    },
+    {
+      "name": "edit_sessions",
+      "columns": [
+        {"ordinal": 1, "name": "id", "sqlAnchor": "id UUID PRIMARY KEY DEFAULT gen_random_uuid(),"},
+        {"ordinal": 2, "name": "page_id", "sqlAnchor": "page_id UUID NOT NULL REFERENCES public.pages(id) ON DELETE CASCADE,"},
+        {"ordinal": 3, "name": "user_id", "sqlAnchor": "user_id UUID NOT NULL,"},
+        {"ordinal": 4, "name": "status", "sqlAnchor": "status VARCHAR(20) NOT NULL DEFAULT 'active',"},
+        {"ordinal": 5, "name": "started_at", "sqlAnchor": "started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),"},
+        {"ordinal": 6, "name": "ended_at", "sqlAnchor": "ended_at TIMESTAMPTZ"}
+      ]
+    }
+  ],
+  "constraintSemantics": {
+    "primaryKeys": ["themes.id", "pages.id", "block_types.id", "edit_sessions.id"],
+    "uniqueKeys": ["themes.name", "pages.slug", "block_types.block_type"],
+    "foreignKeys": ["edit_sessions.page_id->public.pages.id ON UPDATE NO ACTION ON DELETE CASCADE"],
+    "backingIndexes": 7,
+    "nameOnlyIdempotenceAccepted": false,
+    "uniqueConstraintPolicy": {
+      "exactDistinctSet": true,
+      "oneConstraintPerKey": true,
+      "validated": true,
+      "deferrable": false,
+      "initiallyDeferred": false,
+      "backingIndexUnique": true,
+      "backingIndexValid": true,
+      "backingIndexReady": true,
+      "backingIndexImmediate": true,
+      "backingIndexPartial": false,
+      "backingIndexExpression": false
+    },
+    "foreignKeyBoundary": {
+      "inventoryDirection": "inbound-and-outbound",
+      "exactTotal": 1,
+      "unexpectedInboundAccepted": false,
+      "unexpectedOutboundAccepted": false
+    },
+    "uniqueIndexInventory": {
+      "catalogDriver": "pg_catalog.pg_index",
+      "inventoryPredicate": "indisunique",
+      "exactTotal": 7,
+      "constraintBackedOnly": true,
+      "standaloneAccepted": false,
+      "partialAccepted": false,
+      "expressionAccepted": false,
+      "accessMethod": "btree",
+      "collationPolicy": "exact-indexed-column-collation",
+      "bindings": [
+        {"table": "themes", "column": "id", "constraintType": "p", "opclass": "uuid_ops"},
+        {"table": "themes", "column": "name", "constraintType": "u", "opclass": "text_ops"},
+        {"table": "pages", "column": "id", "constraintType": "p", "opclass": "uuid_ops"},
+        {"table": "pages", "column": "slug", "constraintType": "u", "opclass": "text_ops"},
+        {"table": "block_types", "column": "id", "constraintType": "p", "opclass": "uuid_ops"},
+        {"table": "block_types", "column": "block_type", "constraintType": "u", "opclass": "text_ops"},
+        {"table": "edit_sessions", "column": "id", "constraintType": "p", "opclass": "uuid_ops"}
+      ]
+    }
+  },
+  "freshSchemaDrift": {
+    "removedRuntimeSnapshot": {
+      "commit": "c0339d663123cb26ecd682aeea28e9917cf05b7f",
+      "file": "services/content/src/main.rs",
+      "blob": "9d623fdd83780e3a13f18e439383e4fcba72b601"
+    },
+    "guardedMigrationUpgradesPreexistingTables": false,
+    "driftItems": 18,
+    "notNullAdditions": [
+      {"table": "pages", "column": "locale", "oldSqlAnchor": "locale VARCHAR(10) DEFAULT 'en',", "newSqlAnchor": "locale VARCHAR(10) NOT NULL DEFAULT 'en',"},
+      {"table": "pages", "column": "status", "oldSqlAnchor": "status VARCHAR(20) DEFAULT 'draft',", "newSqlAnchor": "status VARCHAR(20) NOT NULL DEFAULT 'draft',"},
+      {"table": "pages", "column": "blocks_json", "oldSqlAnchor": "blocks_json JSONB DEFAULT '[]',", "newSqlAnchor": "blocks_json JSONB NOT NULL DEFAULT '[]',"},
+      {"table": "pages", "column": "created_at", "oldSqlAnchor": "created_at TIMESTAMPTZ DEFAULT NOW(),", "newSqlAnchor": "created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),"},
+      {"table": "pages", "column": "updated_at", "oldSqlAnchor": "updated_at TIMESTAMPTZ DEFAULT NOW(),", "newSqlAnchor": "updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),"},
+      {"table": "themes", "column": "colors_json", "oldSqlAnchor": "colors_json JSONB DEFAULT '{}',", "newSqlAnchor": "colors_json JSONB NOT NULL DEFAULT '{}',"},
+      {"table": "themes", "column": "fonts_json", "oldSqlAnchor": "fonts_json JSONB DEFAULT '{}',", "newSqlAnchor": "fonts_json JSONB NOT NULL DEFAULT '{}',"},
+      {"table": "themes", "column": "spacing_json", "oldSqlAnchor": "spacing_json JSONB DEFAULT '{}',", "newSqlAnchor": "spacing_json JSONB NOT NULL DEFAULT '{}',"},
+      {"table": "themes", "column": "breakpoints_json", "oldSqlAnchor": "breakpoints_json JSONB DEFAULT '{}',", "newSqlAnchor": "breakpoints_json JSONB NOT NULL DEFAULT '{}',"},
+      {"table": "themes", "column": "is_default", "oldSqlAnchor": "is_default BOOLEAN DEFAULT false", "newSqlAnchor": "is_default BOOLEAN NOT NULL DEFAULT false"},
+      {"table": "block_types", "column": "schema_json", "oldSqlAnchor": "schema_json JSONB DEFAULT '{}',", "newSqlAnchor": "schema_json JSONB NOT NULL DEFAULT '{}',"},
+      {"table": "block_types", "column": "default_props_json", "oldSqlAnchor": "default_props_json JSONB DEFAULT '{}',", "newSqlAnchor": "default_props_json JSONB NOT NULL DEFAULT '{}',"},
+      {"table": "block_types", "column": "admin_only", "oldSqlAnchor": "admin_only BOOLEAN DEFAULT false,", "newSqlAnchor": "admin_only BOOLEAN NOT NULL DEFAULT false,"},
+      {"table": "block_types", "column": "updated_at", "oldSqlAnchor": "updated_at TIMESTAMPTZ DEFAULT NOW()", "newSqlAnchor": "updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()"},
+      {"table": "edit_sessions", "column": "page_id", "oldSqlAnchor": "page_id UUID REFERENCES pages(id) ON DELETE CASCADE,", "newSqlAnchor": "page_id UUID NOT NULL REFERENCES public.pages(id) ON DELETE CASCADE,"},
+      {"table": "edit_sessions", "column": "status", "oldSqlAnchor": "status VARCHAR(20) DEFAULT 'active',", "newSqlAnchor": "status VARCHAR(20) NOT NULL DEFAULT 'active',"},
+      {"table": "edit_sessions", "column": "started_at", "oldSqlAnchor": "started_at TIMESTAMPTZ DEFAULT NOW(),", "newSqlAnchor": "started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),"}
+    ],
+    "uniqueAdditions": [
+      {"table": "themes", "column": "name", "oldSqlAnchor": "name VARCHAR(100) NOT NULL,", "newSqlAnchor": "name VARCHAR(100) UNIQUE NOT NULL,"}
+    ],
+    "stopCategories": ["baseline-adoption", "populated-upgrade"]
+  },
+  "legacyCascadeFinding": {
+    "anchor": "page_id UUID NOT NULL REFERENCES public.pages(id) ON DELETE CASCADE,",
+    "kind": "CASCADE",
+    "count": 1,
+    "classification": "reviewed-lexical-safety-stop",
+    "rationale": "The target migration preserves the existing edit-session child cleanup action; the read-only probe validates the exact FK semantics instead of trusting an object name.",
+    "executionClaimed": false
+  },
+  "isolatedScannerDelta": {
+    "runtimeRustDdlFindings": {"before": 35, "after": 31, "delta": -4},
+    "actionableFindings": {"before": 29, "after": 25, "delta": -4},
+    "contentFindings": {"before": 4, "after": 0, "delta": -4},
+    "reviewedRuntimeExceptions": {"before": 6, "after": 6, "delta": 0},
+    "migrationSqlFiles": {"before": 169, "projectedAfter": 170, "delta": 1},
+    "destructiveLexicalFindings": {"before": 510, "projectedAfter": 511, "delta": 1},
+    "projectedMigrationSqlSha256": "cda0fbb7411db38cc02a4c4d7ec97d26b15aaff5a5faa9281ff96e3e763e9132",
+    "status": "isolated-authoring-snapshot-canonical-rebaseline-owned-elsewhere"
+  },
+  "nonClaims": [
+    "This schema slice does not migrate or replace the pinned development news_articles authority or its public/admin API lifecycle.",
+    "This schema slice does not make editor routes reachable, change authorization, or change unknown news-slug fallback behavior.",
+    "The four guarded table creations are fresh-schema definitions, not safe adoption proof for existing tables with matching names.",
+    "No content rows, manifests, themes, pages, blocks, sessions, news records, or sample data were read from or written to a database.",
+    "The preserved ON DELETE CASCADE token remains a canonical migration-safety lexical finding and is not hidden as an aligned result."
+  ],
+  "blockers": [
+    {"id": "B01", "category": "migration-runner", "status": "blocked", "summary": "No reviewed runner discovers, orders, records, or executes the content migration root."},
+    {"id": "B02", "category": "baseline-adoption", "status": "blocked", "summary": "No safe version-ledger adoption flow for already matching deployed content tables has been designed or proven."},
+    {"id": "B03", "category": "populated-upgrade", "status": "blocked", "summary": "No populated development-source or candidate-source upgrade has preserved content rows through this exact schema boundary."},
+    {"id": "B04", "category": "reconciliation", "status": "blocked", "summary": "No page, theme, block, edit-session, constraint, index, or legacy-news reconciliation has executed."},
+    {"id": "B05", "category": "concurrent-startup", "status": "blocked", "summary": "No concurrent migration and content-service startup ordering test has run."},
+    {"id": "B06", "category": "live-database", "status": "blocked", "summary": "Neither the migration nor the read-only compatibility check has run against a live database."}
+  ]
+}

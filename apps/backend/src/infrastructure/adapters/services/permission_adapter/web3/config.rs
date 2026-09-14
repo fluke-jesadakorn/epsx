@@ -18,7 +18,10 @@ pub struct BlockchainCfg {
 impl Default for BlockchainCfg {
     fn default() -> Self {
         let mut rpc_endpoints = HashMap::new();
-        rpc_endpoints.insert(1, "https://eth-mainnet.g.alchemy.com/v2/YOUR_KEY".to_string());
+        rpc_endpoints.insert(
+            1,
+            "https://eth-mainnet.g.alchemy.com/v2/YOUR_KEY".to_string(),
+        );
         rpc_endpoints.insert(56, "https://bsc-dataseed.binance.org".to_string());
         rpc_endpoints.insert(137, "https://polygon-rpc.com".to_string());
 

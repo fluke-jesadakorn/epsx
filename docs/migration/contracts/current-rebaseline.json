@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "artifact": "current-migration-rebaseline",
+  "purpose": "Immutable source/target comparison and non-production readiness guard; this artifact never claims production readiness.",
+  "productionReady": false,
+  "source": {
+    "ref": "development",
+    "commit": "6fe4d5bb3e170ba0644c07979735482bcc0f17c6",
+    "role": "behavioral compatibility baseline"
+  },
+  "targetBase": {
+    "ref": "origin/migration/dioxus-microservices",
+    "commit": "034f95ace04b123c96eefb56cdbc9e8ea5914d99",
+    "role": "requested migration baseline before implementation changes"
+  },
+  "routeInventory": {
+    "contract": "docs/migration/contracts/routes.json",
+    "frontendSourceRoot": "apps-old/frontend/app",
+    "adminSourceRoot": "apps-old/admin-frontend/app",
+    "frontendCount": 28,
+    "adminCount": 27,
+    "meaning": "source route presence and target dispatcher evidence only; not live data or browser parity"
+  },
+  "activeContracts": {
+    "api": "docs/migration/contracts/api-contracts.json",
+    "permission": "docs/migration/contracts/permission-grammar.json",
+    "migrationSafety": "docs/migration/contracts/migration-safety.json",
+    "serviceAuthorization": "docs/migration/contracts/service-authorization.json",
+    "frontendLiveData": "docs/migration/contracts/frontend-live-data.json",
+    "adminLiveData": "docs/migration/contracts/admin-live-data.json",
+    "infrastructure": "docs/migration/contracts/infrastructure-readiness.json"
+  },
+  "historicalEvidencePolicy": {
+    "rule": "Slice contracts pinned to older immutable commits remain historical evidence only; they cannot raise current aligned or production-ready counts.",
+    "staleSourceCommitPattern": "373bd231cb7a616c3d4c0ddc1d60e0099a88a5db",
+    "staleTargetCommitExamples": ["206a8fb57f982bcbc59d926e64506d4a5d654e40", "975c09567fe14ce278370720bd7a0e5aa571e116"]
+  },
+  "blockedClaims": [
+    "durable PostgreSQL refresh/revocation proof",
+    "live wallet signature/browser proof",
+    "live authorized domain data and mutation proof",
+    "production database, cluster, Cloudflare, canary, and rollback proof"
+  ],
+  "authorityBoundary": "Rust backend owns permissions, plans, entitlements, ranking offsets, ownership, validation, subscriptions, credits, financial decisions, and mutations."
+}

@@ -1,0 +1,128 @@
+{
+  "schemaVersion": 1,
+  "contractId": "A11.1-notification-authority",
+  "mode": "versioned-adapter",
+  "sourceAuthority": "origin/development notification API behavior",
+  "targetAuthority": "Rust notification service owns authorization, owner derivation, state, and delivery admission",
+  "compatibilityFixtureFile": "docs/migration/contracts/notification-compatibility-fixtures.json",
+  "surfaces": [
+    {
+      "id": "owner-list",
+      "authority": "owner",
+      "bff": "GET /api/v1/notifications",
+      "service": "GET /api/v1/notification/list",
+      "request": "bounded unique page or offset pagination, delivery/read status, type alias, priority, and RFC3339 start/end dates; owner comes only from verified principal",
+      "success": "200 {items,total}",
+      "errors": "401 unauthorized; 403 forbidden; 502 upstream or contract failure"
+    },
+    {
+      "id": "owner-unread-count",
+      "authority": "owner",
+      "bff": "GET /api/v1/notifications/unread-count",
+      "service": "GET /api/v1/notification/unread-count",
+      "request": "no caller-selected owner or fields",
+      "success": "200 {count}",
+      "errors": "401 unauthorized; 403 forbidden; 502 upstream or contract failure"
+    },
+    {
+      "id": "owner-read",
+      "authority": "owner",
+      "bff": "POST /api/v1/notifications/{id}/read; PUT /api/v1/notifications/{id}/read; PUT /api/v1/notifications/{id}/acknowledge; POST /api/v1/notifications/{id}/click; POST /api/v1/notifications/{id}/dismiss",
+      "service": "POST /api/v1/notification/{id}/read; PUT /api/v1/notification/{id}/acknowledge; POST /api/v1/notification/{id}/click; POST /api/v1/notification/{id}/dismiss",
+      "request": "empty JSON object for read, acknowledge, click, or dismiss; owner derived from verified principal",
+      "success": "200 {ok:true}; acknowledgement, click, and dismiss return durable event timestamps upstream",
+      "errors": "401 unauthorized; 403 forbidden; 404 foreign or missing id; 502 upstream failure"
+    },
+    {
+      "id": "owner-unread",
+      "authority": "owner",
+      "bff": "POST /api/v1/notifications/{id}/unread; PUT /api/v1/notifications/{id}/unread",
+      "service": "POST /api/v1/notification/{id}/unread",
+      "request": "empty JSON object; owner derived from verified principal",
+      "success": "200 {ok:true}",
+      "errors": "401 unauthorized; 403 forbidden; 404 foreign or missing id; 502 upstream failure"
+    },
+    {
+      "id": "owner-delete",
+      "authority": "owner",
+      "bff": "DELETE /api/v1/notifications/{id}; POST /api/v1/notifications/{id}/delete",
+      "service": "DELETE /api/v1/notification/{id}",
+      "request": "no body; owner derived from verified principal",
+      "success": "200 {ok:true}",
+      "errors": "401 unauthorized; 403 forbidden; 404 foreign or missing id; 502 upstream failure"
+    },
+    {
+      "id": "owner-mark-all",
+      "authority": "owner",
+      "bff": "POST /api/v1/notifications/mark-all-read; PUT /api/v1/notifications/mark-all-read",
+      "service": "POST /api/v1/notification/mark-all-read",
+      "request": "empty JSON object; owner derived from verified principal",
+      "success": "200 {ok:true}",
+      "errors": "401 unauthorized; 403 forbidden; 502 upstream failure"
+    },
+    {
+      "id": "owner-clear-all",
+      "authority": "owner",
+      "bff": "POST /api/v1/notifications/clear-all; DELETE /api/v1/notifications/clear-all",
+      "service": "POST /api/v1/notification/clear-all",
+      "request": "empty JSON object; owner derived from verified principal",
+      "success": "200 {ok:true}",
+      "errors": "401 unauthorized; 403 forbidden; 502 upstream failure"
+    },
+    {
+      "id": "admin-list",
+      "authority": "admin:notifications:manage",
+      "bff": "SSR GET /notifications/manage (admin adapter)",
+      "service": "GET /api/v1/notification/admin/list",
+      "request": "bounded unique limit and offset; no recipient or body projection",
+      "success": "200 {items,total}",
+      "errors": "401 unauthorized; 403 forbidden; 502 upstream or contract failure"
+    },
+    {
+      "id": "admin-template-list",
+      "authority": "admin:notifications:manage",
+      "bff": "GET /api/v1/notifications/templates",
+      "service": "GET /api/v1/notification/templates",
+      "request": "no caller-selected owner",
+      "success": "200 {items,total}",
+      "errors": "401 unauthorized; 403 forbidden; 502 upstream failure"
+    },
+    {
+      "id": "admin-template-write",
+      "authority": "admin:notifications:manage",
+      "bff": "POST /api/v1/notifications/templates; POST /api/v1/notifications/templates/{id}/preview; POST /api/v1/notifications/templates/{id}/rollback; GET /api/v1/notifications/templates/{id}/audit",
+      "service": "POST /api/v1/notification/templates; POST /api/v1/notification/templates/{id}/preview; POST /api/v1/notification/templates/{id}/rollback; GET /api/v1/notification/templates/{id}/audit",
+      "request": "strict template payload, typed preview data, positive rollback version, or bounded audit read; version audit remains required before production",
+      "success": "201 template object",
+      "errors": "400 validation; 401 unauthorized; 403 forbidden; 409 conflict; 502 upstream failure"
+    },
+    {
+      "id": "admin-template-delete",
+      "authority": "admin:notifications:manage",
+      "bff": "DELETE /api/v1/notifications/templates/{id}",
+      "service": "DELETE /api/v1/notification/templates/{id}",
+      "request": "no body; template id is path-bound",
+      "success": "200 {ok:true}",
+      "errors": "401 unauthorized; 403 forbidden; 404 missing id; 502 upstream failure"
+    },
+    {
+      "id": "admin-send",
+      "authority": "admin:notifications:manage",
+      "bff": "POST /api/v1/notifications/send",
+      "service": "POST /api/v1/notification/send",
+      "request": "strict canonical-wallet target plus channel-specific recipient/template payload; targeting and delivery remain backend-owned",
+      "success": "202 durable enqueue contract; current target remains blocked",
+      "errors": "400 validation; 401 unauthorized; 403 forbidden; 409 idempotency conflict; 502 upstream failure"
+    }
+  ],
+  "authorityRules": [
+    "Frontend and admin UI never decide owner, plan access, recipient resolution, delivery state, or permission outcome.",
+    "The notification service accepts only verified audiences and derives owner wallet from the principal.",
+    "Admin mutation and template routes require admin:notifications:manage.",
+    "Dead-letter redrive requires the same admin permission and only requeues a terminal job after an operator decision.",
+    "Publisher identity, inbox deduplication, and delivery admission are backend-only and remain disabled until N3/N4.",
+    "The BFF preserves the public plural /api/v1/notifications adapter while the service keeps the singular versioned path."
+  ],
+  "status": "contract-locked-static-only",
+  "productionReady": false
+}

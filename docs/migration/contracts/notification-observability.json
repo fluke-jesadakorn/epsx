@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "contractId": "A11.7-notification-observability",
+  "productionReady": false,
+  "scope": "redacted metric, SLO, alert, and dashboard design only; no telemetry backend, secret, provider, deployment, or production access",
+  "metricLabels": ["service", "environment", "channel", "state", "outcome"],
+  "forbiddenMetricLabels": ["wallet", "recipient", "email", "endpoint", "body", "token", "subject", "payload"],
+  "metrics": [
+    { "name": "notification_queue_depth", "unit": "items", "source": "GET /ready and admin metrics", "redacted": true },
+    { "name": "notification_queue_age_seconds", "unit": "seconds", "source": "GET /ready and admin metrics", "redacted": true },
+    { "name": "notification_provider_acceptance_percent", "unit": "percent", "source": "admin metrics snapshot", "redacted": true },
+    { "name": "notification_dead_letters", "unit": "items", "source": "admin metrics snapshot", "redacted": true },
+    { "name": "notification_sse_lag_seconds", "unit": "seconds", "source": "admin metrics snapshot", "redacted": true },
+    { "name": "notification_stream_query_failures_total", "unit": "counter", "source": "admin metrics snapshot", "redacted": true }
+  ],
+  "slos": {
+    "maxQueueDepth": 10000,
+    "maxQueueAgeSeconds": 300,
+    "minProviderAcceptancePercent": 95,
+    "maxDeadLetters": 0,
+    "maxSseLagSeconds": 30,
+    "maxStreamQueryFailures": 0
+  },
+  "alerts": [
+    { "name": "notification_dependency_not_ready", "severity": "critical", "condition": "database or lifecycle readiness is false", "runbook": "NOTIFICATION_OPERATIONS_RUNBOOK.md" },
+    { "name": "notification_queue_depth_high", "severity": "warning", "condition": "notification_queue_depth > 10000 for 5m", "runbook": "NOTIFICATION_OPERATIONS_RUNBOOK.md" },
+    { "name": "notification_queue_age_high", "severity": "warning", "condition": "notification_queue_age_seconds > 300 for 5m", "runbook": "NOTIFICATION_OPERATIONS_RUNBOOK.md" },
+    { "name": "notification_provider_acceptance_low", "severity": "critical", "condition": "notification_provider_acceptance_percent < 95 for 5m", "runbook": "NOTIFICATION_OPERATIONS_RUNBOOK.md" },
+    { "name": "notification_dead_letters_present", "severity": "critical", "condition": "notification_dead_letters > 0", "runbook": "NOTIFICATION_OPERATIONS_RUNBOOK.md" },
+    { "name": "notification_sse_lag_high", "severity": "warning", "condition": "notification_sse_lag_seconds > 30 for 5m", "runbook": "NOTIFICATION_OPERATIONS_RUNBOOK.md" },
+    { "name": "notification_stream_query_failures", "severity": "critical", "condition": "notification_stream_query_failures_total > 0", "runbook": "NOTIFICATION_OPERATIONS_RUNBOOK.md" }
+  ],
+  "dashboardPanels": [
+    "readiness and dependency state",
+    "queue depth and oldest queue age",
+    "per-channel outcomes and provider acceptance",
+    "retry, terminal failure, and dead-letter counts",
+    "SSE active streams, reconnects, replay count, and lag",
+    "privacy-safe query failures and suppression count"
+  ],
+  "privacy": {
+    "logsContainNoUserContent": true,
+    "logsContainNoBearerTokens": true,
+    "providerPayloadsExcluded": true,
+    "dashboardLabelsAreAllowlisted": true
+  }
+}

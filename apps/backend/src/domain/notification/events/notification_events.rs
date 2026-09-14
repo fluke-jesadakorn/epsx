@@ -5,9 +5,9 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::domain::shared_kernel::domain_event::{DomainEvent, EventMetadata};
-use crate::domain::notification::value_objects::user_preferences::NotificationType;
 use super::super::aggregates::notification::{NotificationPriority, NotificationStatus};
+use crate::domain::notification::value_objects::user_preferences::NotificationType;
+use crate::domain::shared_kernel::domain_event::{DomainEvent, EventMetadata};
 
 /// Event: Notification was created
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -42,16 +42,30 @@ impl NotificationCreated {
 }
 
 impl DomainEvent for NotificationCreated {
-    fn event_id(&self) -> Uuid { self.metadata.event_id }
-    fn event_type(&self) -> &'static str { "NotificationCreated" }
-    fn aggregate_type(&self) -> &'static str { "Notification" }
-    fn occurred_at(&self) -> DateTime<Utc> { self.metadata.occurred_at }
-    fn aggregate_version(&self) -> u64 { self.metadata.aggregate_version }
-    fn aggregate_id(&self) -> String { self.metadata.aggregate_id.clone() }
+    fn event_id(&self) -> Uuid {
+        self.metadata.event_id
+    }
+    fn event_type(&self) -> &'static str {
+        "NotificationCreated"
+    }
+    fn aggregate_type(&self) -> &'static str {
+        "Notification"
+    }
+    fn occurred_at(&self) -> DateTime<Utc> {
+        self.metadata.occurred_at
+    }
+    fn aggregate_version(&self) -> u64 {
+        self.metadata.aggregate_version
+    }
+    fn aggregate_id(&self) -> String {
+        self.metadata.aggregate_id.clone()
+    }
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)
     }
-    fn as_any(&self) -> &dyn std::any::Any { self }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 /// Event: Notification was scheduled for delivery
@@ -78,16 +92,30 @@ impl NotificationScheduled {
 }
 
 impl DomainEvent for NotificationScheduled {
-    fn event_id(&self) -> Uuid { self.metadata.event_id }
-    fn event_type(&self) -> &'static str { "NotificationScheduled" }
-    fn aggregate_type(&self) -> &'static str { "Notification" }
-    fn occurred_at(&self) -> DateTime<Utc> { self.metadata.occurred_at }
-    fn aggregate_version(&self) -> u64 { self.metadata.aggregate_version }
-    fn aggregate_id(&self) -> String { self.metadata.aggregate_id.clone() }
+    fn event_id(&self) -> Uuid {
+        self.metadata.event_id
+    }
+    fn event_type(&self) -> &'static str {
+        "NotificationScheduled"
+    }
+    fn aggregate_type(&self) -> &'static str {
+        "Notification"
+    }
+    fn occurred_at(&self) -> DateTime<Utc> {
+        self.metadata.occurred_at
+    }
+    fn aggregate_version(&self) -> u64 {
+        self.metadata.aggregate_version
+    }
+    fn aggregate_id(&self) -> String {
+        self.metadata.aggregate_id.clone()
+    }
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)
     }
-    fn as_any(&self) -> &dyn std::any::Any { self }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 /// Event: Notification is being sent
@@ -98,7 +126,11 @@ pub struct NotificationSending {
 }
 
 impl NotificationSending {
-    pub fn new(aggregate_id: impl Into<String>, aggregate_version: u64, channel_count: u32) -> Self {
+    pub fn new(
+        aggregate_id: impl Into<String>,
+        aggregate_version: u64,
+        channel_count: u32,
+    ) -> Self {
         Self {
             metadata: EventMetadata::new(aggregate_id.into(), aggregate_version),
             channel_count,
@@ -107,16 +139,30 @@ impl NotificationSending {
 }
 
 impl DomainEvent for NotificationSending {
-    fn event_id(&self) -> Uuid { self.metadata.event_id }
-    fn event_type(&self) -> &'static str { "NotificationSending" }
-    fn aggregate_type(&self) -> &'static str { "Notification" }
-    fn occurred_at(&self) -> DateTime<Utc> { self.metadata.occurred_at }
-    fn aggregate_version(&self) -> u64 { self.metadata.aggregate_version }
-    fn aggregate_id(&self) -> String { self.metadata.aggregate_id.clone() }
+    fn event_id(&self) -> Uuid {
+        self.metadata.event_id
+    }
+    fn event_type(&self) -> &'static str {
+        "NotificationSending"
+    }
+    fn aggregate_type(&self) -> &'static str {
+        "Notification"
+    }
+    fn occurred_at(&self) -> DateTime<Utc> {
+        self.metadata.occurred_at
+    }
+    fn aggregate_version(&self) -> u64 {
+        self.metadata.aggregate_version
+    }
+    fn aggregate_id(&self) -> String {
+        self.metadata.aggregate_id.clone()
+    }
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)
     }
-    fn as_any(&self) -> &dyn std::any::Any { self }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 /// Event: Notification delivery completed (success or partial)
@@ -146,16 +192,30 @@ impl NotificationDeliveryCompleted {
 }
 
 impl DomainEvent for NotificationDeliveryCompleted {
-    fn event_id(&self) -> Uuid { self.metadata.event_id }
-    fn event_type(&self) -> &'static str { "NotificationDeliveryCompleted" }
-    fn aggregate_type(&self) -> &'static str { "Notification" }
-    fn occurred_at(&self) -> DateTime<Utc> { self.metadata.occurred_at }
-    fn aggregate_version(&self) -> u64 { self.metadata.aggregate_version }
-    fn aggregate_id(&self) -> String { self.metadata.aggregate_id.clone() }
+    fn event_id(&self) -> Uuid {
+        self.metadata.event_id
+    }
+    fn event_type(&self) -> &'static str {
+        "NotificationDeliveryCompleted"
+    }
+    fn aggregate_type(&self) -> &'static str {
+        "Notification"
+    }
+    fn occurred_at(&self) -> DateTime<Utc> {
+        self.metadata.occurred_at
+    }
+    fn aggregate_version(&self) -> u64 {
+        self.metadata.aggregate_version
+    }
+    fn aggregate_id(&self) -> String {
+        self.metadata.aggregate_id.clone()
+    }
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)
     }
-    fn as_any(&self) -> &dyn std::any::Any { self }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 /// Event: Notification expired before delivery
@@ -179,16 +239,30 @@ impl NotificationExpired {
 }
 
 impl DomainEvent for NotificationExpired {
-    fn event_id(&self) -> Uuid { self.metadata.event_id }
-    fn event_type(&self) -> &'static str { "NotificationExpired" }
-    fn aggregate_type(&self) -> &'static str { "Notification" }
-    fn occurred_at(&self) -> DateTime<Utc> { self.metadata.occurred_at }
-    fn aggregate_version(&self) -> u64 { self.metadata.aggregate_version }
-    fn aggregate_id(&self) -> String { self.metadata.aggregate_id.clone() }
+    fn event_id(&self) -> Uuid {
+        self.metadata.event_id
+    }
+    fn event_type(&self) -> &'static str {
+        "NotificationExpired"
+    }
+    fn aggregate_type(&self) -> &'static str {
+        "Notification"
+    }
+    fn occurred_at(&self) -> DateTime<Utc> {
+        self.metadata.occurred_at
+    }
+    fn aggregate_version(&self) -> u64 {
+        self.metadata.aggregate_version
+    }
+    fn aggregate_id(&self) -> String {
+        self.metadata.aggregate_id.clone()
+    }
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)
     }
-    fn as_any(&self) -> &dyn std::any::Any { self }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 /// Event: Notification priority was updated
@@ -215,16 +289,30 @@ impl NotificationPriorityUpdated {
 }
 
 impl DomainEvent for NotificationPriorityUpdated {
-    fn event_id(&self) -> Uuid { self.metadata.event_id }
-    fn event_type(&self) -> &'static str { "NotificationPriorityUpdated" }
-    fn aggregate_type(&self) -> &'static str { "Notification" }
-    fn occurred_at(&self) -> DateTime<Utc> { self.metadata.occurred_at }
-    fn aggregate_version(&self) -> u64 { self.metadata.aggregate_version }
-    fn aggregate_id(&self) -> String { self.metadata.aggregate_id.clone() }
+    fn event_id(&self) -> Uuid {
+        self.metadata.event_id
+    }
+    fn event_type(&self) -> &'static str {
+        "NotificationPriorityUpdated"
+    }
+    fn aggregate_type(&self) -> &'static str {
+        "Notification"
+    }
+    fn occurred_at(&self) -> DateTime<Utc> {
+        self.metadata.occurred_at
+    }
+    fn aggregate_version(&self) -> u64 {
+        self.metadata.aggregate_version
+    }
+    fn aggregate_id(&self) -> String {
+        self.metadata.aggregate_id.clone()
+    }
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)
     }
-    fn as_any(&self) -> &dyn std::any::Any { self }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 /// Event: Notification was cancelled
@@ -244,14 +332,28 @@ impl NotificationCancelled {
 }
 
 impl DomainEvent for NotificationCancelled {
-    fn event_id(&self) -> Uuid { self.metadata.event_id }
-    fn event_type(&self) -> &'static str { "NotificationCancelled" }
-    fn aggregate_type(&self) -> &'static str { "Notification" }
-    fn occurred_at(&self) -> DateTime<Utc> { self.metadata.occurred_at }
-    fn aggregate_version(&self) -> u64 { self.metadata.aggregate_version }
-    fn aggregate_id(&self) -> String { self.metadata.aggregate_id.clone() }
+    fn event_id(&self) -> Uuid {
+        self.metadata.event_id
+    }
+    fn event_type(&self) -> &'static str {
+        "NotificationCancelled"
+    }
+    fn aggregate_type(&self) -> &'static str {
+        "Notification"
+    }
+    fn occurred_at(&self) -> DateTime<Utc> {
+        self.metadata.occurred_at
+    }
+    fn aggregate_version(&self) -> u64 {
+        self.metadata.aggregate_version
+    }
+    fn aggregate_id(&self) -> String {
+        self.metadata.aggregate_id.clone()
+    }
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)
     }
-    fn as_any(&self) -> &dyn std::any::Any { self }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }

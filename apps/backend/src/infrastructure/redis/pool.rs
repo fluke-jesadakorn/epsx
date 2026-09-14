@@ -1,4 +1,4 @@
-use redis::{Client, aio::ConnectionManager};
+use redis::{aio::ConnectionManager, Client};
 
 #[derive(Clone)]
 pub struct RedisPool {
@@ -11,7 +11,7 @@ impl RedisPool {
         let client = Client::open(redis_url)?;
         let manager = client.get_connection_manager().await?;
 
-        tracing::info!("Redis pool created: url={}", redis_url);
+        tracing::info!("Redis pool created");
 
         Ok(Self { client, manager })
     }
@@ -26,6 +26,9 @@ impl RedisPool {
 
     pub async fn health_check(&self) -> bool {
         let mut conn = self.manager.clone();
-        redis::cmd("PING").query_async::<String>(&mut conn).await.is_ok()
+        redis::cmd("PING")
+            .query_async::<String>(&mut conn)
+            .await
+            .is_ok()
     }
 }

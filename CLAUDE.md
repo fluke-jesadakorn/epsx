@@ -1,38 +1,46 @@
+> Native production path (September 2026): Rust release binaries on the Mac Mini,
+> PostgreSQL + Redis + MinIO, exposed through a named Cloudflare Tunnel. Follow
+> `infrastructure/native/README.md` for build/package, explicit migrations,
+> launchd, backups and rollback. Workers/D1 migration and container orchestration
+> are not release prerequisites. Existing Kubernetes/Workers instructions below
+> are historical rollback references. Never deploy or change production routes
+> without a separate explicit deployment instruction.
+
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Common Commands
 
-### Development
-- `bun dev` - All services (frontend :3000, admin :3001, backend :8080)
-- `bun dev:frontend` / `bun dev:admin` / `bun dev:backend` - Individual apps
-- `bun dev:web` - Both frontends without backend
-- `bun dev:anvil` - Start local Anvil chain (:8545)
-- `bun setup:local` - Deploy contracts & tokens to local chain
+### Development (Cloudflare local — replaces Colima K8s)
+- `cargo xtask cloudflare dev --local` - Full local Cloudflare (workerd/miniflare, `wrangler dev --local --persist-to=.wrangler/state`)
+- `cargo xtask dev --all` - Legacy Colima K8s (deprecated, kept for rollback)
+- `cargo xtask dev --frontend` / `--admin` / `--backend` - Individual Rust services
+- `cargo xtask anvil-proxy` - Local Anvil chain and Rust RPC proxy (:8545)
+- `cargo xtask setup-local` - Deploy contracts and tokens to the local chain
 
 ### Build
-- `bun build` - All apps
-- `bun build:dev` / `bun build:prod` - Environment-specific builds
+- `cargo xtask build --profile production` - All apps (Rust/Dioxus)
+- `cargo xtask browser-runtime build` - WASM browser runtime (`wasm-bindgen 0.2.123`)
+- `cargo xtask cloudflare build` - Wrangler-aware build (browser-runtime + production)
 
 ### Lint & Format
-- `bun lint` - ESLint all apps
-- `bun lint:frontend` / `bun lint:admin` - Individual apps
-- `bun lint:fix` - Auto-fix ESLint issues
-- `bun type-check` - TypeScript checking
-- `bun format` - Prettier format all files
+- `cargo fmt --all --check` - Rust format check
+- `cargo clippy --workspace --all-targets --all-features -- -D warnings`
+- `cargo xtask audit no-node --strict` - Reject Node drift
+- `cargo xtask assets verify` - Frozen CSS check
 
 ### Test
-- `bun test` - All tests (Jest)
-- `bun test:frontend` / `bun test:admin` / `bun test:backend` - Per-app
-- `bun test:e2e` - Playwright E2E tests
-- `bun test:watch` - Watch mode
+- `cargo xtask test --all` - Rust workspace tests
+- `cargo test --workspace --locked` - Cargo tests
+- `bunx wrangler dev --local --persist-to=.wrangler/state --config apps/frontend/wrangler.jsonc` - Local Cloudflare smoke (curl :8787/api/health)
+- `cargo xtask e2e doctor|report|verify-artifacts` - E2E harness
 
 ### Backend (Rust)
 - `cargo build` from `apps/backend/`
 - `cargo test` from `apps/backend/`
 - Binary: `apps/backend/src/bin/migrate.rs` for DB migrations
-- Multiple Diesel configs: `diesel.toml`, `diesel_analytics.toml`, `diesel_notifications.toml`, `diesel_payments.toml`
+- Multiple sqlx migrations: `migrations/core`, `migrations/analytics`, `migrations/notifications`, `migrations/payments` (legacy `diesel.toml` deleted; run via `sqlx migrate run`)
 - **Migration safety**: Never drop/delete existing data unless the structural change requires it. Prefer `ALTER TABLE ADD/RENAME` over `DROP`+recreate. Use `IF EXISTS`/`IF NOT EXISTS` guards.
 
 ### Deployment (Colima K8s + Cloudflare Tunnel)
@@ -52,31 +60,9 @@ kubectl rollout restart deployment -n epsx-prod
 set -a && source infrastructure/docker/.env.prod && set +a
 export DOCKER_DEFAULT_PLATFORM=$DOCKER_PLATFORM
 
-# Build frontend
-docker build \
-  --build-arg NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=$WALLETCONNECT_PROJECT_ID \
-  --build-arg NEXT_PUBLIC_APP_URL=$FRONTEND_URL \
-  --build-arg NEXT_PUBLIC_BACKEND_URL=$BACKEND_URL \
-  --build-arg NEXT_PUBLIC_ADMIN_URL=$ADMIN_FRONTEND_URL \
-  --build-arg NEXT_PUBLIC_BLOCKCHAIN_NETWORK=$NEXT_PUBLIC_BLOCKCHAIN_NETWORK \
-  --build-arg NEXT_PUBLIC_CHAIN_ID=$NEXT_PUBLIC_CHAIN_ID \
-  --build-arg NEXT_PUBLIC_OAUTH_CLIENT_ID=$OAUTH_CLIENT_ID \
-  --build-arg NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET=$NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET \
-  --build-arg NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET=$NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET \
-  -f apps/frontend/Dockerfile -t epsx-frontend:prod .
+docker build -f apps/frontend/Dockerfile -t epsx-frontend:prod .
 
-# Build admin frontend
-docker build \
-  --build-arg NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=$WALLETCONNECT_PROJECT_ID \
-  --build-arg NEXT_PUBLIC_APP_URL=$ADMIN_FRONTEND_URL \
-  --build-arg NEXT_PUBLIC_BACKEND_URL=$BACKEND_URL \
-  --build-arg NEXT_PUBLIC_ADMIN_URL=$ADMIN_FRONTEND_URL \
-  --build-arg NEXT_PUBLIC_BLOCKCHAIN_NETWORK=$NEXT_PUBLIC_BLOCKCHAIN_NETWORK \
-  --build-arg NEXT_PUBLIC_CHAIN_ID=$NEXT_PUBLIC_CHAIN_ID \
-  --build-arg NEXT_PUBLIC_OAUTH_CLIENT_ID=epsx-admin \
-  --build-arg NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET=$NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET \
-  --build-arg NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET=$NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET \
-  -f apps/admin-frontend/Dockerfile -t epsx-admin-frontend:prod .
+docker build -f apps/admin/Dockerfile -t epsx-admin:prod .
 
 # Build backend
 docker build -f apps/backend/Dockerfile -t epsx-backend:prod .

@@ -1,9 +1,9 @@
-use crate::prelude::*;
-use crate::application::shared::{QueryHandler, ApplicationResult, ApplicationError};
 use crate::application::notification::queries::{
-    GetDeliveryStatusQuery, GetDeliveryStatusResponse, ChannelDeliveryStatus
+    ChannelDeliveryStatus, GetDeliveryStatusQuery, GetDeliveryStatusResponse,
 };
+use crate::application::shared::{ApplicationError, ApplicationResult, QueryHandler};
 use crate::domain::notification::NotificationRepositoryPort;
+use crate::prelude::*;
 
 /// Query handler for getting notification delivery status
 pub struct GetDeliveryStatusQueryHandler {
@@ -20,11 +20,19 @@ impl GetDeliveryStatusQueryHandler {
 
 #[async_trait]
 impl QueryHandler<GetDeliveryStatusQuery> for GetDeliveryStatusQueryHandler {
-    async fn handle(&self, query: GetDeliveryStatusQuery) -> ApplicationResult<GetDeliveryStatusResponse> {
+    async fn handle(
+        &self,
+        query: GetDeliveryStatusQuery,
+    ) -> ApplicationResult<GetDeliveryStatusResponse> {
         // Load notification from repository
-        let notification = self.notification_repository.find_by_id(&query.notification_id).await
+        let notification = self
+            .notification_repository
+            .find_by_id(&query.notification_id)
+            .await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?
-            .ok_or_else(|| ApplicationError::not_found("notification_id", "Notification not found"))?;
+            .ok_or_else(|| {
+                ApplicationError::not_found("notification_id", "Notification not found")
+            })?;
 
         // Map channel delivery statuses from actual delivery tracking
         let delivery_tracking = notification.delivery_tracking();
@@ -77,7 +85,8 @@ impl QueryHandler<GetDeliveryStatusQuery> for GetDeliveryStatusQueryHandler {
         // Get delivered_at from notification metadata or first successful delivery
         let delivered_at = if delivery_tracking.has_successful_delivery() {
             // Use the earliest successful delivery timestamp from channels
-            channel_statuses.iter()
+            channel_statuses
+                .iter()
                 .filter(|ch| ch.delivered)
                 .filter_map(|ch| ch.last_attempt_at)
                 .min()
@@ -86,7 +95,8 @@ impl QueryHandler<GetDeliveryStatusQuery> for GetDeliveryStatusQueryHandler {
         };
 
         // Get last attempt time across all channels
-        let last_attempt_at = channel_statuses.iter()
+        let last_attempt_at = channel_statuses
+            .iter()
             .filter_map(|ch| ch.last_attempt_at)
             .max();
 

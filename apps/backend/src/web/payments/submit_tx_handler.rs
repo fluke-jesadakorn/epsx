@@ -1,48 +1,45 @@
-//! Submit Transaction Handler
-//!
-//! Handles frontend submission of transaction hashes after MetaMask broadcast.
-//! Creates a pending payment record and triggers background monitoring.
-//! Credit deduction and payment insert are wrapped in a DB transaction.
+// BIG-BANG: migrated to sqlx (real).
 
-use axum::{extract::State, response::Json, Extension};
+use std::str::FromStr;
 
-use diesel::result::OptionalExtension;
-use diesel_async::RunQueryDsl;
+use axum::{
+    extract::{Extension, State},
+    Json,
+};
+use bigdecimal::BigDecimal;
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
-use bigdecimal::BigDecimal;
-use std::str::FromStr;
 
-use crate::{
-    prelude::*,
-    web::{
-        auth::AppState,
-        middleware::{OpenIDUserContext, UnifiedErrorResponse},
-    },
-    infrastructure::database::{get_payments_pool, get_diesel_pool},
-};
+use crate::prelude::*;
+use crate::web::auth::AppState;
+use crate::web::middleware::{OpenIDUserContext, UnifiedErrorResponse};
 
-// ============================================================================
-// REQUEST/RESPONSE TYPES
-// ============================================================================
-
-/// Request to submit a transaction for backend monitoring
 #[derive(Debug, Deserialize)]
 pub struct SubmitTransactionRequest {
-    /// Transaction hash from MetaMask
-    pub transaction_hash: String,
-    /// Plan ID (UUID)
     pub plan_id: String,
-    /// Expected payment amount as string for precision (e.g. "29.99")
+    #[serde(default)]
+    pub transaction_hash: String,
+    #[serde(default)]
     pub expected_amount: serde_json::Value,
-    /// Currency (USDT, USDC)
+    #[serde(default = "default_currency")]
     pub currency: String,
-    /// Network name (optional)
+    #[serde(default)]
     pub network: Option<String>,
 }
 
-/// Response after submitting transaction
+fn default_currency() -> String {
+    "USD".to_string()
+}
+
+#[derive(Debug, Serialize)]
+pub struct SubmitTransactionData {
+    pub payment_reference: String,
+    pub status: String,
+    pub transaction_hash: String,
+}
+
 #[derive(Debug, Serialize)]
 pub struct SubmitTransactionResponse {
     pub success: bool,
@@ -50,27 +47,11 @@ pub struct SubmitTransactionResponse {
     pub data: Option<SubmitTransactionData>,
 }
 
-#[derive(Debug, Serialize)]
-pub struct SubmitTransactionData {
-    /// Unique payment reference for tracking
-    pub payment_reference: String,
-    /// Current status: pending, confirming, confirmed, failed
-    pub status: String,
-    /// Transaction hash being monitored
-    pub transaction_hash: String,
-}
-
-// ============================================================================
-// HANDLER
-// ============================================================================
-
-/// POST /api/payments/submit
-///
 /// Submit a transaction hash for backend monitoring.
 /// Credit deduction + payment record insert are atomic (single DB transaction).
 #[axum::debug_handler]
 pub async fn submit_transaction_handler(
-    State(_app_state): State<AppState>,
+    State(app_state): State<AppState>,
     Extension(user_context): Extension<OpenIDUserContext>,
     Json(payload): Json<SubmitTransactionRequest>,
 ) -> Result<Json<SubmitTransactionResponse>, UnifiedErrorResponse> {
@@ -80,15 +61,18 @@ pub async fn submit_transaction_handler(
 
     // H5: Rate limit — max 10 payment submissions per wallet per minute
     {
-        use crate::web::middleware::rate_limiter::{UnifiedRateLimiter, RateLimitConfig, ClientId};
-        let limiter = UnifiedRateLimiter::new(_app_state.cache.clone());
+        use crate::web::middleware::rate_limiter::{ClientId, RateLimitConfig, UnifiedRateLimiter};
+        let limiter = UnifiedRateLimiter::new(app_state.cache.clone());
         let config = RateLimitConfig {
             requests_per_minute: Some(10),
             requests_per_hour: Some(60),
             requests_per_day: Some(200),
         };
         let client = ClientId::User(wallet_address.clone().into());
-        match limiter.check_client_rate_limit(&client, "/api/payments/submit", "POST", &config).await {
+        match limiter
+            .check_client_rate_limit(&client, "/api/payments/submit", "POST", &config)
+            .await
+        {
             Ok(result) if !result.allowed => {
                 return Err(UnifiedErrorResponse::new(
                     429,
@@ -114,8 +98,9 @@ pub async fn submit_transaction_handler(
     }
 
     // Parse plan_id as UUID
-    let plan_uuid = Uuid::parse_str(&payload.plan_id)
-        .map_err(|_| UnifiedErrorResponse::new(400, "Invalid plan ID", "Plan ID must be a valid UUID"))?;
+    let plan_uuid = Uuid::parse_str(&payload.plan_id).map_err(|_| {
+        UnifiedErrorResponse::new(400, "Invalid plan ID", "Plan ID must be a valid UUID")
+    })?;
 
     // Parse expected_amount: accept both f64 and string
     let amount_str = match &payload.expected_amount {
@@ -155,42 +140,32 @@ pub async fn submit_transaction_handler(
     };
 
     // C3+C5: Server-side plan price & eligibility validation
-    let primary_pool = get_diesel_pool().await.map_err(|e| {
-        error!("Failed to get primary database pool: {}", e);
-        UnifiedErrorResponse::new(500, "Database error", "Cannot connect to primary database")
+    let payment_repo = app_state.payment_repo.as_ref().ok_or_else(|| {
+        error!(
+            "PaymentRepositoryPort not wired in AppState — wave 11 track A scaffolding incomplete"
+        );
+        UnifiedErrorResponse::new(500, "Internal error", "Payment service is not initialized")
     })?;
-    let mut primary_conn = primary_pool.get().await.map_err(|e| {
-        error!("Failed to get primary connection: {}", e);
-        UnifiedErrorResponse::new(500, "Database error", "Cannot establish primary database connection")
-    })?;
-
-    #[derive(diesel::QueryableByName)]
-    struct PlanCheck {
-        #[diesel(sql_type = diesel::sql_types::Numeric)]
-        price: BigDecimal,
-        #[diesel(sql_type = diesel::sql_types::Bool)]
-        is_active: bool,
-        #[diesel(sql_type = diesel::sql_types::Text)]
-        plan_type: String,
-        #[diesel(sql_type = diesel::sql_types::Jsonb)]
-        plan_metadata: serde_json::Value,
-    }
-
-    let plan_check: Option<PlanCheck> = diesel::sql_query(
-        "SELECT COALESCE(price, 0) as price, is_active, COALESCE(plan_type, 'subscription') as plan_type, COALESCE(plan_metadata, '{}'::jsonb) as plan_metadata FROM plans WHERE id = $1"
-    )
-    .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
-    .get_result(&mut primary_conn)
-    .await
-    .optional()
-    .map_err(|e| {
-        error!("Failed to query plan: {}", e);
-        UnifiedErrorResponse::new(500, "Database error", "Failed to verify plan")
-    })?;
-
-    let plan_info = plan_check.ok_or_else(|| {
-        UnifiedErrorResponse::new(404, "Plan not found", "The specified plan does not exist")
-    })?;
+    let wallet_address_vo =
+        crate::domain::wallet_management::value_objects::WalletAddress::new(wallet_address.clone())
+            .map_err(|e| {
+                UnifiedErrorResponse::new(
+                    400,
+                    "Invalid wallet",
+                    format!("Wallet address is invalid: {}", e),
+                )
+            })?;
+    let plan_info = payment_repo
+        .validate_submit_tx(plan_uuid, &wallet_address_vo)
+        .await
+        .map_err(|e| {
+            error!("Failed to validate plan via PaymentRepositoryPort: {}", e);
+            UnifiedErrorResponse::new(
+                500,
+                "Database error",
+                format!("Failed to verify plan: {}", e),
+            )
+        })?;
 
     // C5: Check plan eligibility
     if !plan_info.is_active {
@@ -210,29 +185,38 @@ pub async fn submit_transaction_handler(
     }
 
     // C3: Validate amount matches plan price (allow 5% tolerance for rounding & promotion edge cases)
-    // Check both base price and promotional price (if promotion is active)
-    let base_price = &plan_info.price;
-    let effective_price = plan_info.plan_metadata.get("promotion")
+    let base_price = BigDecimal::from_str(&plan_info.plan_price).map_err(|_| {
+        UnifiedErrorResponse::new(500, "Database error", "Plan price format invalid")
+    })?;
+    let effective_price_decimal = BigDecimal::from_str(&plan_info.effective_price).ok();
+    let effective_price = plan_info
+        .plan_metadata
+        .get("promotion")
         .and_then(|promo_val| {
-            serde_json::from_value::<crate::domain::subscription_management::promotion::Promotion>(promo_val.clone()).ok()
+            serde_json::from_value::<crate::domain::subscription_management::promotion::Promotion>(
+                promo_val.clone(),
+            )
+            .ok()
         })
         .map(|promo| {
             let bp = base_price.to_string().parse::<f64>().unwrap_or(0.0);
             let ep = promo.calculate_effective_price(bp);
             BigDecimal::from_str(&format!("{:.2}", ep)).unwrap_or_else(|_| base_price.clone())
-        });
+        })
+        .or(effective_price_decimal);
 
-    let price_to_validate = effective_price.as_ref().unwrap_or(base_price);
+    let price_to_validate = effective_price.as_ref().unwrap_or(&base_price);
     let price_diff = (&payment_amount - price_to_validate).abs();
-    let tolerance = price_to_validate * BigDecimal::from_str("0.05").unwrap_or_else(|_| BigDecimal::from(0)); // 5% tolerance
+    let tolerance =
+        price_to_validate * BigDecimal::from_str("0.05").unwrap_or_else(|_| BigDecimal::from(0));
     if price_diff > tolerance && *price_to_validate > 0 {
-        // Also check against base price in case promotion just expired
-        let base_diff = (&payment_amount - base_price).abs();
-        let base_tolerance = base_price * BigDecimal::from_str("0.05").unwrap_or_else(|_| BigDecimal::from(0)); // 5% tolerance
-        if base_diff > base_tolerance && *base_price > 0 {
+        let base_diff = (&payment_amount - &base_price).abs();
+        let base_tolerance =
+            &base_price * BigDecimal::from_str("0.05").unwrap_or_else(|_| BigDecimal::from(0));
+        if base_diff > base_tolerance && base_price > 0 {
             error!(
                 "Amount mismatch: submitted={}, plan_price={}, effective_price={:?}, plan_id={}, tolerance={}%",
-                payment_amount, plan_info.price, effective_price, plan_uuid, 5
+                payment_amount, plan_info.plan_price, effective_price, plan_uuid, 5
             );
             return Err(UnifiedErrorResponse::new(
                 400,
@@ -243,37 +227,35 @@ pub async fn submit_transaction_handler(
     }
 
     // Get payments database connection
-    let payments_pool = get_payments_pool().await.map_err(|e| {
-        error!("Failed to get payments database pool: {}", e);
-        UnifiedErrorResponse::new(500, "Database error", "Cannot connect to database")
-    })?;
+    let payments_pool = match crate::infrastructure::database::get_payments_pool().await {
+        Ok(p) => p,
+        Err(_) => (*app_state.db_pool).clone(),
+    };
 
-    let mut conn = payments_pool.get().await.map_err(|e| {
-        error!("Failed to get database connection: {}", e);
-        UnifiedErrorResponse::new(500, "Database error", "Cannot establish database connection")
-    })?;
-
-    // Atomic dedup check — the UNIQUE constraint on transaction_hash prevents races.
-    // We still do a quick SELECT first for the fast-path (idempotent retry).
-    #[derive(diesel::QueryableByName)]
+    // Atomic dedup check (idempotent retry)
+    #[derive(sqlx::FromRow)]
     struct DedupRow {
-        #[diesel(sql_type = diesel::sql_types::Text)]
         payment_reference: String,
-        #[diesel(sql_type = diesel::sql_types::Text)]
         status: String,
     }
 
-    let existing: Result<Option<DedupRow>, _> = diesel::sql_query(
+    let existing: Option<DedupRow> = sqlx::query_as(
         "SELECT payment_reference, status FROM payments WHERE transaction_hash = $1 AND LOWER(wallet_address) = LOWER($2) LIMIT 1",
     )
-    .bind::<diesel::sql_types::Text, _>(&payload.transaction_hash)
-    .bind::<diesel::sql_types::Text, _>(&wallet_address)
-    .get_result::<DedupRow>(&mut conn)
+    .bind(&payload.transaction_hash)
+    .bind(&wallet_address)
+    .fetch_optional(&payments_pool)
     .await
-    .optional();
+    .map_err(|e| {
+        error!("Failed to check for existing transaction: {}", e);
+        UnifiedErrorResponse::new(500, "Database error", "Failed to query for duplicate")
+    })?;
 
-    if let Ok(Some(row)) = existing {
-        info!("Transaction already submitted: {} (status={})", row.payment_reference, row.status);
+    if let Some(row) = existing {
+        info!(
+            "Transaction already submitted: {} (status={})",
+            row.payment_reference, row.status
+        );
         return Ok(Json(SubmitTransactionResponse {
             success: true,
             message: "Transaction already being monitored".to_string(),
@@ -289,14 +271,21 @@ pub async fn submit_transaction_handler(
     let payment_id = Uuid::new_v4();
 
     // Get credit balance
-    let wallet_credit_balance: BigDecimal = diesel::sql_query(
-        "SELECT COALESCE((SELECT balance FROM wallet_credits WHERE wallet_address = $1), 0) as bal",
+    #[derive(sqlx::FromRow)]
+    struct BalanceRow {
+        bal: BigDecimal,
+    }
+
+    let wallet_credit_balance: BigDecimal = sqlx::query_as::<_, BalanceRow>(
+        "SELECT COALESCE((SELECT balance FROM wallet_credits WHERE wallet_address = $1), 0)::numeric as bal",
     )
-    .bind::<diesel::sql_types::Text, _>(&wallet_address)
-    .get_result::<BalanceRow>(&mut conn)
+    .bind(&wallet_address)
+    .fetch_optional(&payments_pool)
     .await
+    .ok()
+    .flatten()
     .map(|r| r.bal)
-    .unwrap_or_else(|_| BigDecimal::from(0));
+    .unwrap_or_else(|| BigDecimal::from(0));
 
     let credit_to_use = wallet_credit_balance.clone().min(payment_amount.clone());
     let remaining_amount = &payment_amount - &credit_to_use;
@@ -319,7 +308,7 @@ pub async fn submit_transaction_handler(
     };
 
     let completed_at = if payment_status == "confirmed" {
-        Some(chrono::Utc::now())
+        Some(Utc::now())
     } else {
         None
     };
@@ -331,12 +320,10 @@ pub async fn submit_transaction_handler(
     });
 
     // Atomic transaction: credit deduction + payment insert
-    // Uses a single SQL DO block to ensure both happen or neither
     let use_credits = credit_to_use > 0;
 
     if use_credits {
-        // Wrap credit deduction + payment insert in a transaction
-        let result = diesel::sql_query(
+        let result = sqlx::query(
             r#"
             WITH credit_deduction AS (
                 SELECT add_credit_transaction($1, $2, 'payment_debit', $3, 'payment', $4, NULL, NULL, $5) as tx_id
@@ -349,26 +336,26 @@ pub async fn submit_transaction_handler(
             FROM credit_deduction
             "#,
         )
-        .bind::<diesel::sql_types::Text, _>(&wallet_address) // $1
-        .bind::<diesel::sql_types::Numeric, _>(&(-credit_to_use.clone())) // $2 negative
-        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Uuid>, _>(Some(payment_id)) // $3
-        .bind::<diesel::sql_types::Text, _>(&format!("Payment for plan {}", payload.plan_id)) // $4
-        .bind::<diesel::sql_types::Jsonb, _>(serde_json::json!({
+        .bind(&wallet_address)
+        .bind(-credit_to_use.clone()) // negative amount for credit deduction
+        .bind(payment_id)
+        .bind(format!("Payment for plan {}", payload.plan_id))
+        .bind(serde_json::json!({
             "payment_reference": payment_reference,
             "plan_id": payload.plan_id,
             "tx_hash": payload.transaction_hash,
-        })) // $5
-        .bind::<diesel::sql_types::Uuid, _>(payment_id) // $6
-        .bind::<diesel::sql_types::Text, _>(&payment_reference) // $7
-        .bind::<diesel::sql_types::Numeric, _>(&payment_amount) // $8
-        .bind::<diesel::sql_types::Text, _>(&payload.currency) // $9
-        .bind::<diesel::sql_types::Text, _>(payment_status) // $10
-        .bind::<diesel::sql_types::Uuid, _>(plan_uuid) // $11
-        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(tx_hash_value.as_ref()) // $12
-        .bind::<diesel::sql_types::Text, _>(&network) // $13
-        .bind::<diesel::sql_types::Jsonb, _>(&metadata) // $14
-        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(completed_at) // $15
-        .execute(&mut conn)
+        }))
+        .bind(payment_id)
+        .bind(&payment_reference)
+        .bind(&payment_amount)
+        .bind(&payload.currency)
+        .bind(payment_status)
+        .bind(plan_uuid)
+        .bind(tx_hash_value.as_ref())
+        .bind(&network)
+        .bind(&metadata)
+        .bind(completed_at)
+        .execute(&payments_pool)
         .await;
 
         match result {
@@ -388,8 +375,7 @@ pub async fn submit_transaction_handler(
             }
         }
     } else {
-        // No credits - insert with ON CONFLICT guard against race condition
-        let result = diesel::sql_query(
+        let result = sqlx::query(
             r#"
             INSERT INTO payments (
                 id, payment_reference, wallet_address, amount, currency, method, status,
@@ -399,42 +385,30 @@ pub async fn submit_transaction_handler(
             ON CONFLICT (transaction_hash) WHERE transaction_hash IS NOT NULL DO NOTHING
             "#,
         )
-        .bind::<diesel::sql_types::Uuid, _>(payment_id)
-        .bind::<diesel::sql_types::Text, _>(&payment_reference)
-        .bind::<diesel::sql_types::Text, _>(&wallet_address)
-        .bind::<diesel::sql_types::Numeric, _>(&payment_amount)
-        .bind::<diesel::sql_types::Text, _>(&payload.currency)
-        .bind::<diesel::sql_types::Text, _>(payment_status)
-        .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
-        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(tx_hash_value.as_ref())
-        .bind::<diesel::sql_types::Text, _>(&network)
-        .bind::<diesel::sql_types::Jsonb, _>(&metadata)
-        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(completed_at)
-        .execute(&mut conn)
+        .bind(payment_id)
+        .bind(&payment_reference)
+        .bind(&wallet_address)
+        .bind(&payment_amount)
+        .bind(&payload.currency)
+        .bind(payment_status)
+        .bind(plan_uuid)
+        .bind(tx_hash_value.as_ref())
+        .bind(&network)
+        .bind(&metadata)
+        .bind(completed_at)
+        .execute(&payments_pool)
         .await;
 
         match result {
             Ok(_) => { /* insert succeeded or already exists */ }
             Err(e) => {
-                // If it's a unique violation on transaction_hash, it means another user 
-                // (or the same one) already submitted it. We gracefully handle this 
-                // by returning success for the *calling* user, but the tx_monitor 
-                // will only validate the row where the on-chain from == wallet_address.
-                // NOTE: If the DB has a strict UNIQUE constraint on (transaction_hash), 
-                // `ON CONFLICT DO NOTHING` prevents an error.
-                // We'll query to see if THIS user has a row. If they don't, 
-                // the attacker successfully locked the row using the UNIQUE constraint.
-                // To truly fix this at the DB level, the unique constraint must be on 
-                // (transaction_hash, wallet_address), OR transaction_hash can't be unique.
-                // Assuming standard unique constraint, the fallback is:
-                let dup: Option<DedupRow> = diesel::sql_query(
+                let dup: Option<DedupRow> = sqlx::query_as(
                     "SELECT payment_reference, status FROM payments WHERE transaction_hash = $1 AND LOWER(wallet_address) = LOWER($2) LIMIT 1",
                 )
-                .bind::<diesel::sql_types::Text, _>(&payload.transaction_hash)
-                .bind::<diesel::sql_types::Text, _>(&wallet_address)
-                .get_result::<DedupRow>(&mut conn)
+                .bind(&payload.transaction_hash)
+                .bind(&wallet_address)
+                .fetch_optional(&payments_pool)
                 .await
-                .optional()
                 .ok()
                 .flatten();
 
@@ -448,13 +422,10 @@ pub async fn submit_transaction_handler(
                             transaction_hash: payload.transaction_hash,
                         }),
                     }));
-                } else if format!("{}", e).contains("duplicate key") || format!("{}", e).contains("Unique violation") {
-                    // Attack scenario: Attacker submitted it first. The UNIQUE constraint blocked the legitimate user.
-                    // If a transaction hash already exists for a different wallet, we MUST NOT gracefully adopt it
-                    // by overwriting the wallet address, as that allows an attacker to hijack a pending payment.
-                    // We return a 409 Conflict indicating it's already in progress.
+                } else if format!("{}", e).contains("duplicate key")
+                    || format!("{}", e).contains("Unique violation")
+                {
                     warn!("Transaction hash {} already exists for a different wallet. Preventing overwrite DoS.", payload.transaction_hash);
-                    
                     return Err(UnifiedErrorResponse::new(
                         409,
                         "Transaction Conflict",
@@ -474,18 +445,35 @@ pub async fn submit_transaction_handler(
 
     // Fix 1: Assign plan immediately for credit-only payments
     if payment_status == "confirmed" {
-        #[derive(diesel::QueryableByName)]
+        let primary_pool = app_state.db_pool.clone();
+        let primary_conn = primary_pool.clone();
+
+        #[derive(sqlx::FromRow)]
+        struct CreditPlanTerms {
+            plan_metadata: serde_json::Value,
+            billing_cycle: Option<String>,
+        }
+
+        let plan_terms: CreditPlanTerms = sqlx::query_as(
+            "SELECT plan_metadata, billing_cycle FROM plans WHERE id = $1 AND is_active = true",
+        )
+        .bind(plan_uuid)
+        .fetch_one(primary_conn.as_ref())
+        .await
+        .map_err(|e| {
+            error!("Unable to load plan terms for credit assignment: {}", e);
+            UnifiedErrorResponse::new(500, "Database error", "Cannot assign purchased plan")
+        })?;
+
+        #[derive(sqlx::FromRow)]
         struct CreditAssignment {
-            #[diesel(sql_type = diesel::sql_types::Uuid)]
             id: Uuid,
-            #[diesel(sql_type = diesel::sql_types::Timestamptz)]
-            expires_at: chrono::DateTime<chrono::Utc>,
-            #[diesel(sql_type = diesel::sql_types::Bool)]
+            expires_at: Option<chrono::DateTime<chrono::Utc>>,
             is_active: bool,
         }
 
         // Deactivate other active subscription plans
-        diesel::sql_query(
+        sqlx::query(
             r#"
             UPDATE wallet_plan_assignments
             SET is_active = false, updated_at = NOW()
@@ -495,44 +483,63 @@ pub async fn submit_transaction_handler(
               AND plan_id IN (SELECT id FROM plans WHERE plan_type = 'subscription')
             "#,
         )
-        .bind::<diesel::sql_types::Text, _>(&wallet_address)
-        .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
-        .execute(&mut conn)
+        .bind(&wallet_address)
+        .bind(plan_uuid)
+        .execute(primary_conn.as_ref())
         .await
-        .ok();
+        .map_err(|e| {
+            error!("Unable to deactivate previous plan assignment: {}", e);
+            UnifiedErrorResponse::new(500, "Database error", "Cannot assign purchased plan")
+        })?;
 
-        let existing_assign: Option<CreditAssignment> = diesel::sql_query(
-            "SELECT id, expires_at, is_active FROM wallet_plan_assignments WHERE LOWER(wallet_address) = LOWER($1) AND plan_id = $2 ORDER BY is_active DESC, expires_at DESC LIMIT 1"
+        let existing_assign: Option<CreditAssignment> = sqlx::query_as(
+            "SELECT id, expires_at, is_active FROM wallet_plan_assignments WHERE LOWER(wallet_address) = LOWER($1) AND plan_id = $2 ORDER BY is_active DESC, expires_at DESC LIMIT 1",
         )
-        .bind::<diesel::sql_types::Text, _>(&wallet_address)
-        .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
-        .get_result(&mut conn)
+        .bind(&wallet_address)
+        .bind(plan_uuid)
+        .fetch_optional(primary_conn.as_ref())
         .await
-        .optional()
-        .ok()
-        .flatten();
+        .map_err(|e| {
+            error!("Unable to inspect existing plan assignment: {}", e);
+            UnifiedErrorResponse::new(500, "Database error", "Cannot assign purchased plan")
+        })?;
 
         let now = chrono::Utc::now();
         if let Some(existing) = existing_assign {
-            let base = if existing.is_active && existing.expires_at > now { existing.expires_at } else { now };
-            let new_expiry = base + chrono::Duration::days(30);
-            diesel::sql_query(
+            let new_expiry = plan_assignment_expiry(
+                now,
+                &plan_terms.plan_metadata,
+                plan_terms.billing_cycle.as_deref().unwrap_or_default(),
+                existing.is_active.then_some(existing.expires_at).flatten(),
+            );
+            sqlx::query(
                 r#"
                 UPDATE wallet_plan_assignments
                 SET expires_at = $1, payment_reference = $2, updated_at = NOW(), is_active = true
                 WHERE id = $3
                 "#,
             )
-            .bind::<diesel::sql_types::Timestamptz, _>(new_expiry)
-            .bind::<diesel::sql_types::Text, _>(&payment_reference)
-            .bind::<diesel::sql_types::Uuid, _>(existing.id)
-            .execute(&mut conn)
+            .bind(new_expiry)
+            .bind(&payment_reference)
+            .bind(existing.id)
+            .execute(primary_conn.as_ref())
             .await
-            .ok();
-            info!("Extended/reactivated plan {} for wallet {} via credits until {}", plan_uuid, wallet_address, new_expiry);
+            .map_err(|e| {
+                error!("Unable to extend purchased plan assignment: {}", e);
+                UnifiedErrorResponse::new(500, "Database error", "Cannot assign purchased plan")
+            })?;
+            info!(
+                "Extended/reactivated plan {} for wallet {} via credits until {:?}",
+                plan_uuid, wallet_address, new_expiry
+            );
         } else {
-            let new_expiry = now + chrono::Duration::days(30);
-            diesel::sql_query(
+            let new_expiry = plan_assignment_expiry(
+                now,
+                &plan_terms.plan_metadata,
+                plan_terms.billing_cycle.as_deref().unwrap_or_default(),
+                None,
+            );
+            sqlx::query(
                 r#"
                 INSERT INTO wallet_plan_assignments (
                     wallet_address, plan_id, assigned_at, expires_at, is_active,
@@ -542,14 +549,20 @@ pub async fn submit_transaction_handler(
                 VALUES ($1, $2, NOW(), $3, true, 'credit', 'Plan purchase via wallet credits', $4, false, '{}')
                 "#,
             )
-            .bind::<diesel::sql_types::Text, _>(&wallet_address)
-            .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
-            .bind::<diesel::sql_types::Timestamptz, _>(new_expiry)
-            .bind::<diesel::sql_types::Text, _>(&payment_reference)
-            .execute(&mut conn)
+            .bind(&wallet_address)
+            .bind(plan_uuid)
+            .bind(new_expiry)
+            .bind(&payment_reference)
+            .execute(primary_conn.as_ref())
             .await
-            .ok();
-            info!("Created plan assignment for wallet {} → plan {} via credits (expires: {})", wallet_address, plan_uuid, new_expiry);
+            .map_err(|e| {
+                error!("Unable to create purchased plan assignment: {}", e);
+                UnifiedErrorResponse::new(500, "Database error", "Cannot assign purchased plan")
+            })?;
+            info!(
+                "Created plan assignment for wallet {} → plan {} via credits (expires: {:?})",
+                wallet_address, plan_uuid, new_expiry
+            );
         }
     }
 
@@ -563,21 +576,33 @@ pub async fn submit_transaction_handler(
         // Async notification
         let notif_wallet = wallet_address.clone();
         let notif_ref = payment_reference.clone();
-        let notif_state = _app_state.clone();
+        let notif_state = app_state.clone();
         tokio::spawn(async move {
-            use crate::infrastructure::services::NotificationService;
-            use crate::web::notifications::{NotificationPriority, NotificationType};
-            let _ = NotificationService::send(
-                &notif_state,
-                &notif_wallet,
-                NotificationType::Payment,
-                NotificationPriority::Normal,
-                "Payment Confirmed",
-                "Your payment has been confirmed",
-                Some(serde_json::json!({ "payment_reference": notif_ref })),
-                None,
-            )
-            .await;
+            // Wave 10 / R3: route through the NotificationPort.
+            use epsx_contracts::notification_port::SendNotificationRequest;
+            if let Some(port) = notif_state.notification_port.as_ref() {
+                let _ = port
+                    .send_with_event_id_retry(
+                        &format!("payment.confirmed:{notif_ref}"),
+                        SendNotificationRequest {
+                            recipient_wallet_address: notif_wallet.clone(),
+                            notification_type: "payment".to_string(),
+                            priority: "normal".to_string(),
+                            title: "Payment Confirmed".to_string(),
+                            message: "Your payment has been confirmed".to_string(),
+                            data: Some(serde_json::json!({ "payment_reference": notif_ref })),
+                            action_url: None,
+                            expires_at: None,
+                        },
+                    )
+                    .await;
+            } else {
+                tracing::warn!(
+                    "notification_port not wired in AppState; payment-confirmed \
+                     notification for wallet={} dropped",
+                    notif_wallet
+                );
+            }
         });
 
         format!("Payment completed using ${} wallet credits", credit_to_use)
@@ -610,9 +635,29 @@ pub async fn submit_transaction_handler(
     }))
 }
 
-/// Helper struct for balance query
-#[derive(diesel::QueryableByName)]
-struct BalanceRow {
-    #[diesel(sql_type = diesel::sql_types::Numeric)]
-    bal: BigDecimal,
+fn plan_assignment_expiry(
+    now: chrono::DateTime<Utc>,
+    metadata: &serde_json::Value,
+    billing_cycle: &str,
+    existing_expiry: Option<chrono::DateTime<Utc>>,
+) -> Option<chrono::DateTime<Utc>> {
+    let duration_days = metadata
+        .get("duration_days")
+        .and_then(serde_json::Value::as_i64)
+        .filter(|days| (1..=3_650).contains(days))
+        .or(match billing_cycle {
+            "daily" => Some(1),
+            "weekly" => Some(7),
+            "monthly" => Some(30),
+            "quarterly" => Some(90),
+            "yearly" | "annual" => Some(365),
+            "lifetime" => None,
+            _ => Some(30),
+        });
+    duration_days.map(|days| {
+        existing_expiry
+            .filter(|expiry| *expiry > now)
+            .unwrap_or(now)
+            + chrono::Duration::days(days)
+    })
 }

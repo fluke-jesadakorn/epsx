@@ -1,6 +1,6 @@
-use crate::prelude::*;
-use crate::application::shared::Query;
 use crate::application::market_analytics::queries::StockAnalysisSummary;
+use crate::application::shared::Query;
+use crate::prelude::*;
 
 /// Query to get stocks in a specific sector
 #[derive(Debug, Clone)]

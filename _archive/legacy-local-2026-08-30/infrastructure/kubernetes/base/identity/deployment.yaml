@@ -1,0 +1,134 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: epsx-identity
+  labels:
+    app: epsx-identity
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: epsx-identity
+  template:
+    metadata:
+      labels:
+        app: epsx-identity
+    spec:
+      containers:
+        - name: epsx-identity
+          image: epsx-identity:dev
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: HOST
+              value: "0.0.0.0"
+            # wave-13a: gRPC server bind address (unchanged)
+            - name: BIND_ADDR
+              value: "0.0.0.0:50051"
+            # wave-13b: HTTP/1.1 (axum) server bind address.
+            # Separate port from gRPC — see ROADMAP §17.2
+            # "Why two ports, not one?" for the rationale
+            # (the `tonic-web` crate is gRPC-Web, not an
+            # HTTP/1.1 router, and axum 0.8 is already in
+            # the workspace).
+            - name: BIND_ADDR_SSE
+              value: "0.0.0.0:50052"
+            - name: RUST_LOG
+              value: "info"
+            - name: RUST_BACKTRACE
+              value: "0"
+            - name: RUST_ENV
+              value: "production"
+            - name: ENV
+              value: "production"
+            # wave-13b marker: lets ops distinguish the
+            # wave-13b build of the identity binary (which
+            # exposes the SSE stream + admin emit hook)
+            # from the wave-13a plain-gRPC build.
+            - name: EPSX_IDENTITY_VERSION
+              value: "wave13b"
+            # The new binary is a STUB — no PostgreSQL, no
+            # Redis, no auth flow. The fallback contract
+            # (timeout → fall back to free-plan offset) is
+            # the client's responsibility (wave-13a Track B
+            # in the analytics binary). The day-1 SSE
+            # publisher is the admin `POST /v1/emit` hook
+            # (see `src/emit_handler.rs`); future wave-13c+
+            # will hook the gRPC `UpdateRankingOffset` path
+            # (or the read path's cache-invalidation hook)
+            # into the publish path so every offset change
+            # fans out automatically.
+          ports:
+            - name: grpc
+              containerPort: 50051
+            # wave-13b: HTTP/1.1 (axum) port — the SSE
+            # stream (`GET /v1/stream/ranking-offsets`) +
+            # the admin emit hook (`POST /v1/emit`) live
+            # here.
+            - name: sse
+              containerPort: 50052
+          # gRPC health check: tonic doesn't ship a
+          # /health endpoint by default (unlike the
+          # axum-based analytics binary), so we fall back
+          # to a TCP probe on the gRPC port. The dev env
+          # doesn't have `grpc-health-probe` installed; the
+          # TCP probe is the safe default. A future wave
+          # can swap in `tonic_health::pb::health` +
+          # `grpc_health::HealthServer` for a proper gRPC
+          # health check.
+          livenessProbe:
+            # TCP probe on the gRPC port (existing wave-13a
+            # behavior). K8s treats a port that accepts
+            # connections as healthy.
+            tcpSocket:
+              port: 50051
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            # TCP probe on BOTH ports — the binary
+            # listens on both, and either one being
+            # unbindable means the pod is broken. The
+            # analytics binary's `/health` endpoint
+            # would be a cleaner shape but the SSE
+            # handler doesn't ship one (a future
+            # wave-14+ can add a `GET /health` route).
+            tcpSocket:
+              port: 50051
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+          resources:
+            # The new binary is the smallest in the
+            # fleet — no DB pools, no JWT verification, no
+            # permission service, no HTTP routes (gRPC
+            # only). 128Mi / 0.25 CPU is generous for the
+            # stub. A future tier-aware impl with DB
+            # connections will need to bump these.
+            #
+            # wave-13b adds the SSE handler + the admin
+            # emit handler. The broadcast channel uses
+            # ~1KB per slot × 1024 slots = 1MB at peak
+            # (when 1024 SSE clients are connected); the
+            # stub never reads from a DB or a Redis, so
+            # the resource budget is unchanged from
+            # wave-13a. A future wave with tier-aware
+            # logic + heavy SSE fan-out may need to bump
+            # these.
+            limits:
+              memory: 128Mi
+              cpu: "0.25"
+            requests:
+              memory: 64Mi
+              cpu: "0.05"
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 100Mi

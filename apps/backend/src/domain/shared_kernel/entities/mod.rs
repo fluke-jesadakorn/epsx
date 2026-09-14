@@ -1,19 +1,19 @@
 // Shared entities that are used across multiple bounded contexts
 
 pub mod audit;
-pub mod eps_growth;
-pub mod stock;
-pub mod market_data;
 pub mod auth;
+pub mod eps_growth;
+pub mod market_data;
+pub mod stock;
 pub mod user;
 
 // Re-export common entity types
 
 pub use audit::*;
-pub use eps_growth::*;
-pub use stock::*;
-pub use market_data::*;
 pub use auth::*;
+pub use eps_growth::*;
+pub use market_data::*;
+pub use stock::*;
 pub use user::*;
 
 // Common entity traits and patterns

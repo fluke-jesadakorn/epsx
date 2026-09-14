@@ -1,0 +1,73 @@
+{
+  "source": "https://api.epsx.io/api/public/plans",
+  "token_prices_are_regular_prices": true,
+  "checkout_uses_catalog_promotion": true,
+  "plans": [
+    {
+      "id": "61a62cbe-3371-41db-bd90-321c53a71e06",
+      "name": "1 Day Package",
+      "current_price": "5.00",
+      "checkout_price": "1.00",
+      "promotion_savings": "4.00",
+      "promotion_discount": 80.0,
+      "promotion_status": "active"
+    },
+    {
+      "id": "ab79a5ad-1b6e-4a0c-bba6-d7302ed85258",
+      "name": "1 Month Package",
+      "current_price": "99.00",
+      "checkout_price": "9.90",
+      "promotion_savings": "89.10",
+      "promotion_discount": 90.0,
+      "promotion_status": "active"
+    },
+    {
+      "id": "bbd93cad-a837-4155-b972-60dbbdcfb48f",
+      "name": "API Personal",
+      "current_price": "3999.00",
+      "checkout_price": "999.00",
+      "promotion_savings": "3000.00",
+      "promotion_discount": 75.01875468867217,
+      "promotion_status": "active"
+    },
+    {
+      "id": "f6346367-af55-4c97-be14-7b2390e3adfc",
+      "name": "Lifetime Package",
+      "current_price": "9999.00",
+      "checkout_price": "4999.00",
+      "promotion_savings": "5000.00",
+      "promotion_discount": 50.00500050005,
+      "promotion_status": "active"
+    },
+    {
+      "id": "5a5ed9ba-a8d3-49fc-8ce7-3d6fea9d84e1",
+      "name": "API Company",
+      "current_price": "6999.00",
+      "checkout_price": "2999.00",
+      "promotion_savings": "4000.00",
+      "promotion_discount": 57.151021574510644,
+      "promotion_status": "active"
+    }
+  ],
+  "checkout": {
+    "order_id": "a696de80-d85a-4bbc-b4b6-792298c084c3",
+    "checkout_id": "cs_3118b016054943ca812a0cf7a290c507",
+    "pricing": {
+      "original_price": "5.00",
+      "price": "1.00",
+      "promotion_active": true,
+      "promotion_discount": 80.0,
+      "promotion_ends_at": null,
+      "promotion_status": "active",
+      "savings": "4.00"
+    }
+  },
+  "lifecycle": {
+    "percentage_edit": true,
+    "disabled_upcoming_expired_charge_regular": true,
+    "old_order_and_retry_unchanged": true,
+    "new_order_new_price": true,
+    "disabled_plan_rejects_new_orders": true,
+    "verification_plan": "943a86fc-783e-42e9-9312-86fc9fb391ba"
+  }
+}

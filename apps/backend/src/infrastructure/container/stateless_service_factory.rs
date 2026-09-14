@@ -3,25 +3,27 @@ use crate::prelude::TlsPool;
 // Creates services per request without shared state containers
 // Designed for serverless environments (AWS Lambda, Google Cloud Functions, etc.)
 
-use anyhow::Result;
-use std::sync::Arc;
-use crate::infrastructure::cache::{Cache, ServerlessCacheFactory};
-use crate::infrastructure::database::diesel_health_check;
-use crate::infrastructure::redis::RedisPool;
-use crate::web::notifications::RedisNotificationBroadcaster;
+use crate::auth::auth_service::UnifiedWeb3AuthService;
+use crate::auth::key_manager::KeyManager;
+use crate::auth::token_service::OpenIDTokenService;
+use crate::auth::unified_permission_service::UnifiedPermissionService;
+use crate::auth::RefreshTokenKeyring;
+use crate::domain::payment::repository_ports::{CreditRepositoryPort, PaymentRepositoryPort};
+use crate::domain::wallet_management::{
+    WalletPermissionService, WalletUserAnalyticsPort, WalletUserRepositoryPort,
+};
+use crate::infrastructure::adapters::repositories::credit_repository_adapter::CreditRepositoryAdapter;
+use crate::infrastructure::adapters::repositories::payment_repository_adapter::PaymentRepositoryAdapter;
 use crate::infrastructure::adapters::repositories::wallet_user::WalletUserRepositoryAdapter;
 use crate::infrastructure::adapters::services::permission_adapter::{
-    Web3PermissionServiceAdapter, BlockchainConfig
+    BlockchainConfig, Web3PermissionServiceAdapter,
 };
-use crate::domain::wallet_management::{
-    WalletPermissionService,
-    WalletUserRepositoryPort,
-    WalletUserAnalyticsPort,
-};
-use crate::auth::auth_service::UnifiedWeb3AuthService;
-use crate::auth::token_service::OpenIDTokenService;
-use crate::auth::key_manager::KeyManager;
-use crate::auth::unified_permission_service::UnifiedPermissionService;
+use crate::infrastructure::adapters::RedisPubsubAdapter;
+use crate::infrastructure::cache::{Cache, ServerlessCacheFactory};
+use crate::infrastructure::redis::RedisPool;
+use anyhow::Result;
+use epsx_contracts::pubsub_port::PubsubPort;
+use std::sync::Arc;
 
 /// Stateless configuration for service factory
 #[derive(Clone)]
@@ -41,12 +43,12 @@ impl StatelessConfig {
             database_url: std::env::var("DATABASE_URL")
                 .map_err(|_| anyhow::anyhow!("DATABASE_URL is required"))?,
             domain: Self::get_web3_domain(),
-            issuer_url: std::env::var("BACKEND_URL")
-                .unwrap_or_else(|_| "https://api.epsx.io".to_string()),
-            oidc_audiences: vec![
-                "epsx-frontend".to_string(),
-                "epsx-admin".to_string(),
-            ],
+            issuer_url: std::env::var("OIDC_ISSUER")
+                .or_else(|_| std::env::var("BACKEND_URL"))
+                .unwrap_or_else(|_| "https://api.epsx.io".to_string())
+                .trim_end_matches('/')
+                .to_string(),
+            oidc_audiences: vec!["epsx-frontend".to_string(), "epsx-admin".to_string()],
             redis_url: std::env::var("REDIS_URL").ok(),
             blockchain_config: None, // Can be added later if needed
         })
@@ -54,33 +56,7 @@ impl StatelessConfig {
 
     /// Get Web3 domain for SIWE authentication from environment
     fn get_web3_domain() -> String {
-        use std::env;
-        
-        // Try to get frontend URL from environment
-        if let Ok(frontend_url) = env::var("FRONTEND_URL") {
-            if let Ok(url) = url::Url::parse(&frontend_url) {
-                if let Some(host) = url.host_str() {
-                    return host.to_string();
-                }
-            }
-        }
-        
-        // Try NEXT_PUBLIC_APP_URL as fallback
-        if let Ok(app_url) = env::var("NEXT_PUBLIC_APP_URL") {
-            if let Ok(url) = url::Url::parse(&app_url) {
-                if let Some(host) = url.host_str() {
-                    return host.to_string();
-                }
-            }
-        }
-        
-        // Environment-based defaults
-        if env::var("NODE_ENV").map(|v| v == "production").unwrap_or(false) ||
-           env::var("RUST_ENV").map(|v| v == "production").unwrap_or(false) {
-            "epsx.io".to_string()
-        } else {
-            "localhost".to_string()
-        }
+        super::configured_siwe_domain()
     }
 }
 
@@ -99,7 +75,8 @@ impl StatelessServiceFactory {
     /// This is called once per HTTP request in serverless environments
     pub async fn create_request_services(&self) -> Result<RequestServices> {
         // Get global Diesel pool (static lifetime, connection pooling)
-        let diesel_pool = crate::infrastructure::database::get_diesel_pool().await
+        let db_pool: &'static sqlx::PgPool = crate::infrastructure::database::get_diesel_pool()
+            .await
             .expect("Failed to get Diesel pool");
 
         // Create cache (Redis ONLY - no fallback to memory for serverless)
@@ -110,7 +87,7 @@ impl StatelessServiceFactory {
         };
 
         // Create repository adapters
-        let wallet_user_repository = WalletUserRepositoryAdapter::new(diesel_pool);
+        let wallet_user_repository = WalletUserRepositoryAdapter::new(db_pool);
 
         // Create domain services (stateless by design)
         let wallet_permission_service = WalletPermissionService::new()?;
@@ -119,83 +96,130 @@ impl StatelessServiceFactory {
         let web3_permission_adapter = Web3PermissionServiceAdapter::new(
             cache.clone(),
             self.config.blockchain_config.clone(),
-            diesel_pool,
-        );
-
-        // Create auth services using Diesel pool
-        let auth_service = UnifiedWeb3AuthService::new(
-            diesel_pool,
-            self.config.domain.clone(),
+            std::sync::Arc::new((*db_pool).clone()),
         );
 
         // Create OpenID token service using Diesel pool and RSA key manager
-        let key_manager = KeyManager::from_env_or_generate()
-            .expect("Failed to initialize RSA key manager");
+        let key_manager =
+            KeyManager::from_env_or_generate().expect("Failed to initialize RSA key manager");
+        let refresh_token_keyring = RefreshTokenKeyring::from_env()
+            .expect("Failed to initialize the required refresh-token HMAC keyring");
         let token_service = OpenIDTokenService::new(
-            diesel_pool,
+            (*db_pool).clone(),
             self.config.issuer_url.clone(),
             self.config.oidc_audiences.clone(),
             Arc::new(key_manager),
+            Arc::new(refresh_token_keyring),
         );
+        let auth_service = Arc::new(UnifiedWeb3AuthService::new_with_openid(
+            db_pool,
+            self.config.domain.clone(),
+            token_service.clone(),
+        ));
 
         // Create UnifiedPermissionService (single source of truth for permissions)
         let unified_permission_service = Arc::new(UnifiedPermissionService::new_without_cache(
-            diesel_pool,
+            (*db_pool).clone(),
         ));
 
-        // Create Redis pool and notification broadcaster
-        let (redis_pool, redis_broadcaster) = if let Some(redis_url) = &self.config.redis_url {
-            match RedisPool::new(redis_url).await {
-                Ok(pool) => {
-                    let pool_arc = Arc::new(pool);
-                    let broadcaster = Arc::new(RedisNotificationBroadcaster::new(Arc::clone(&pool_arc)));
-                    (Some(pool_arc), Some(broadcaster))
+        // Wave 11 / Track A — build the payment + credit
+        // repository adapters from the dedicated
+        // `payments_pool` (the `get_payments_pool` call
+        // returns `None` if the env var isn't set, which
+        // matches the current production behaviour — the
+        // connection manager falls back to the primary
+        // pool, but in serverless the test harness rarely
+        // has PAYMENTS_DATABASE_URL set).
+        let payments_pool = crate::infrastructure::database::get_payments_pool()
+            .await
+            .ok()
+            .map(|p| Arc::new(p) as Arc<TlsPool>);
+        let payment_repository = payments_pool
+            .as_ref()
+            .map(|p| Arc::new(PaymentRepositoryAdapter::new((**p).clone())));
+        let credit_repository = payments_pool
+            .as_ref()
+            .map(|p| Arc::new(CreditRepositoryAdapter::new(p.clone())));
+
+        // Create Redis pool and PubsubPort
+        let (redis_pool, pubsub): (Option<Arc<RedisPool>>, Option<Arc<dyn PubsubPort>>) =
+            if let Some(redis_url) = &self.config.redis_url {
+                match RedisPool::new(redis_url).await {
+                    Ok(pool) => {
+                        let pool_arc = Arc::new(pool);
+                        let pubsub: Option<Arc<dyn PubsubPort>> =
+                            match redis::Client::open(redis_url.as_str()) {
+                                Ok(client) => {
+                                    Some(Arc::new(RedisPubsubAdapter::from_pool_and_client(
+                                        client,
+                                        Arc::clone(&pool_arc),
+                                    ))
+                                        as Arc<dyn PubsubPort>)
+                                }
+                                Err(e) => {
+                                    tracing::warn!(
+                                        "Failed to create redis::Client for PubsubPort: {}",
+                                        e
+                                    );
+                                    None
+                                }
+                            };
+                        (Some(pool_arc), pubsub)
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            "Failed to create Redis pool: {} (notifications will not work)",
+                            e
+                        );
+                        (None, None)
+                    }
                 }
-                Err(e) => {
-                    tracing::warn!("Failed to create Redis pool: {} (notifications will not work)", e);
-                    (None, None)
-                }
-            }
-        } else {
-            tracing::warn!("No REDIS_URL configured - notifications will not work");
-            (None, None)
-        };
+            } else {
+                tracing::warn!("No REDIS_URL configured - notifications will not work");
+                (None, None)
+            };
 
         Ok(RequestServices {
-            db_pool: Arc::new(diesel_pool),
+            db_pool: Arc::new((*db_pool).clone()),
             cache,
             wallet_user_repository: Arc::new(wallet_user_repository),
             wallet_permission_service,
             web3_permission_adapter: Arc::new(web3_permission_adapter),
-            auth_service: Arc::new(auth_service),
+            auth_service,
             token_service: Arc::new(token_service),
 
             // Redis notifications
             redis_pool,
-            redis_broadcaster,
+            pubsub,
 
-            // Unified permission service (single source of truth)
+            // Unified permission service (single source of truth for all permission operations)
             unified_permission_service,
+            // Wave 11 / Track A — payment + credit ports
+            payment_repository,
+            credit_repository,
         })
     }
+
+    // Redis cache creation methods removed - now using ServerlessCacheFactory
 
     // Redis cache creation methods removed - now using ServerlessCacheFactory
 
     /// Create minimal services for health checks (faster cold start)
     pub async fn create_health_services(&self) -> Result<HealthServices> {
         // Use global Diesel pool for health checks
-        let diesel_pool = crate::infrastructure::database::get_diesel_pool().await
+        let db_pool: &'static sqlx::PgPool = crate::infrastructure::database::get_diesel_pool()
+            .await
             .expect("Failed to get Diesel pool");
 
         Ok(HealthServices {
-            db_pool: Arc::new(diesel_pool),
+            db_pool: Arc::new((*db_pool).clone()),
         })
     }
 }
 
 /// Services created per request - no shared state
 pub struct RequestServices {
-    pub db_pool: Arc<&'static TlsPool>,
+    pub db_pool: Arc<TlsPool>,
     pub cache: Option<Arc<dyn Cache>>,
 
     // Service instances (owned by this request)
@@ -207,10 +231,24 @@ pub struct RequestServices {
 
     // Redis notification infrastructure
     pub redis_pool: Option<Arc<RedisPool>>,
-    pub redis_broadcaster: Option<Arc<RedisNotificationBroadcaster>>,
+    /// Generic pubsub port. Notifications + chat both publish and
+    /// subscribe through this port. See
+    /// `docs/wave8-service-boundary/ROADMAP.md` §5 R2.
+    pub pubsub: Option<Arc<dyn PubsubPort>>,
 
     // Unified permission service (single source of truth for all permission operations)
     pub unified_permission_service: Arc<UnifiedPermissionService>,
+
+    // Wave 11 / Track A — payment + credit ports. Optional
+    // because the legacy single-DB deployments don't always
+    // have a `PAYMENTS_DATABASE_URL` set. The cross-pool
+    // handler collapses REQUIRE the payment port; the
+    // `with_*` methods accept `None` for backward compat
+    // with the test harness, but the 8 collapsed handlers
+    // will panic-fast with a clear "port not wired" message
+    // when run in the production binary.
+    pub payment_repository: Option<Arc<PaymentRepositoryAdapter>>,
+    pub credit_repository: Option<Arc<CreditRepositoryAdapter>>,
 }
 
 impl RequestServices {
@@ -224,25 +262,103 @@ impl RequestServices {
         self.wallet_user_repository.clone() as Arc<dyn WalletUserAnalyticsPort>
     }
 
-    /// Create app state for auth routes
+    /// Wave 11 / Track A — `PaymentRepositoryPort` accessor.
+    /// Returns `None` if the container wasn't initialized with
+    /// a `payments_pool` (e.g. test harness). The 8 cross-pool
+    /// handler collapses REQUIRE this to be `Some` in
+    /// production; the AppState wiring accepts `None` so the
+    /// container can build in test mode.
+    pub fn get_payment_repository_port(&self) -> Option<Arc<dyn PaymentRepositoryPort>> {
+        self.payment_repository
+            .as_ref()
+            .map(|repo| Arc::clone(repo) as Arc<dyn PaymentRepositoryPort>)
+    }
+
+    /// Wave 11 / Track A — `CreditRepositoryPort` accessor.
+    /// See `get_payment_repository_port`.
+    pub fn get_credit_repository_port(&self) -> Option<Arc<dyn CreditRepositoryPort>> {
+        self.credit_repository
+            .as_ref()
+            .map(|repo| Arc::clone(repo) as Arc<dyn CreditRepositoryPort>)
+    }
+
+    /// Create app state for auth routes.
+    ///
+    /// The compatibility wrapper preserves the long-standing infallible API;
+    /// startup/request-service callers that need to surface the error should
+    /// use `try_create_auth_app_state` directly.
     pub async fn create_auth_app_state(&self) -> crate::web::auth::AppState {
+        self.try_create_auth_app_state()
+            .await
+            .unwrap_or_else(|error| panic!("notification/auth app state unavailable: {error}"))
+    }
+
+    /// Fallible auth-state construction used by strict service wiring.
+    pub async fn try_create_auth_app_state(&self) -> Result<crate::web::auth::AppState> {
         // Redis is optional - notifications won't work if Redis is unavailable
         let redis_pool = self.redis_pool.clone();
-        let redis_broadcaster = self.redis_broadcaster.clone();
+        let pubsub = self.pubsub.clone();
 
-        if redis_pool.is_none() || redis_broadcaster.is_none() {
+        if redis_pool.is_none() || pubsub.is_none() {
             tracing::warn!("Redis not configured - notifications will not work for auth routes");
         }
 
-        crate::web::auth::AppState::new(
+        let app_state = crate::web::auth::AppState::new(
             self.db_pool.clone(),
             self.cache.as_ref().unwrap().clone(), // Auth requires cache
             // Convert to legacy container format for compatibility
-            Arc::new(crate::infrastructure::container::DomainContainer::new(self.db_pool.clone())),
+            Arc::new(crate::infrastructure::container::DomainContainer::new(
+                self.db_pool.clone(),
+            )),
             redis_pool,
-            redis_broadcaster,
-            crate::infrastructure::database::get_analytics_pool().await.ok().map(Arc::new),
+            pubsub,
+            crate::infrastructure::database::get_analytics_pool()
+                .await
+                .ok()
+                .map(Arc::new),
+        );
+
+        // Wave 10 / R3: wire the in-process NotificationPort. The
+        // constructor refuses to start the port when
+        // NOTIFICATIONS_DATABASE_URL is unset; the warnings below
+        // surface the misconfig in production logs.
+        let port = match crate::infrastructure::adapters::notification::build_notification_port(
+            app_state.pubsub.clone(),
         )
+        .await
+        {
+            Ok(adapter) => {
+                tracing::info!("NotificationPort wired (configured adapter)");
+                Some(adapter)
+            }
+            Err(e) => {
+                if crate::infrastructure::adapters::notification::notification_adapter_required() {
+                    return Err(anyhow::anyhow!(
+                        "notification adapter is required for this environment: {e}"
+                    ));
+                }
+                tracing::warn!("NotificationPort not wired in non-production mode: {}", e);
+                None
+            }
+        };
+
+        // Wave 11 / Track A: wire the PaymentRepositoryPort
+        // and CreditRepositoryPort from this RequestServices.
+        // Both accessors return `Arc<dyn ...>`; `None` if the
+        // container wasn't initialized with the payment
+        // adapter (e.g. a test harness without the
+        // `PAYMENTS_DATABASE_URL` set). The 8 cross-pool
+        // handler collapses REQUIRE the payment port; the
+        // `with_*` methods accept `None` to keep the
+        // AppState constructible in test mode, but the
+        // handlers will panic-fast with a clear "port not
+        // wired" message.
+        let payment_repo = self.get_payment_repository_port();
+        let credit_repo = self.get_credit_repository_port();
+        Ok(app_state
+            .with_notification_port_opt(port)
+            .with_payment_repo(payment_repo)
+            .with_credit_repo(credit_repo))
     }
 
     /// Validate that all required services are available
@@ -256,14 +372,17 @@ impl RequestServices {
 
 /// Minimal services for health checks only
 pub struct HealthServices {
-    pub db_pool: Arc<&'static TlsPool>,
+    pub db_pool: Arc<TlsPool>,
 }
 
 impl HealthServices {
     /// Health check - test database connectivity using Diesel
     pub async fn health_check(&self) -> bool {
-        // Use the Diesel health check
-        diesel_health_check().await
+        // Use the sqlx-based health check
+        match crate::infrastructure::database::diesel_connection_manager::DieselConnectionManager::diesel_health_check().await {
+            Ok(()) => true,
+            Err(_) => false,
+        }
     }
 }
 
@@ -272,14 +391,18 @@ pub trait ServiceFactory: Send + Sync + Clone {
     type Services;
     type Error;
 
-    fn create_services(&self) -> impl std::future::Future<Output = Result<Self::Services, Self::Error>> + Send;
+    fn create_services(
+        &self,
+    ) -> impl std::future::Future<Output = Result<Self::Services, Self::Error>> + Send;
 }
 
 impl ServiceFactory for StatelessServiceFactory {
     type Services = RequestServices;
     type Error = anyhow::Error;
 
-    fn create_services(&self) -> impl std::future::Future<Output = Result<Self::Services, Self::Error>> + Send {
+    fn create_services(
+        &self,
+    ) -> impl std::future::Future<Output = Result<Self::Services, Self::Error>> + Send {
         self.create_request_services()
     }
 }

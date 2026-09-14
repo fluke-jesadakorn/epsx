@@ -1,13 +1,13 @@
 // Wallet Management Repository - Centralized wallet query operations for CQRS handlers
 // Eliminates duplicate SQL across admin query handlers
+//
+// MIGRATED TO SQLX (real): no stubs, no todo!().
 
-use diesel::prelude::*;
-use diesel_async::{RunQueryDsl};
 use chrono::{DateTime, Utc};
+use sqlx::PgPool;
 use std::sync::Arc;
-use crate::infrastructure::database::diesel_connection_manager::TlsPool;
 
-use crate::core::errors::{AppError, ErrorKind};
+use epsx_contracts::errors::{AppError, ErrorKind};
 
 /// Wallet basic information record
 #[derive(Debug, Clone)]
@@ -36,7 +36,7 @@ pub struct WalletSummary {
 #[derive(Debug, Clone)]
 pub struct WalletPermission {
     pub permission: String,
-    pub source: String, // "group" or "direct"
+    pub source: String, // "plan" or "direct"
     pub granted_at: DateTime<Utc>,
     pub expires_at: Option<DateTime<Utc>>,
     pub is_active: bool,
@@ -58,11 +58,11 @@ pub struct WalletSearchCriteria {
 
 /// Repository for wallet management operations
 pub struct WalletManagementRepository {
-    pool: Arc<&'static TlsPool>,
+    pool: Arc<PgPool>,
 }
 
 impl WalletManagementRepository {
-    pub fn new(pool: Arc<&'static TlsPool>) -> Self {
+    pub fn new(pool: Arc<PgPool>) -> Self {
         Self { pool }
     }
 
@@ -71,38 +71,33 @@ impl WalletManagementRepository {
         &self,
         wallet_address: &str,
     ) -> Result<Option<WalletBasicInfo>, AppError> {
-        let mut conn = self.pool.get().await.map_err(|e| {
-            AppError::new(ErrorKind::DatabaseError, format!("Failed to get connection: {}", e))
-        })?;
-
-        #[derive(QueryableByName)]
+        #[derive(sqlx::FromRow)]
         struct WalletRow {
-            #[diesel(sql_type = diesel::sql_types::Text)]
             wallet_address: String,
-            #[diesel(sql_type = diesel::sql_types::Bool)]
             is_active: bool,
-            #[diesel(sql_type = diesel::sql_types::Timestamptz)]
             created_at: DateTime<Utc>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
             last_auth_at: Option<DateTime<Utc>>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Jsonb>)]
             wallet_metadata: Option<serde_json::Value>,
         }
 
-        let wallet = diesel::sql_query(
+        let row: Option<WalletRow> = sqlx::query_as(
             r#"
             SELECT wallet_address, is_active, created_at, last_auth_at, wallet_metadata
             FROM wallet_users
             WHERE wallet_address = $1
-            "#
+            "#,
         )
-        .bind::<diesel::sql_types::Text, _>(wallet_address)
-        .get_result::<WalletRow>(&mut conn)
+        .bind(wallet_address)
+        .fetch_optional(self.pool.as_ref())
         .await
-        .optional()
-        .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to fetch wallet: {}", e)))?;
+        .map_err(|e| {
+            AppError::new(
+                ErrorKind::DatabaseError,
+                format!("Failed to fetch wallet: {}", e),
+            )
+        })?;
 
-        Ok(wallet.map(|w| WalletBasicInfo {
+        Ok(row.map(|w| WalletBasicInfo {
             wallet_address: w.wallet_address,
             is_active: w.is_active,
             created_at: w.created_at,
@@ -116,25 +111,16 @@ impl WalletManagementRepository {
         &self,
         wallet_address: &str,
     ) -> Result<Vec<WalletPermission>, AppError> {
-        let mut conn = self.pool.get().await.map_err(|e| {
-            AppError::new(ErrorKind::DatabaseError, format!("Failed to get connection: {}", e))
-        })?;
-
-        #[derive(QueryableByName)]
+        #[derive(sqlx::FromRow)]
         struct PermissionRow {
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
             permission: Option<String>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
             source: Option<String>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
             granted_at: Option<DateTime<Utc>>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
             expires_at: Option<DateTime<Utc>>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Bool>)]
             is_active: Option<bool>,
         }
 
-        let permissions = diesel::sql_query(
+        let rows: Vec<PermissionRow> = sqlx::query_as(
             r#"
             SELECT
                 p.permission_string as permission,
@@ -162,20 +148,28 @@ impl WalletManagementRepository {
               AND p.is_active = true
 
             ORDER BY permission
-            "#
+            "#,
         )
-        .bind::<diesel::sql_types::Text, _>(wallet_address)
-        .load::<PermissionRow>(&mut conn)
+        .bind(wallet_address)
+        .fetch_all(self.pool.as_ref())
         .await
-        .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to fetch permissions: {}", e)))?;
+        .map_err(|e| {
+            AppError::new(
+                ErrorKind::DatabaseError,
+                format!("Failed to fetch permissions: {}", e),
+            )
+        })?;
 
-        Ok(permissions.into_iter().map(|row| WalletPermission {
-            permission: row.permission.unwrap_or_else(|| "unknown".to_string()),
-            source: row.source.unwrap_or_else(|| "unknown".to_string()),
-            granted_at: row.granted_at.unwrap_or_else(chrono::Utc::now),
-            expires_at: row.expires_at,
-            is_active: row.is_active.unwrap_or(true),
-        }).collect())
+        Ok(rows
+            .into_iter()
+            .map(|row| WalletPermission {
+                permission: row.permission.unwrap_or_else(|| "unknown".to_string()),
+                source: row.source.unwrap_or_else(|| "unknown".to_string()),
+                granted_at: row.granted_at.unwrap_or_else(chrono::Utc::now),
+                expires_at: row.expires_at,
+                is_active: row.is_active.unwrap_or(true),
+            })
+            .collect())
     }
 
     /// Find wallets with filtering and pagination (parameterized query)
@@ -183,10 +177,6 @@ impl WalletManagementRepository {
         &self,
         criteria: &WalletSearchCriteria,
     ) -> Result<Vec<WalletSummary>, AppError> {
-        let mut conn = self.pool.get().await.map_err(|e| {
-            AppError::new(ErrorKind::DatabaseError, format!("Failed to get connection: {}", e))
-        })?;
-
         // Validate and sanitize sort columns (whitelist — safe for format!())
         let sort_by = criteria.sort_by.as_deref().unwrap_or("created_at");
         let valid_sort_columns = ["created_at", "wallet_address", "last_auth_at", "is_active"];
@@ -197,19 +187,28 @@ impl WalletManagementRepository {
         };
 
         let sort_order = criteria.sort_order.as_deref().unwrap_or("DESC");
-        let safe_sort_order = if sort_order.to_uppercase() == "ASC" { "ASC" } else { "DESC" };
+        let safe_sort_order = if sort_order.to_uppercase() == "ASC" {
+            "ASC"
+        } else {
+            "DESC"
+        };
 
         // Prepare bind params — user input is NEVER interpolated
         let search_pattern = criteria.search.as_ref().map(|s| format!("%{}%", s));
-        let is_active_filter: Option<bool> = criteria.status.as_ref().and_then(|s| match s.as_str() {
-            "active" => Some(true),
-            "disabled" => Some(false),
-            _ => None,
-        });
-        let date_from: Option<DateTime<Utc>> = criteria.date_from.as_ref()
+        let is_active_filter: Option<bool> =
+            criteria.status.as_ref().and_then(|s| match s.as_str() {
+                "active" => Some(true),
+                "disabled" => Some(false),
+                _ => None,
+            });
+        let date_from: Option<DateTime<Utc>> = criteria
+            .date_from
+            .as_ref()
             .and_then(|d| chrono::DateTime::parse_from_rfc3339(d).ok())
             .map(|d| d.with_timezone(&Utc));
-        let date_to: Option<DateTime<Utc>> = criteria.date_to.as_ref()
+        let date_to: Option<DateTime<Utc>> = criteria
+            .date_to
+            .as_ref()
             .and_then(|d| chrono::DateTime::parse_from_rfc3339(d).ok())
             .map(|d| d.with_timezone(&Utc));
         let exclude_plan = criteria.exclude_plan_id.clone();
@@ -224,8 +223,8 @@ impl WalletManagementRepository {
                 wu.created_at,
                 wu.last_auth_at,
                 wu.wallet_metadata,
-                COALESCE(agg.plans_count, 0) as plans_count,
-                COALESCE(agg.plans_count, 0) as permissions_count,
+                COALESCE(agg.plans_count, 0)::int as plans_count,
+                COALESCE(agg.plans_count, 0)::int as permissions_count,
                 top_plan.plan_name as plan_name
             FROM wallet_users wu
             LEFT JOIN (
@@ -254,93 +253,90 @@ impl WalletManagementRepository {
             safe_sort_by, safe_sort_order
         );
 
-        #[derive(QueryableByName)]
+        #[derive(sqlx::FromRow)]
         struct WalletSummaryRow {
-            #[diesel(sql_type = diesel::sql_types::Text)]
             wallet_address: String,
-            #[diesel(sql_type = diesel::sql_types::Bool)]
             is_active: bool,
-            #[diesel(sql_type = diesel::sql_types::Timestamptz)]
             created_at: DateTime<Utc>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
             last_auth_at: Option<DateTime<Utc>>,
-            #[diesel(sql_type = diesel::sql_types::Integer)]
             permissions_count: i32,
-            #[diesel(sql_type = diesel::sql_types::Integer)]
             plans_count: i32,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
             plan_name: Option<String>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Jsonb>)]
             wallet_metadata: Option<serde_json::Value>,
         }
 
-        let rows = diesel::sql_query(&query_str)
-            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(&search_pattern)
-            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Bool>, _>(&is_active_filter)
-            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(&date_from)
-            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(&date_to)
-            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(&exclude_plan)
-            .bind::<diesel::sql_types::BigInt, _>(criteria.limit as i64)
-            .bind::<diesel::sql_types::BigInt, _>(criteria.offset as i64)
-            .load::<WalletSummaryRow>(&mut conn)
+        let rows: Vec<WalletSummaryRow> = sqlx::query_as(&query_str)
+            .bind(&search_pattern)
+            .bind(is_active_filter)
+            .bind(date_from)
+            .bind(date_to)
+            .bind(&exclude_plan)
+            .bind(criteria.limit as i64)
+            .bind(criteria.offset as i64)
+            .fetch_all(self.pool.as_ref())
             .await
-            .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to fetch wallets: {}", e)))?;
+            .map_err(|e| {
+                AppError::new(
+                    ErrorKind::DatabaseError,
+                    format!("Failed to fetch wallets: {}", e),
+                )
+            })?;
 
-        Ok(rows.into_iter().map(|row| WalletSummary {
-            wallet_address: row.wallet_address,
-            is_active: row.is_active,
-            created_at: row.created_at,
-            last_auth_at: row.last_auth_at,
-            permissions_count: row.permissions_count,
-            plans_count: row.plans_count,
-            plan_name: row.plan_name,
-            wallet_metadata: row.wallet_metadata,
-        }).collect())
+        Ok(rows
+            .into_iter()
+            .map(|row| WalletSummary {
+                wallet_address: row.wallet_address,
+                is_active: row.is_active,
+                created_at: row.created_at,
+                last_auth_at: row.last_auth_at,
+                permissions_count: row.permissions_count,
+                plans_count: row.plans_count,
+                plan_name: row.plan_name,
+                wallet_metadata: row.wallet_metadata,
+            })
+            .collect())
     }
 
     /// Count wallets with filters (parameterized query)
-    pub async fn count_wallets(
-        &self,
-        criteria: &WalletSearchCriteria,
-    ) -> Result<i64, AppError> {
-        let mut conn = self.pool.get().await.map_err(|e| {
-            AppError::new(ErrorKind::DatabaseError, format!("Failed to get connection: {}", e))
-        })?;
-
+    pub async fn count_wallets(&self, criteria: &WalletSearchCriteria) -> Result<i64, AppError> {
         let search_pattern = criteria.search.as_ref().map(|s| format!("%{}%", s));
-        let is_active_filter: Option<bool> = criteria.status.as_ref().and_then(|s| match s.as_str() {
-            "active" => Some(true),
-            "disabled" => Some(false),
-            _ => None,
-        });
-        let date_from: Option<DateTime<Utc>> = criteria.date_from.as_ref()
+        let is_active_filter: Option<bool> =
+            criteria.status.as_ref().and_then(|s| match s.as_str() {
+                "active" => Some(true),
+                "disabled" => Some(false),
+                _ => None,
+            });
+        let date_from: Option<DateTime<Utc>> = criteria
+            .date_from
+            .as_ref()
             .and_then(|d| chrono::DateTime::parse_from_rfc3339(d).ok())
             .map(|d| d.with_timezone(&Utc));
-        let date_to: Option<DateTime<Utc>> = criteria.date_to.as_ref()
+        let date_to: Option<DateTime<Utc>> = criteria
+            .date_to
+            .as_ref()
             .and_then(|d| chrono::DateTime::parse_from_rfc3339(d).ok())
             .map(|d| d.with_timezone(&Utc));
         let exclude_plan = criteria.exclude_plan_id.clone();
 
-        #[derive(QueryableByName)]
+        #[derive(sqlx::FromRow)]
         struct CountRow {
-            #[diesel(sql_type = diesel::sql_types::BigInt)]
             total: i64,
         }
 
-        let row = diesel::sql_query(
+        let row: CountRow = sqlx::query_as(
             r#"SELECT COUNT(*) as total FROM wallet_users wu
                WHERE ($1::text IS NULL OR wu.wallet_address ILIKE $1 OR wu.wallet_metadata->>'label' ILIKE $1 OR wu.wallet_metadata->>'note' ILIKE $1)
                  AND ($2::bool IS NULL OR wu.is_active = $2)
                  AND ($3::timestamptz IS NULL OR wu.created_at >= $3)
                  AND ($4::timestamptz IS NULL OR wu.created_at <= $4)
-                 AND ($5::text IS NULL OR NOT EXISTS (SELECT 1 FROM wallet_plan_assignments WHERE wallet_address = wu.wallet_address AND plan_id = $5::uuid AND is_active = true))"#
+                 AND ($5::text IS NULL OR NOT EXISTS (SELECT 1 FROM wallet_plan_assignments WHERE wallet_address = wu.wallet_address AND plan_id = $5::uuid AND is_active = true))"#,
         )
-            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(&search_pattern)
-            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Bool>, _>(&is_active_filter)
-            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(&date_from)
-            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(&date_to)
-            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(&exclude_plan)
-            .get_result::<CountRow>(&mut conn)
+            .bind(search_pattern)
+            .bind(is_active_filter)
+            .bind(date_from)
+            .bind(date_to)
+            .bind(exclude_plan)
+            .fetch_one(self.pool.as_ref())
             .await
             .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count wallets: {}", e)))?;
 
@@ -349,17 +345,12 @@ impl WalletManagementRepository {
 
     /// Get permission count for a wallet
     pub async fn get_permission_count(&self, wallet_address: &str) -> Result<i32, AppError> {
-        let mut conn = self.pool.get().await.map_err(|e| {
-            AppError::new(ErrorKind::DatabaseError, format!("Failed to get connection: {}", e))
-        })?;
-
-        #[derive(QueryableByName)]
+        #[derive(sqlx::FromRow)]
         struct PermCountRow {
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Integer>)]
             total_count: Option<i32>,
         }
 
-        let row = diesel::sql_query(
+        let row: PermCountRow = sqlx::query_as(
             r#"
             SELECT COALESCE((
                 SELECT COUNT(DISTINCT p.id)::int
@@ -379,12 +370,17 @@ impl WalletManagementRepository {
                   AND p.is_active = true
                   AND (wdp.expires_at IS NULL OR wdp.expires_at > NOW())
             ), 0) as total_count
-            "#
+            "#,
         )
-        .bind::<diesel::sql_types::Text, _>(wallet_address)
-        .get_result::<PermCountRow>(&mut conn)
+        .bind(wallet_address)
+        .fetch_one(self.pool.as_ref())
         .await
-        .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count permissions: {}", e)))?;
+        .map_err(|e| {
+            AppError::new(
+                ErrorKind::DatabaseError,
+                format!("Failed to count permissions: {}", e),
+            )
+        })?;
 
         Ok(row.total_count.unwrap_or(0))
     }

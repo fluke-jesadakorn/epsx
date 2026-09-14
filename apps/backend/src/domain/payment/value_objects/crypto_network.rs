@@ -1,10 +1,10 @@
-// Crypto Network Value Object  
+// Crypto Network Value Object
 // Represents blockchain networks for cryptocurrency transactions
 
 use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display};
 
-use crate::domain::shared_kernel::{ValueObject, value_object::ValueObjectError};
+use crate::domain::shared_kernel::{value_object::ValueObjectError, ValueObject};
 
 /// Supported cryptocurrency networks
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -57,7 +57,7 @@ impl CryptoNetwork {
     /// Create from string representation
     pub fn from_string(network: &str) -> Result<Self, CryptoNetworkError> {
         let network_lower = network.to_lowercase();
-        
+
         match network_lower.as_str() {
             "bitcoin" | "btc" => Ok(CryptoNetwork::Bitcoin),
             "bitcoin_testnet" | "btc_testnet" => Ok(CryptoNetwork::BitcoinTestnet),
@@ -65,7 +65,9 @@ impl CryptoNetwork {
             "ethereum_goerli" | "eth_goerli" | "goerli" => Ok(CryptoNetwork::EthereumGoerli),
             "ethereum_sepolia" | "eth_sepolia" | "sepolia" => Ok(CryptoNetwork::EthereumSepolia),
             "binance_smart_chain" | "bsc" => Ok(CryptoNetwork::BinanceSmartChain),
-            "binance_smart_chain_testnet" | "bsc_testnet" => Ok(CryptoNetwork::BinanceSmartChainTestnet),
+            "binance_smart_chain_testnet" | "bsc_testnet" => {
+                Ok(CryptoNetwork::BinanceSmartChainTestnet)
+            }
             "polygon" | "matic" => Ok(CryptoNetwork::Polygon),
             "polygon_mumbai" | "mumbai" => Ok(CryptoNetwork::PolygonMumbai),
             "avalanche" | "avax" => Ok(CryptoNetwork::Avalanche),
@@ -88,7 +90,7 @@ impl CryptoNetwork {
             }
         }
     }
-    
+
     /// Check if this is a testnet
     pub fn is_testnet(&self) -> bool {
         match self {
@@ -115,7 +117,7 @@ impl CryptoNetwork {
             CryptoNetwork::Custom(_) => false, // Assume mainnet by default
         }
     }
-    
+
     /// Get the chain ID for EVM-compatible networks
     pub fn chain_id(&self) -> Option<u64> {
         match self {
@@ -137,23 +139,27 @@ impl CryptoNetwork {
             _ => None, // Non-EVM networks or custom networks
         }
     }
-    
+
     /// Get the native currency symbol
     pub fn native_currency(&self) -> &str {
         match self {
             CryptoNetwork::Bitcoin | CryptoNetwork::BitcoinTestnet => "BTC",
-            CryptoNetwork::Ethereum | CryptoNetwork::EthereumGoerli | CryptoNetwork::EthereumSepolia => "ETH",
+            CryptoNetwork::Ethereum
+            | CryptoNetwork::EthereumGoerli
+            | CryptoNetwork::EthereumSepolia => "ETH",
             CryptoNetwork::BinanceSmartChain | CryptoNetwork::BinanceSmartChainTestnet => "BNB",
             CryptoNetwork::Polygon | CryptoNetwork::PolygonMumbai => "MATIC",
             CryptoNetwork::Avalanche | CryptoNetwork::AvalancheFuji => "AVAX",
             CryptoNetwork::Arbitrum | CryptoNetwork::ArbitrumGoerli => "ETH",
             CryptoNetwork::Optimism | CryptoNetwork::OptimismGoerli => "ETH",
             CryptoNetwork::Base | CryptoNetwork::BaseGoerli => "ETH",
-            CryptoNetwork::Solana | CryptoNetwork::SolanaDevnet | CryptoNetwork::SolanaTestnet => "SOL",
+            CryptoNetwork::Solana | CryptoNetwork::SolanaDevnet | CryptoNetwork::SolanaTestnet => {
+                "SOL"
+            }
             CryptoNetwork::Custom(_) => "UNKNOWN",
         }
     }
-    
+
     /// Get network display name
     pub fn display_name(&self) -> &str {
         match self {
@@ -184,7 +190,7 @@ impl CryptoNetwork {
 
 impl ValueObject for CryptoNetwork {
     type Error = CryptoNetworkError;
-    
+
     fn validate(&self) -> Result<(), Self::Error> {
         if let CryptoNetwork::Custom(name) = self {
             if name.trim().is_empty() {
@@ -207,7 +213,7 @@ impl Display for CryptoNetwork {
 
 impl std::str::FromStr for CryptoNetwork {
     type Err = CryptoNetworkError;
-    
+
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Self::from_string(s)
     }
@@ -218,13 +224,13 @@ impl std::str::FromStr for CryptoNetwork {
 pub enum CryptoNetworkError {
     #[error("Network name cannot be empty")]
     EmptyNetwork,
-    
+
     #[error("Network name too long (max 100 characters)")]
     NetworkNameTooLong,
-    
+
     #[error("Unsupported network: {0}")]
     UnsupportedNetwork(String),
-    
+
     #[error("Network validation failed: {0}")]
     ValidationFailed(String),
 }
@@ -241,11 +247,20 @@ mod tests {
 
     #[test]
     fn test_network_from_string() {
-        assert_eq!(CryptoNetwork::from_string("ethereum").unwrap(), CryptoNetwork::Ethereum);
-        assert_eq!(CryptoNetwork::from_string("btc").unwrap(), CryptoNetwork::Bitcoin);
-        assert_eq!(CryptoNetwork::from_string("polygon").unwrap(), CryptoNetwork::Polygon);
+        assert_eq!(
+            CryptoNetwork::from_string("ethereum").unwrap(),
+            CryptoNetwork::Ethereum
+        );
+        assert_eq!(
+            CryptoNetwork::from_string("btc").unwrap(),
+            CryptoNetwork::Bitcoin
+        );
+        assert_eq!(
+            CryptoNetwork::from_string("polygon").unwrap(),
+            CryptoNetwork::Polygon
+        );
     }
-    
+
     #[test]
     fn test_testnet_detection() {
         assert!(!CryptoNetwork::Bitcoin.is_testnet());
@@ -253,21 +268,21 @@ mod tests {
         assert!(!CryptoNetwork::Ethereum.is_testnet());
         assert!(CryptoNetwork::EthereumGoerli.is_testnet());
     }
-    
+
     #[test]
     fn test_chain_id() {
         assert_eq!(CryptoNetwork::Ethereum.chain_id(), Some(1));
         assert_eq!(CryptoNetwork::Polygon.chain_id(), Some(137));
         assert_eq!(CryptoNetwork::Bitcoin.chain_id(), None);
     }
-    
+
     #[test]
     fn test_native_currency() {
         assert_eq!(CryptoNetwork::Bitcoin.native_currency(), "BTC");
         assert_eq!(CryptoNetwork::Ethereum.native_currency(), "ETH");
         assert_eq!(CryptoNetwork::Polygon.native_currency(), "MATIC");
     }
-    
+
     #[test]
     fn test_custom_network() {
         let custom = CryptoNetwork::Custom("MyCustomNetwork".to_string());
@@ -275,12 +290,12 @@ mod tests {
         assert_eq!(custom.display_name(), "MyCustomNetwork");
         assert!(!custom.is_testnet());
     }
-    
+
     #[test]
     fn test_empty_network_error() {
         let result = CryptoNetwork::from_string("");
         assert!(result.is_err());
-        
+
         let custom = CryptoNetwork::Custom("".to_string());
         assert!(!custom.is_valid());
     }

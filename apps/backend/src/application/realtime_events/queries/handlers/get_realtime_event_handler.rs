@@ -1,9 +1,9 @@
-use crate::prelude::*;
-use crate::application::shared::{QueryHandler, ApplicationResult, ApplicationError};
 use crate::application::realtime_events::queries::{
-    GetRealtimeEventQuery, GetRealtimeEventResponse
+    GetRealtimeEventQuery, GetRealtimeEventResponse,
 };
+use crate::application::shared::{ApplicationError, ApplicationResult, QueryHandler};
 use crate::domain::realtime_events::EventRepositoryPort;
+use crate::prelude::*;
 
 /// Handler for getting realtime event by ID
 pub struct GetRealtimeEventQueryHandler {
@@ -18,9 +18,13 @@ impl GetRealtimeEventQueryHandler {
 
 #[async_trait]
 impl QueryHandler<GetRealtimeEventQuery> for GetRealtimeEventQueryHandler {
-    async fn handle(&self, query: GetRealtimeEventQuery) -> ApplicationResult<GetRealtimeEventResponse> {
+    async fn handle(
+        &self,
+        query: GetRealtimeEventQuery,
+    ) -> ApplicationResult<GetRealtimeEventResponse> {
         // 1. Retrieve event
-        let event = self.event_repository
+        let event = self
+            .event_repository
             .find_by_id(&query.event_id)
             .await
             .map_err(ApplicationError::infrastructure)?
@@ -35,7 +39,7 @@ impl QueryHandler<GetRealtimeEventQuery> for GetRealtimeEventQueryHandler {
             status: event.status().clone(),
             delivery_attempts: event.delivery_attempts(),
             created_at: event.created_at(),
-            delivered_at: None, // Would need getter on aggregate
+            delivered_at: None,   // Would need getter on aggregate
             failure_reason: None, // Would need getter on aggregate
         })
     }

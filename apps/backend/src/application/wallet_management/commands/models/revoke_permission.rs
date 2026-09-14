@@ -1,5 +1,5 @@
+use crate::application::shared::{ApplicationResult, Command};
 use serde::{Deserialize, Serialize};
-use crate::application::shared::{Command, ApplicationResult};
 
 /// Command to revoke a permission from a user
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -1,0 +1,50 @@
+# EPSX Cloudflare preview — ISOLATED, never prod domain.
+# Simulates Stage B hybrid (Pages/Workers → K8s origin) without mutating
+# live Tunnel 6bee9b58-... or prod DNS. Delete after preview teardown.
+# Usage: bunx wrangler pages deploy dist --project-name epsx-preview --branch sim-$SHA
+#        bunx wrangler deploy --dry-run --config infrastructure/cloudflare/preview/wrangler.preview.toml
+
+name = "epsx-preview"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+# Workers Free covers 100k req/day 10ms CPU 128MB; preview is low-traffic so Free suffices.
+# Paid graduates to 10M incl +30M CPU-ms for $5. Preview never needs Paid.
+
+# Static assets (Pages / Worker static assets) — free & unlimited fetch.
+# Publish `dist` + `target/epsx-browser-runtime` here; Pages allows 20k files/site 25MiB/file.
+[assets]
+directory = "dist"
+not_found_handling = "single-page-application"
+
+# Bindings (isolated preview buckets/namespaces — create with `bunx wrangler r2 bucket create epsx-preview-assets`)
+# [[r2_buckets]]
+# binding = "ASSETS"
+# bucket_name = "epsx-preview-assets"
+#
+# [[kv_namespaces]]
+# binding = "SESSION"
+# id = "preview-kv-id"
+#
+# [[d1_databases]]
+# binding = "EPSX_D1"
+# database_name = "epsx-preview"
+# database_id = "preview-d1-id"
+
+# Observability (logs) — billed same as Workers Logs when enabled
+[observability]
+enabled = true
+
+# Never route preview to prod domains (epsx.io/admin.epsx.io/api.epsx.io/pay.epsx.io/minio.epsx.io)
+# routes = []  # intentionally empty
+
+# Vars (preview only; prod secrets stay in .env.prod → epsx-backend-keys)
+[vars]
+ENV = "preview"
+FRONTEND_URL = "https://epsx-preview.pages.dev"
+API_URL = "https://api.epsx.io"  # proxied via Service Binding or fetch to K8s origin (dry-run only)
+
+# Hyperdrive (optional, for PG) — requires nodejs_compat >=2024-09-23 and pool ≤5 per Worker
+# [[hyperdrive]]
+# binding = "HYPERDRIVE"
+# id = "hyperdrive-preview-id"

@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "purpose": "offline-static-runtime-ddl-triage-only",
+  "productionReady": false,
+  "upstream": {
+    "path": "docs/migration/contracts/migration-safety.json",
+    "sha256": "53db624ba569b6789d0c661f63489d3aee758ea44ca6b788829ee6f9371bd79f",
+    "runtimeRustDdl": {
+      "trackedFiles": 1124,
+      "findings": 9,
+      "sha256": "b1a76db8d3cc8e21cb10fa56b76375ae87caa7411c91661ccdcedaeaee8db55f",
+      "reviewedExceptions": 6,
+      "actionable": 3
+    }
+  },
+  "statusPolicy": {
+    "actionableStatus": "blocked",
+    "readinessResult": "STOP",
+    "exceptionMeaning": "An exact reviewed exception from the checksum-pinned migration-safety contract; not an A3 remediation completion.",
+    "actionableMeaning": "A scanner finding without an exact reviewed exception; it remains blocked even when lexical triage indicates that a future reviewed exception may be appropriate."
+  },
+  "riskRequirements": [
+    {
+      "id": "runtime.service-schema-ddl",
+      "dataSafetyInvariant": "Service startup must not mutate schema; schema changes run once through a versioned, observable migration job before application rollout.",
+      "remediationPackage": "A3.6",
+      "remediationMode": "additive-remediation",
+      "summary": "Move all runtime CREATE/ALTER/DROP DDL into per-service versioned migrations and make services fail readiness when required versions are absent.",
+      "requiredProof": [
+        "runtime DDL scan at zero",
+        "fresh and source-version upgrade tests",
+        "concurrent-startup test"
+      ]
+    },
+    {
+      "id": "runtime.missing-service-migrations",
+      "dataSafetyInvariant": "Every persisted service schema must have an immutable, ordered migration root and upgrade path from the deployed monolith state.",
+      "remediationPackage": "A3.6",
+      "remediationMode": "additive-remediation",
+      "summary": "Create immutable migration roots for each persisted service, baseline existing schemas without recreating data, and wire a pre-rollout migration job.",
+      "requiredProof": [
+        "migration root inventory",
+        "baseline adoption test on populated schemas",
+        "upgrade idempotency test"
+      ]
+    }
+  ],
+  "expectedGroups": {
+    "classification": {
+      "actionable": 3,
+      "reviewed-exception": 6
+    },
+    "ddlKind": {
+      "CREATE DATABASE": 3,
+      "CREATE SCHEMA": 4,
+      "CREATE TABLE": 1,
+      "DROP TABLE": 1
+    },
+    "bootTimeRisk": {
+      "lexical-match-not-schema-ddl": 2,
+      "reviewed-exception-not-runtime-ddl": 6,
+      "runtime-database-bootstrap": 1
+    },
+    "service": {
+      "backend-blockchain-monitor": 1,
+      "backend-main": 1,
+      "backend-migrate": 1,
+      "backend-security-test": 1,
+      "backend-smoke-test": 5
+    },
+    "file": {
+      "apps/backend/__test__/web3/web3_security_tests.rs": 1,
+      "apps/backend/src/bin/blockchain_monitor.rs": 1,
+      "apps/backend/src/bin/migrate.rs": 1,
+      "apps/backend/src/main.rs": 1,
+      "apps/backend/tests/wave11_smoke.rs": 2,
+      "apps/backend/tests/wave12_smoke.rs": 3
+    }
+  },
+  "findings": [
+    {"id":"finding.001","file":"apps/backend/__test__/web3/web3_security_tests.rs","line":205,"ddlKind":"DROP TABLE","classification":"reviewed-exception","reviewedExceptionId":"exception.runtime-test-sql-injection","service":"backend-security-test","bootTimeRisk":"reviewed-exception-not-runtime-ddl","status":"blocked"},
+    {"id":"finding.002","file":"apps/backend/src/bin/blockchain_monitor.rs","line":84,"ddlKind":"CREATE DATABASE","classification":"actionable","reviewedExceptionId":null,"service":"backend-blockchain-monitor","bootTimeRisk":"lexical-match-not-schema-ddl","status":"blocked"},
+    {"id":"finding.003","file":"apps/backend/src/bin/migrate.rs","line":74,"ddlKind":"CREATE DATABASE","classification":"actionable","reviewedExceptionId":null,"service":"backend-migrate","bootTimeRisk":"runtime-database-bootstrap","status":"blocked"},
+    {"id":"finding.004","file":"apps/backend/src/main.rs","line":38,"ddlKind":"CREATE DATABASE","classification":"actionable","reviewedExceptionId":null,"service":"backend-main","bootTimeRisk":"lexical-match-not-schema-ddl","status":"blocked"},
+    {"id":"finding.005","file":"apps/backend/tests/wave11_smoke.rs","line":116,"ddlKind":"CREATE SCHEMA","classification":"reviewed-exception","reviewedExceptionId":"exception.runtime-wave11-smoke-schema","service":"backend-smoke-test","bootTimeRisk":"reviewed-exception-not-runtime-ddl","status":"blocked"},
+    {"id":"finding.006","file":"apps/backend/tests/wave11_smoke.rs","line":117,"ddlKind":"CREATE TABLE","classification":"reviewed-exception","reviewedExceptionId":"exception.runtime-wave11-smoke-table","service":"backend-smoke-test","bootTimeRisk":"reviewed-exception-not-runtime-ddl","status":"blocked"},
+    {"id":"finding.007","file":"apps/backend/tests/wave12_smoke.rs","line":129,"ddlKind":"CREATE SCHEMA","classification":"reviewed-exception","reviewedExceptionId":"exception.runtime-wave12-smoke-detect-present","service":"backend-smoke-test","bootTimeRisk":"reviewed-exception-not-runtime-ddl","status":"blocked"},
+    {"id":"finding.008","file":"apps/backend/tests/wave12_smoke.rs","line":135,"ddlKind":"CREATE SCHEMA","classification":"reviewed-exception","reviewedExceptionId":"exception.runtime-wave12-smoke-detect-legacy","service":"backend-smoke-test","bootTimeRisk":"reviewed-exception-not-runtime-ddl","status":"blocked"},
+    {"id":"finding.009","file":"apps/backend/tests/wave12_smoke.rs","line":139,"ddlKind":"CREATE SCHEMA","classification":"reviewed-exception","reviewedExceptionId":"exception.runtime-wave12-smoke-message","service":"backend-smoke-test","bootTimeRisk":"reviewed-exception-not-runtime-ddl","status":"blocked"}
+  ]
+}

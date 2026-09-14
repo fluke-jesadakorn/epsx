@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "contractId": "A11.7-notification-privacy",
+  "productionReady": false,
+  "scope": "reviewed policy contract only; runtime purge, legal-hold, and account-erasure execution remain separately gated",
+  "legalHold": {
+    "required": true,
+    "activeHoldBlocksPurge": true,
+    "release": "explicit operator action with an audit subject and reason",
+    "payloadLogging": "never log hold reasons, bodies, recipients, or provider payloads"
+  },
+  "erasure": {
+    "ownerIdentity": "canonical lowercase EVM wallet",
+    "ownerRows": "remove owner notifications and engagement after dependent jobs and provider records are safely reconciled",
+    "broadcastRows": "remove only the requesting owner's engagement; retain the shared broadcast row",
+    "inFlightJobs": "cancel before dependent attempt/provider records are removed",
+    "audit": "retain a redacted request identifier and outcome, never notification content",
+    "runtimeProof": "required-before-production"
+  },
+  "channels": {
+    "email": {
+      "payloadRetentionDays": 30,
+      "providerIdentityRetentionDays": 90,
+      "terminalStates": ["provider_accepted", "terminal_failed", "dead_lettered", "expired", "deleted"],
+      "recipientClass": "email-address",
+      "pendingRule": "retain until expiry or terminal transition"
+    },
+    "in_app": {
+      "payloadRetentionDays": 90,
+      "providerIdentityRetentionDays": 0,
+      "terminalStates": ["provider_accepted", "terminal_failed", "dead_lettered", "expired", "deleted"],
+      "recipientClass": "canonical-wallet",
+      "pendingRule": "retain until expiry or terminal transition"
+    },
+    "push": {
+      "payloadRetentionDays": 30,
+      "providerIdentityRetentionDays": 90,
+      "terminalStates": ["provider_accepted", "terminal_failed", "dead_lettered", "expired", "deleted"],
+      "recipientClass": "push-endpoint",
+      "pendingRule": "retain until expiry or terminal transition"
+    }
+  }
+}

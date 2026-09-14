@@ -7,59 +7,58 @@
 // Re-export all model modules
 pub mod wallet_user;
 
-pub mod plan;
-pub mod permission;
-pub mod payment;
-pub mod credit;
-pub mod notification;
 pub mod audit;
 pub mod chat;
+pub mod credit;
 pub mod news;
+pub mod notification;
+pub mod payment;
+pub mod permission;
+pub mod plan;
 
 // Re-export common model structs for convenience
-pub use wallet_user::{
-    WalletUserDb, NewWalletUserDb, UpdateWalletUserDb, UpdateWalletUserRequest
-};
-
+pub use wallet_user::{NewWalletUserDb, UpdateWalletUserDb, UpdateWalletUserRequest, WalletUserDb};
 
 // Primary exports (new names)
 pub use plan::{
-    PlanDb as GroupDb, NewPlanDb as NewGroupDb, UpdatePlanDb as UpdateGroupDb,
-    CreatePlanRequest as CreateGroupRequest, UpdatePlanRequest as UpdateGroupRequest,
-    // Unified names
-    PlanDb, NewPlanDb, UpdatePlanDb,
-    CreatePlanRequest, UpdatePlanRequest,
+    CreatePermissionGroupRequest,
+    CreatePlanRequest as CreateGroupRequest,
+    CreatePlanRequest,
+    NewPermissionGroupDb,
+    NewPlanDb as NewGroupDb,
+    NewPlanDb,
     // Backward compatibility aliases
-    PermissionGroupDb, NewPermissionGroupDb, UpdatePermissionGroupDb,
-    CreatePermissionGroupRequest, UpdatePermissionGroupRequest
+    PermissionGroupDb,
+    PlanDb as GroupDb,
+    // Unified names
+    PlanDb,
+    UpdatePermissionGroupDb,
+    UpdatePermissionGroupRequest,
+    UpdatePlanDb as UpdateGroupDb,
+    UpdatePlanDb,
+    UpdatePlanRequest as UpdateGroupRequest,
+    UpdatePlanRequest,
 };
 
 pub use permission::{
-    PermissionDb, NewPermissionDb, UpdatePermissionDb,
-    CreatePermissionRequest, UpdatePermissionRequest,
-    BulkPermissionRequest, PermissionStats, PermissionValidationResult,
-    PermissionAssignmentResult, PermissionSearchFilters, PermissionSummary,
-    PlatformPermissionStats
+    BulkPermissionRequest, CreatePermissionRequest, NewPermissionDb, PermissionAssignmentResult,
+    PermissionDb, PermissionSearchFilters, PermissionStats, PermissionSummary,
+    PermissionValidationResult, PlatformPermissionStats, UpdatePermissionDb,
+    UpdatePermissionRequest,
 };
 
 pub use payment::{
-    PaymentDb, NewPaymentDb, UpdatePaymentDb,
-    SubscriptionDb, NewSubscriptionDb, UpdateSubscriptionDb,
-    PaymentAuditLogDb, NewPaymentAuditLogDb,
-    CreatePaymentRequest, UpdatePaymentRequest,
-    CreateSubscriptionRequest, UpdateSubscriptionRequest,
-    PaymentStatsDb, PaymentSummaryDb
+    CreatePaymentRequest, CreateSubscriptionRequest, NewPaymentAuditLogDb, NewPaymentDb,
+    NewSubscriptionDb, PaymentAuditLogDb, PaymentDb, PaymentStatsDb, PaymentSummaryDb,
+    SubscriptionDb, UpdatePaymentDb, UpdatePaymentRequest, UpdateSubscriptionDb,
+    UpdateSubscriptionRequest,
 };
 
 pub use credit::{
-    WalletCreditDb, NewWalletCreditDb, UpdateWalletCreditDb,
-    CreditTransactionDb, NewCreditTransactionDb,
-    GrantCreditsRequest, RevokeCreditsRequest,
-    CreditBalanceResponse, CreditTransactionResponse,
-    CreditStatsResponse, CreditTransactionFilters
+    CreditBalanceResponse, CreditStatsResponse, CreditTransactionDb, CreditTransactionFilters,
+    CreditTransactionResponse, GrantCreditsRequest, NewCreditTransactionDb, NewWalletCreditDb,
+    RevokeCreditsRequest, UpdateWalletCreditDb, WalletCreditDb,
 };
-
-
 
 // Common type aliases for database types
 pub type DbTimestamp = chrono::DateTime<chrono::Utc>;

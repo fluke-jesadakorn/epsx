@@ -1,9 +1,9 @@
-use crate::prelude::*;
-use crate::application::shared::{QueryHandler, ApplicationResult, ApplicationError};
 use crate::application::market_analytics::queries::{
-    GetGrowthLeadersQuery, GetGrowthLeadersResponse, StockAnalysisSummary
+    GetGrowthLeadersQuery, GetGrowthLeadersResponse, StockAnalysisSummary,
 };
+use crate::application::shared::{ApplicationError, ApplicationResult, QueryHandler};
 use crate::domain::market_analytics::StockAnalysisRepositoryPort;
+use crate::prelude::*;
 
 /// Query handler for getting stocks with highest growth rates
 pub struct GetGrowthLeadersQueryHandler {
@@ -20,16 +20,21 @@ impl GetGrowthLeadersQueryHandler {
 
 #[async_trait]
 impl QueryHandler<GetGrowthLeadersQuery> for GetGrowthLeadersQueryHandler {
-    async fn handle(&self, query: GetGrowthLeadersQuery) -> ApplicationResult<GetGrowthLeadersResponse> {
+    async fn handle(
+        &self,
+        query: GetGrowthLeadersQuery,
+    ) -> ApplicationResult<GetGrowthLeadersResponse> {
         // 1. Get growth leaders from repository
-        let analyses = self.stock_analysis_repository
+        let analyses = self
+            .stock_analysis_repository
             .find_growth_leaders(query.min_growth, query.limit)
             .await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?;
 
         // 2. Map to summaries
-        let stocks: Vec<StockAnalysisSummary> = analyses.into_iter().map(|analysis| {
-            StockAnalysisSummary {
+        let stocks: Vec<StockAnalysisSummary> = analyses
+            .into_iter()
+            .map(|analysis| StockAnalysisSummary {
                 symbol: analysis.symbol().to_string(),
                 company_name: analysis.company_name().to_string(),
                 current_eps: analysis.current_eps().value(),
@@ -39,8 +44,8 @@ impl QueryHandler<GetGrowthLeadersQuery> for GetGrowthLeadersQueryHandler {
                 country: analysis.country().name().to_string(),
                 analysis_score: analysis.analysis_score().overall_score,
                 last_updated: analysis.last_updated(),
-            }
-        }).collect();
+            })
+            .collect();
 
         let count = stocks.len();
 

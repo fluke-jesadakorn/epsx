@@ -1,8 +1,6 @@
-use crate::domain::subscription_management::aggregates::{Plan, CreatePlanParams};
+use crate::domain::subscription_management::aggregates::{CreatePlanParams, Plan};
 use crate::domain::subscription_management::value_objects::{
-    price::Price,
-    billing_cycle::BillingCycle,
-    plan_features::PlanFeatures,
+    billing_cycle::BillingCycle, plan_features::PlanFeatures, price::Price,
 };
 // Use PlanId if wrapper or just String. Assuming String needs conversion or mock.
 // Since Plan Aggregate expects PlanId, we need to import it.
@@ -22,7 +20,7 @@ impl PlanFactory {
     ) -> Result<Plan, String> {
         // Value Object creation
         let price = Price::new(price_amount, currency).map_err(|e| e.to_string())?;
-        
+
         let billing_cycle = match interval.to_lowercase().as_str() {
             "month" | "monthly" => BillingCycle::Monthly,
             "year" | "yearly" => BillingCycle::Yearly,
@@ -32,11 +30,11 @@ impl PlanFactory {
         // Plan aggregation creation
         // Temporarily generate a new PlanId. In real app, might need to lookup or create group by name.
         let plan_id = crate::domain::permission_management::PlanId::from(uuid::Uuid::new_v4());
-        
+
         let params = CreatePlanParams {
             name,
             description: description.unwrap_or_default(),
-            plan_id, 
+            plan_id,
             permissions,
             price,
             billing_cycle,
@@ -51,7 +49,6 @@ impl PlanFactory {
         Plan::create(params).map_err(|e| e.to_string())
     }
 
-
     /// Helper to derive a permission group name if one isn't provided
     /// This replaces `derive_group_from_permissions` from the handler layer
     pub fn derive_group_from_permissions(permissions: &[String]) -> String {
@@ -60,7 +57,7 @@ impl PlanFactory {
         if permissions.is_empty() {
             return "free_tier".to_string();
         }
-        
+
         // Mock implementation to match original intent
         format!("custom_group_{}", permissions.len())
     }

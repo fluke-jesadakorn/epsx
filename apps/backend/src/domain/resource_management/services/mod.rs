@@ -5,9 +5,6 @@ pub mod billing_calculation_service;
 pub mod usage_analytics_service;
 
 pub use billing_calculation_service::{
-    BillingCalculationService,
-    BillingSummary as BillingServiceSummary
+    BillingCalculationService, BillingSummary as BillingServiceSummary,
 };
-pub use usage_analytics_service::{
-    UsageAnalyticsService
-};
+pub use usage_analytics_service::UsageAnalyticsService;

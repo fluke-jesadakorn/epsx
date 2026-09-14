@@ -1,8 +1,8 @@
 // Extend Assignment Command
 // Extend stock ranking assignment expiration
 
-use serde::{Deserialize, Serialize};
 use crate::application::shared::Command;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone)]
 pub struct ExtendAssignmentCommand {

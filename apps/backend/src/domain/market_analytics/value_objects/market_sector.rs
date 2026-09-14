@@ -13,38 +13,38 @@ impl MarketSector {
     /// Create new market sector with validation
     pub fn new(sector: String) -> Result<Self, String> {
         let normalized = sector.trim().to_string();
-        
+
         if normalized.is_empty() {
             return Err("Market sector cannot be empty".to_string());
         }
-        
+
         if normalized.len() > 100 {
             return Err("Market sector name cannot exceed 100 characters".to_string());
         }
-        
+
         let category = Self::classify_sector(&normalized);
-        
+
         Ok(Self {
             sector: normalized,
             category,
         })
     }
-    
+
     /// Get the sector name
     pub fn name(&self) -> &str {
         &self.sector
     }
-    
+
     /// Get the sector category
     pub fn category(&self) -> &SectorCategory {
         &self.category
     }
-    
+
     /// Check if this is a technology sector
     pub fn is_technology(&self) -> bool {
         matches!(self.category, SectorCategory::Technology)
     }
-    
+
     /// Check if this is a defensive sector (typically stable during downturns)
     pub fn is_defensive(&self) -> bool {
         matches!(
@@ -55,7 +55,7 @@ impl MarketSector {
                 | SectorCategory::RealEstate
         )
     }
-    
+
     /// Check if this is a cyclical sector (sensitive to economic cycles)
     pub fn is_cyclical(&self) -> bool {
         matches!(
@@ -66,7 +66,7 @@ impl MarketSector {
                 | SectorCategory::Energy
         )
     }
-    
+
     /// Get growth potential rating based on historical patterns
     pub fn growth_potential(&self) -> GrowthPotential {
         match self.category {
@@ -84,7 +84,7 @@ impl MarketSector {
             SectorCategory::Other => GrowthPotential::Unknown,
         }
     }
-    
+
     /// Get volatility level typically associated with this sector
     pub fn typical_volatility(&self) -> VolatilityLevel {
         match self.category {
@@ -102,11 +102,11 @@ impl MarketSector {
             SectorCategory::Other => VolatilityLevel::Unknown,
         }
     }
-    
+
     /// Classify sector string into standard category
     fn classify_sector(sector: &str) -> SectorCategory {
         let sector_lower = sector.to_lowercase();
-        
+
         // Healthcare patterns (Must be before Technology to catch biotechnology)
         if sector_lower.contains("health")
             || sector_lower.contains("medical")
@@ -126,7 +126,7 @@ impl MarketSector {
         {
             return SectorCategory::Technology;
         }
-        
+
         // Financial patterns
         if sector_lower.contains("financ")
             || sector_lower.contains("bank")
@@ -135,7 +135,7 @@ impl MarketSector {
         {
             return SectorCategory::Financials;
         }
-        
+
         // Energy patterns
         if sector_lower.contains("energy")
             || sector_lower.contains("oil")
@@ -144,7 +144,7 @@ impl MarketSector {
         {
             return SectorCategory::Energy;
         }
-        
+
         // Consumer patterns
         if sector_lower.contains("consumer discretionary")
             || sector_lower.contains("retail")
@@ -152,14 +152,14 @@ impl MarketSector {
         {
             return SectorCategory::ConsumerDiscretionary;
         }
-        
+
         if sector_lower.contains("consumer staples")
             || sector_lower.contains("food")
             || sector_lower.contains("beverage")
         {
             return SectorCategory::ConsumerStaples;
         }
-        
+
         // Industrial patterns
         if sector_lower.contains("industrial")
             || sector_lower.contains("manufacturing")
@@ -168,7 +168,7 @@ impl MarketSector {
         {
             return SectorCategory::Industrials;
         }
-        
+
         // Materials patterns
         if sector_lower.contains("materials")
             || sector_lower.contains("mining")
@@ -177,7 +177,7 @@ impl MarketSector {
         {
             return SectorCategory::Materials;
         }
-        
+
         // Utilities patterns
         if sector_lower.contains("utilit")
             || sector_lower.contains("electric")
@@ -186,12 +186,12 @@ impl MarketSector {
         {
             return SectorCategory::Utilities;
         }
-        
+
         // Real Estate patterns
         if sector_lower.contains("real estate") || sector_lower.contains("reit") {
             return SectorCategory::RealEstate;
         }
-        
+
         // Communication patterns
         if sector_lower.contains("communication")
             || sector_lower.contains("telecom")
@@ -199,7 +199,7 @@ impl MarketSector {
         {
             return SectorCategory::Communication;
         }
-        
+
         SectorCategory::Other
     }
 }
@@ -238,7 +238,7 @@ impl SectorCategory {
             SectorCategory::Other => "other",
         }
     }
-    
+
     pub fn display_name(&self) -> &'static str {
         match self {
             SectorCategory::Technology => "Technology",
@@ -255,7 +255,7 @@ impl SectorCategory {
             SectorCategory::Other => "Other",
         }
     }
-    
+
     /// Get all standard sector categories
     pub fn all() -> Vec<SectorCategory> {
         vec![
@@ -276,11 +276,18 @@ impl SectorCategory {
 
     #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Result<Self, String> {
-        match s.to_lowercase().replace(" ", "_").replace("-", "_").as_str() {
+        match s
+            .to_lowercase()
+            .replace(" ", "_")
+            .replace("-", "_")
+            .as_str()
+        {
             "technology" | "tech" => Ok(SectorCategory::Technology),
             "healthcare" | "health" => Ok(SectorCategory::Healthcare),
             "financials" | "finance" | "financial" => Ok(SectorCategory::Financials),
-            "consumer_discretionary" | "consumerdiscretionary" => Ok(SectorCategory::ConsumerDiscretionary),
+            "consumer_discretionary" | "consumerdiscretionary" => {
+                Ok(SectorCategory::ConsumerDiscretionary)
+            }
             "consumer_staples" | "consumerstaples" => Ok(SectorCategory::ConsumerStaples),
             "industrials" | "industrial" => Ok(SectorCategory::Industrials),
             "materials" | "material" => Ok(SectorCategory::Materials),
@@ -326,7 +333,7 @@ impl Display for MarketSector {
 
 impl TryFrom<String> for MarketSector {
     type Error = String;
-    
+
     fn try_from(value: String) -> Result<Self, Self::Error> {
         MarketSector::new(value)
     }
@@ -334,7 +341,7 @@ impl TryFrom<String> for MarketSector {
 
 impl TryFrom<&str> for MarketSector {
     type Error = String;
-    
+
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         MarketSector::new(value.to_string())
     }
@@ -343,7 +350,7 @@ impl TryFrom<&str> for MarketSector {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_sector_classification() {
         let tech_sectors = [
@@ -353,14 +360,14 @@ mod tests {
             "Semiconductor Equipment",
             "Computer Hardware",
         ];
-        
+
         for sector_name in &tech_sectors {
             let sector = MarketSector::new(sector_name.to_string()).unwrap();
             assert_eq!(sector.category(), &SectorCategory::Technology);
             assert!(sector.is_technology());
         }
     }
-    
+
     #[test]
     fn test_healthcare_classification() {
         let healthcare_sectors = [
@@ -370,57 +377,57 @@ mod tests {
             "Biotechnology",
             "Drug Manufacturers",
         ];
-        
+
         for sector_name in &healthcare_sectors {
             let sector = MarketSector::new(sector_name.to_string()).unwrap();
             assert_eq!(sector.category(), &SectorCategory::Healthcare);
         }
     }
-    
+
     #[test]
     fn test_defensive_sectors() {
         let defensive = MarketSector::new("Utilities".to_string()).unwrap();
         assert!(defensive.is_defensive());
         assert!(!defensive.is_cyclical());
-        
+
         let staples = MarketSector::new("Consumer Staples".to_string()).unwrap();
         assert!(staples.is_defensive());
     }
-    
+
     #[test]
     fn test_cyclical_sectors() {
         let materials = MarketSector::new("Materials".to_string()).unwrap();
         assert!(materials.is_cyclical());
         assert!(!materials.is_defensive());
-        
+
         let industrials = MarketSector::new("Industrials".to_string()).unwrap();
         assert!(industrials.is_cyclical());
     }
-    
+
     #[test]
     fn test_growth_potential() {
         let tech = MarketSector::new("Technology".to_string()).unwrap();
         assert_eq!(tech.growth_potential(), GrowthPotential::High);
-        
+
         let utilities = MarketSector::new("Utilities".to_string()).unwrap();
         assert_eq!(utilities.growth_potential(), GrowthPotential::Low);
     }
-    
+
     #[test]
     fn test_volatility_levels() {
         let tech = MarketSector::new("Technology".to_string()).unwrap();
         assert_eq!(tech.typical_volatility(), VolatilityLevel::High);
-        
+
         let healthcare = MarketSector::new("Healthcare".to_string()).unwrap();
         assert_eq!(healthcare.typical_volatility(), VolatilityLevel::Low);
     }
-    
+
     #[test]
     fn test_invalid_sectors() {
         assert!(MarketSector::new("".to_string()).is_err());
         assert!(MarketSector::new("A".repeat(150)).is_err());
     }
-    
+
     #[test]
     fn test_all_categories() {
         let all_categories = SectorCategory::all();

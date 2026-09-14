@@ -1,0 +1,19 @@
+{
+  "order_id": "a696de80-d85a-4bbc-b4b6-792298c084c3",
+  "transaction_hash": "0x482727836c8cc21aa1fe96c4abfe59991bd0de7bac343652a9fcfaff94d62618",
+  "chain_id": 31337,
+  "token": "USDT",
+  "amount": "1.00",
+  "buyer_fulfillment": "granted",
+  "admin_fulfillment": "granted",
+  "payment_method": "test-wallet ERC20 transfer through loopback Anvil",
+  "pricing": {
+    "original_price": "5.00",
+    "price": "1.00",
+    "promotion_active": true,
+    "promotion_discount": 80.0,
+    "promotion_ends_at": null,
+    "promotion_status": "active",
+    "savings": "4.00"
+  }
+}

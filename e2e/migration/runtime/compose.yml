@@ -1,0 +1,63 @@
+name: epsx-e2e-migration
+
+services:
+  postgres:
+    image: postgres:17.5-alpine
+    environment:
+      POSTGRES_USER: epsx_e2e
+      POSTGRES_PASSWORD: epsx_e2e
+      POSTGRES_DB: postgres
+    ports:
+      - '127.0.0.1:${E2E_POSTGRES_PORT:-15432}:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U epsx_e2e -d postgres']
+      interval: 1s
+      timeout: 3s
+      retries: 30
+    tmpfs:
+      - /var/lib/postgresql/data
+
+  redis:
+    image: redis:7.4.5-alpine
+    command: ['redis-server', '--save', '', '--appendonly', 'no']
+    ports:
+      - '127.0.0.1:${E2E_REDIS_PORT:-16379}:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 1s
+      timeout: 3s
+      retries: 30
+    tmpfs:
+      - /data
+
+  anvil:
+    image: ghcr.io/foundry-rs/foundry:v1.3.1
+    entrypoint: ['anvil']
+    command:
+      [
+        '--host',
+        '0.0.0.0',
+        '--port',
+        '8545',
+        '--chain-id',
+        '31337',
+        '--accounts',
+        '10',
+        '--balance',
+        '10000',
+      ]
+    ports:
+      - '127.0.0.1:${E2E_ANVIL_PORT:-18545}:8545'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'cast',
+          'rpc',
+          '--rpc-url',
+          'http://127.0.0.1:8545',
+          'eth_chainId',
+        ]
+      interval: 1s
+      timeout: 3s
+      retries: 30
