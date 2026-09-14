@@ -225,7 +225,7 @@ it starts backend services as well and would conflict with occupied ports.
 All Frontend routes load `/public/dist/tailwind.css`. Edit
 `apps/frontend/src/styles/index.css` and its imports under `components/`;
 DX’s native Tailwind watcher regenerates the public bundle and the dev asset
-worker updates the open page. No Node runtime or Rust rebuild is needed for CSS.
+worker updates the open page. CSS changes use the native Tailwind CLI without rebuilding Rust.
 Tailwind utilities can also be used directly in Dioxus `class:` attributes.
 
 Component selectors use `@apply` with the existing colors, dimensions, and

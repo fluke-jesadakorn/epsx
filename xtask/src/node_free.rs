@@ -209,6 +209,9 @@ fn is_browser_adapter_asset(path: &Path, bytes: &[u8]) -> bool {
         "infrastructure/native/local-deploy.js" => {
             "3363765b1095a9bfb84a7c4aa57e3592740e788fc9c41137df7d41f26ef31497"
         }
+        "infrastructure/native/dev-live-css.js" => {
+            "64c845d1ae706aa23327474ddd892b6531719bd9dafb4f2b8abbf98554d48ce2"
+        }
         _ => return false,
     };
     format!("{:x}", Sha256::digest(bytes)) == expected
@@ -3178,6 +3181,7 @@ mod tests {
             "shared/rust/dioxus_ui/src/fullstack/wallet_disconnect.js",
             "shared/rust/dioxus_ui/src/navigation_lifecycle.js",
             "infrastructure/native/local-deploy.js",
+            "infrastructure/native/dev-live-css.js",
         ] {
             let path = Path::new(name);
             let bytes = std::fs::read(super::repo_root().unwrap().join(path)).unwrap();
