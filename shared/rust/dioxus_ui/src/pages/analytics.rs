@@ -614,13 +614,6 @@ pub(crate) fn AnalyticsPage(
 #[component]
 fn FrontendExploreHeading() -> Element {
     rsx! { PageHeader { title: "Company rankings", description: "Rankings are generated using EPSX’s proprietary methodology.",
-        details { class: "fe-glossary",
-            summary { Icon { name: "circle-help".to_string(), size: Some(16) } "About Next action" }
-            div { class: "fe-glossary-content",
-                strong { "Your next visit" }
-                p { "Next action is the next company report date. Estimated dates are 90 days after the previous company report. Save a company to revisit it." }
-            }
-        }
     } }
 }
 

@@ -360,7 +360,6 @@ pub fn RankingCards(
                 }
             }
             if show_watch { p { class: "fe-watch-feedback", "data-watchlist-feedback": "true", role: "status", aria_live: "polite" } }
-            p { class: "fe-data-note", "Next action is the next company report date. Dates may change; estimates are labeled. All dates use UTC." }
         }
     }
 }
@@ -516,7 +515,6 @@ pub fn MarketTable(
                 }
             }
         }
-        p { class: "fe-data-note", "Next action is the next company report date. Dates may change; estimates are labeled. All dates use UTC." }
     } }
 }
 
