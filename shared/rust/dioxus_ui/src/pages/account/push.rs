@@ -152,7 +152,7 @@ pub fn BrowserPush() -> Element {
             }); },
             h3 { class: "font-semibold text-foreground fe-tone-text", "Browser notifications" }
             p { class: "mt-1 text-sm leading-6 text-muted-foreground fe-tone-muted", role: "status", aria_live: "polite",
-                if !message().is_empty() { "{message}" }
+                if !message().is_empty() { crate::fullstack::load_error::SessionMessage{message:message()} }
                 else if !enabled { "Browser push is unavailable until the notification service is configured." }
                 else if !supported() { "Browser notifications are unsupported or disabled on this origin." }
                 else if registered { "A browser push subscription is registered for this wallet." }

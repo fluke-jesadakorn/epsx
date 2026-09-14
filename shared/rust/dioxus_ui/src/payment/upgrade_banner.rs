@@ -51,7 +51,7 @@ pub fn UpgradeBanner(
                         p { class: "upgrade-banner-sub text-sm opacity-90", "{msg}" }
                     }
                 }
-                a {
+                crate::navigation::AppLink {
                     class: "upgrade-banner-cta inline-flex items-center gap-2 px-6 py-3 bg-white text-slate-900 font-bold rounded-xl hover:bg-slate-100 transition-colors",
                     href: href,
                     "View plans"

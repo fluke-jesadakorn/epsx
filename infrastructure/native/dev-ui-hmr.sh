@@ -35,7 +35,8 @@ export CARGO_TARGET_DIR="$repo_dir/target"
 export CARGO_BUILD_JOBS=2
 export CARGO_INCREMENTAL=0
 cd "$repo_dir/apps/$app"
-exec dx serve --fullstack true --web --hot-reload true --watch true \
-    --addr 127.0.0.1 --port "$port" --open false --interactive false \
+exec python3 "$repo_dir/infrastructure/native/dev-ui-realtime.py" "$1" \
+    dx serve --fullstack true --web --hot-reload true --watch true \
+    --addr 127.0.0.1 --port "$port" --open false --interactive true \
     --package "$package" --bin "$binary" --no-default-features --locked \
     --force-sequential true --debug-symbols false

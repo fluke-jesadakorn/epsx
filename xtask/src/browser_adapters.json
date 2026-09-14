@@ -17,17 +17,12 @@
   {
     "path": "shared/rust/dioxus_ui/src/fullstack/shell.rs",
     "purpose": "display preferences and service-worker registration",
-    "source": "document::eval(\"let theme = 'dark', collapsed = false; try { theme = localStorage.getItem('epsx-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); collapsed = localStorage.getItem('epsx-frontend-nav-collapsed') === 'true'; } catch (_) {} dioxus.send([theme === 'dark', collapsed]);\")"
+    "source": "document::eval(\"let theme = 'dark'; try { theme = localStorage.getItem('epsx-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); } catch (_) {} dioxus.send(theme === 'dark');\")"
   },
   {
     "path": "shared/rust/dioxus_ui/src/fullstack/shell.rs",
     "purpose": "display preferences and service-worker registration",
     "source": "document::eval(\"if (isSecureContext && 'serviceWorker' in navigator) { const blocked = ['localhost','127.0.0.1','::1','[::1]','dev.epsx.io','dev-admin.epsx.io','dev-pay.epsx.io'].includes(location.hostname); if (!blocked) { navigator.serviceWorker.register('/runtime/epsx_service_worker_bootstrap.v3.js?rev=3', {type:'module',scope:'/'}).catch(() => {}); } }\")"
-  },
-  {
-    "path": "shared/rust/dioxus_ui/src/fullstack/shell.rs",
-    "purpose": "display preferences and service-worker registration",
-    "source": "let script = format!(\"try {{ localStorage.setItem('epsx-frontend-nav-collapsed','{}'); }} catch (_) {{}}\", value); let _ = document::eval(&script)"
   },
   {
     "path": "shared/rust/dioxus_ui/src/fullstack/frontend_auth.rs",
@@ -88,5 +83,15 @@
     "path": "shared/rust/dioxus_ui/src/fullstack/shell.rs",
     "purpose": "browser wallet permission revocation after server logout",
     "source": "document::eval(include_str!(\"wallet_disconnect.js\"))"
+  },
+  {
+    "path": "shared/rust/dioxus_ui/src/navigation.rs",
+    "purpose": "Dioxus navigation scroll and focus lifecycle; no click interception or fetching",
+    "source": "document::eval(include_str!(\"navigation_lifecycle.js\"))"
+  },
+  {
+    "path": "shared/rust/dioxus_ui/src/fullstack/shell.rs",
+    "purpose": "Read persisted theme using the same dark default as SSR",
+    "source": "document::eval(\"let theme = 'dark'; try { theme = localStorage.getItem('epsx-theme') || 'dark'; } catch (_) {} dioxus.send(theme !== 'light');\")"
   }
 ]

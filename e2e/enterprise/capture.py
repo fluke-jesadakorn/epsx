@@ -32,7 +32,7 @@ MEASURE = '''(() => ({
   overflow: document.documentElement.scrollWidth > innerWidth + 1,
   mains: document.querySelectorAll('main').length,
   headings: Array.from(document.querySelectorAll('h1')).map(e => e.textContent),
-  styles: !!document.querySelector('link[href^="/public/enterprise.css"]'),
+  styles: !!document.querySelector('link[href^="/public/dist/tailwind.css"]'),
   active: Array.from(document.querySelectorAll('a[aria-current="page"]')).map(e => e.getAttribute('href')),
   states: Array.from(document.querySelectorAll('[data-state], [data-analytics-state], [data-watchlist-state]')).map(e => Array.from(e.attributes).filter(a => a.name.endsWith('state')).map(a => [a.name,a.value]))
 }))()'''

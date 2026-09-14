@@ -77,12 +77,12 @@ pub fn AccessDenied(
                     // (button with left arrow + label) instead of
                     // "Back" (text-only button). Matches prod's
                     // access-denied design (epsx.io/access-denied).
-                    a { class: "btn btn-outline", href: "{back_href}", onclick: move |event| crate::fullstack::analytics::follow_link(event, navigation, &back_href),
+                    crate::navigation::AppLink { class: "btn btn-outline", href: "{back_href}", onclick: move |event| crate::fullstack::analytics::follow_link(event, navigation, &back_href),
                         Icon { name: "arrow-left".to_string(), size: Some(16) }
                         span { "Go Home" }
                     }
                 }
-                a { class: "btn btn-primary", href: "{contact_href_val}", onclick: move |event| crate::fullstack::analytics::follow_link(event, navigation, &contact_href_val), "Request Access" }
+                crate::navigation::AppLink { class: "btn btn-primary", href: "{contact_href_val}", onclick: move |event| crate::fullstack::analytics::follow_link(event, navigation, &contact_href_val), "Request Access" }
             }
         }
     }

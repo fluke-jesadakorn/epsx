@@ -49,6 +49,29 @@ pub fn design_system_head_with_keywords(
     description: &str,
     keywords: Option<&str>,
 ) -> String {
+    design_system_head_impl(title, description, keywords, true)
+}
+
+/// Frontend uses a single external Tailwind stylesheet for all presentation.
+pub fn frontend_head_with_keywords(
+    title: &str,
+    description: &str,
+    keywords: Option<&str>,
+) -> String {
+    design_system_head_impl(title, description, keywords, false)
+}
+
+fn design_system_head_impl(
+    title: &str,
+    description: &str,
+    keywords: Option<&str>,
+    embed_styles: bool,
+) -> String {
+    let embedded_style = if embed_styles {
+        format!("<style>{DESIGN_SYSTEM_CSS}</style>")
+    } else {
+        String::new()
+    };
     let title = escape_html_text(title);
     let description = escape_html_attribute(description);
     let keywords_meta = keywords
@@ -80,7 +103,7 @@ pub fn design_system_head_with_keywords(
      `?v=` busts the disk cache after each Tailwind rebuild; the HTML
      itself is `private, no-store` so the new link is always fetched. -->
 <link rel="stylesheet" href="/public/dist/tailwind.css?v=3" />
-<style>{DESIGN_SYSTEM_CSS}</style>"##,
+{embedded_style}"##,
         keywords_meta = keywords_meta,
     )
 }
@@ -1314,6 +1337,18 @@ pub fn page_shell_with_body_class_and_keywords(
 #[cfg(test)]
 mod page_head_tests {
     use super::*;
+
+    #[test]
+    fn frontend_head_uses_only_external_tailwind_and_preserves_metadata() {
+        let head = frontend_head_with_keywords("Markets <today>", "A & B", Some("stocks & EPS"));
+        assert_eq!(head.matches("rel=\"stylesheet\"").count(), 1);
+        assert!(head.contains("/public/dist/tailwind.css"));
+        assert!(!head.contains("<style>"));
+        assert!(head.contains("Markets &lt;today&gt;"));
+        assert!(head.contains("content=\"stocks &amp; EPS\""));
+        assert!(head.contains("content=\"A &amp; B\""));
+        assert!(design_system_head("Legacy", "Shared app").contains("<style>"));
+    }
 
     #[test]
     fn page_head_escapes_metadata_and_contains_no_inline_script() {

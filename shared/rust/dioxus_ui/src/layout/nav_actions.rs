@@ -101,7 +101,7 @@ pub fn NavActions(
                 // ~46739: prod has `bg-gradient-to-r from-orange-400
                 // to-orange-600 ... h-10 px-4 text-sm`.
                 if !is_authenticated && wallet_button_desktop.is_none() {
-                    a { class: "epsx-connect-btn inline-flex items-center justify-center gap-2 rounded-2xl font-medium text-white bg-gradient-to-r from-orange-400 to-orange-600 hover:from-orange-500 hover:to-orange-700 transition-all duration-200 shadow-lg hover:shadow-xl border-0 px-4 h-10 text-sm",
+                    crate::navigation::AppLink { class: "epsx-connect-btn inline-flex items-center justify-center gap-2 rounded-2xl font-medium text-white bg-gradient-to-r from-orange-400 to-orange-600 hover:from-orange-500 hover:to-orange-700 transition-all duration-200 shadow-lg hover:shadow-xl border-0 px-4 h-10 text-sm",
                         href: "/auth",
                         Icon { name: "wallet".to_string(), size: Some(16), class_name: Some("h-4 w-4 text-white".to_string()) }
                         span { "Connect" }
@@ -123,7 +123,7 @@ pub fn NavActions(
                 }
                 // === wave44(t2) — tablet Connect pill (compact height) ===
                 if !is_authenticated && wallet_button_tablet.is_none() {
-                    a { class: "epsx-connect-btn-connect-btn-compact inline-flex items-center justify-center gap-1.5 rounded-2xl font-medium text-white bg-gradient-to-r from-orange-400 to-orange-600 hover:from-orange-500 hover:to-orange-700 transition-all duration-200 shadow-lg hover:shadow-xl border-0 px-3 h-8 text-xs",
+                    crate::navigation::AppLink { class: "epsx-connect-btn-connect-btn-compact inline-flex items-center justify-center gap-1.5 rounded-2xl font-medium text-white bg-gradient-to-r from-orange-400 to-orange-600 hover:from-orange-500 hover:to-orange-700 transition-all duration-200 shadow-lg hover:shadow-xl border-0 px-3 h-8 text-xs",
                         href: "/auth",
                         Icon { name: "wallet".to_string(), size: Some(12), class_name: Some("h-3 w-3 text-white".to_string()) }
                         span { "Connect" }

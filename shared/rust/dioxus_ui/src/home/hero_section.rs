@@ -61,7 +61,7 @@ pub fn HeroSection(
                         }
                     }
                     div { class: "home-prod-hero-actions flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center items-center",
-                        a { class: "home-prod-hero-cta w-full sm:w-auto min-w-[220px] h-14 text-lg font-bold bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white rounded-2xl shadow-2xl px-6 inline-flex items-center justify-center",
+                        crate::navigation::AppLink { class: "home-prod-hero-cta w-full sm:w-auto min-w-[220px] h-14 text-lg font-bold bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white rounded-2xl shadow-2xl px-6 inline-flex items-center justify-center",
                             href: "/analytics",
                             Icon { name: "line-chart".to_string(), size: Some(24), class_name: Some("mr-3".to_string()) }
                             span { "🚀 Start Exploration" }
@@ -110,10 +110,10 @@ pub fn SignedOutHero() -> Element {
                     "Explore verified public news below. Market and plan previews remain on their dedicated routes until their data contracts are available."
                 }
                 div { class: "home-prod-hero-actions mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row sm:gap-6",
-                    a { class: "home-prod-hero-cta inline-flex h-14 min-w-[190px] items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-orange-500 to-yellow-500 px-6 text-base font-bold text-white shadow-xl transition hover:from-orange-600 hover:to-yellow-600 sm:min-w-[220px]", href: "/analytics",
+                    crate::navigation::AppLink { class: "home-prod-hero-cta inline-flex h-14 min-w-[190px] items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-orange-500 to-yellow-500 px-6 text-base font-bold text-white shadow-xl transition hover:from-orange-600 hover:to-yellow-600 sm:min-w-[220px]", href: "/analytics",
                         "Open analytics"
                     }
-                    a { class: "home-prod-hero-cta inline-flex h-14 min-w-[190px] items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-transparent px-6 text-base font-bold text-slate-200 shadow-sm transition hover:bg-white/5 dark:text-slate-200 sm:min-w-[220px]", href: "/plans",
+                    crate::navigation::AppLink { class: "home-prod-hero-cta inline-flex h-14 min-w-[190px] items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-transparent px-6 text-base font-bold text-slate-200 shadow-sm transition hover:bg-white/5 dark:text-slate-200 sm:min-w-[220px]", href: "/plans",
                         Icon { name: "layers".to_string(), size: Some(22) }
                         "Review plans"
                     }

@@ -366,7 +366,7 @@ pub fn CommandPalette(
                                 let id = c.id.clone();
                                 let on_select_clone = on_select;
                                 rsx! {
-                                    a {
+                                    crate::navigation::AppLink {
                                         class: if i == *focus_idx.read() { "command-item active" } else { "command-item" },
                                         href: "{action}",
                                         role: "option",

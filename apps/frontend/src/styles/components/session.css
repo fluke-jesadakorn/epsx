@@ -1,0 +1,61 @@
+/* Frontend Tailwind component styles. Edit here; no Rust compilation required. */
+.epsx-session-card {
+  --session-bg: var(--fe-surface, var(--surface-solid, #fff));
+  --session-text: var(--fe-text, var(--text, #172033));
+  --session-muted: var(--fe-muted, var(--text-muted, #647084));
+  --session-border: var(--fe-border, var(--epsx-border, #dce3ee));
+  --session-accent: var(--fe-primary, #3562b6);
+  --session-tint: var(--fe-tint, #edf2fb);
+  @apply box-border;
+  @apply flex;
+  @apply items-start;
+  @apply gap-[24px];
+  @apply max-w-[760px];
+  @apply w-[100%];
+  margin: 28px auto;
+  @apply p-[36px];
+  border: 1px solid var(--session-border);
+  @apply rounded-[20px];
+  background: var(--session-bg);
+  color: var(--session-text);
+  @apply text-left;
+  box-shadow: 0 8px 32px #10204005;
+}
+.dark .epsx-session-card, [data-theme=dark] .epsx-session-card {
+  --session-bg: var(--fe-surface, #182231);
+  --session-text: var(--fe-text, #edf2fa);
+  --session-muted: var(--fe-muted, #adbcd0);
+  --session-border: var(--fe-border, #33445d);
+  --session-accent: var(--fe-primary, #92baff);
+  --session-tint: var(--fe-tint, #223653);
+}
+.epsx-session-card .epsx-session-symbol {
+  @apply grid;
+  place-items: center;
+  flex: 0 0 56px;
+  @apply w-[56px];
+  @apply h-[56px];
+  @apply rounded-[16px];
+  background: var(--session-tint);
+  color: var(--session-accent);
+}
+.epsx-session-card .epsx-session-copy { @apply min-w-[0]; }
+.epsx-session-card .epsx-session-eyebrow { @apply text-[10px]; @apply font-bold; @apply tracking-[.14em]; color: var(--session-muted); }
+.epsx-session-card h2 { margin: 10px 0 12px; font-size: clamp(23px, 3vw, 30px); line-height: 1.2; @apply font-semibold; @apply tracking-[-.04em]; color: var(--session-text); }
+.epsx-session-card p { @apply m-[0]; @apply max-w-[480px]; @apply text-[14px]; line-height: 1.75; color: var(--session-muted); }
+.epsx-session-card .epsx-session-actions { @apply flex; @apply flex-wrap; @apply items-center; gap: 12px 24px; margin: 24px 0 16px; }
+.epsx-session-card .epsx-session-primary { @apply inline-flex; @apply items-center; @apply justify-center; @apply gap-[20px]; @apply min-h-[44px]; padding: 11px 18px; border: 1px solid transparent; @apply rounded-[9px]; @apply text-[14px]; @apply font-[650]; @apply no-underline; background: var(--session-accent); color: var(--fe-on-primary, #fff); }
+.dark .epsx-session-card .epsx-session-primary, [data-theme=dark] .epsx-session-card .epsx-session-primary { color: var(--fe-on-primary, #10213d); }
+.epsx-session-card .epsx-session-secondary { @apply inline-flex; @apply items-center; @apply min-h-[44px]; @apply text-[13px]; @apply font-[550]; color: var(--session-muted); @apply no-underline; }
+.epsx-session-card a:hover { filter: brightness(.94); @apply underline; }
+.epsx-session-card a:focus-visible, .epsx-session-card button:focus-visible { outline: 2px solid var(--session-accent); outline-offset: 4px; }
+.epsx-session-card p.epsx-session-footnote { @apply text-[11px]; }
+@media (max-width: 600px) {
+  .epsx-session-card { @apply flex-col; @apply gap-[20px]; @apply p-[24px]; margin: 20px auto; @apply rounded-[16px]; }
+  .epsx-session-card .epsx-session-actions { gap: 8px 20px; }
+}
+
+.epsx-session-inline { @apply inline-flex; margin: 6px 0; @apply max-w-[100%]; }
+.epsx-session-inline a { @apply inline-flex; @apply items-center; @apply min-h-[44px]; padding: 8px 12px; border: 1px solid var(--fe-border, #7d8da5); @apply rounded-[8px]; background: var(--fe-tint, #edf2fb); color: var(--fe-primary, #244f98); @apply text-[12px]; @apply font-semibold; line-height: 1.5; @apply no-underline; }
+.epsx-session-inline a:hover { @apply underline; }
+.epsx-session-inline a:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }

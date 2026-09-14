@@ -245,12 +245,6 @@ fn Web3SessionPanel(user: User) -> Element {
                 title: "Wallet connection details unavailable".to_string(),
                 body: "Wallet provider and network details are unavailable for this session.".to_string()
             }
-            UnavailableNotice {
-                icon: "key".to_string(),
-                title: "Developer tools".to_string(),
-                body: "Manage API keys, usage, and documentation in Developer.".to_string()
-            }
-            crate::fullstack::shell::ShellLink { class: "fe-button", href: "/developer", "Open Developer" }
         }
     }
 }
@@ -546,7 +540,6 @@ mod tests {
             .collect::<String>();
 
         for unavailable in [
-            "Developer tools",
             "Email management unavailable",
             "Email preferences unavailable",
             "Data export unavailable",

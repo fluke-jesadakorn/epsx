@@ -34,7 +34,7 @@ pub fn PayCancelScreen() -> Element {
                     // CTAs
                     div { class: "pay-cancel-ctas",
                         style: "display:inline-flex;gap:0.75rem;flex-wrap:wrap;justify-content:center;",
-                        a { class: "pay-cancel-cta-home btn btn-gradient btn-lg",
+                        epsx_dioxus_ui::navigation::AppLink { class: "pay-cancel-cta-home btn btn-gradient btn-lg",
                             href: "/",
                             i { class: "epsx-icon", dangerous_inner_html: epsx_templates::lucide("home", "16", "currentColor") }
                             " Back to Home"

@@ -109,7 +109,7 @@ fn WatchlistControl(
     }
     match watchlist {
         StockCardWatchlist::SignedOut => rsx! {
-            a {
+            crate::navigation::AppLink {
                 class: "{base_class} text-gray-400 hover:text-pink-400",
                 href: "{sign_in_path}",
                 "data-watchlist-signed-out": "true",
@@ -267,7 +267,7 @@ pub fn StockDataCard(
                     }
                 }
 
-                a {
+                crate::navigation::AppLink {
                     class: "mt-auto flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 py-3 text-sm font-bold text-white transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/25",
                     href: "{details_url}",
                     target: "_blank",

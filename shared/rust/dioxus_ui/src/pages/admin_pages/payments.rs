@@ -600,8 +600,8 @@ fn PaymentsBody(
     rsx! {
         PageLayout {
             max_width: Some(PageMaxWidth::SevenXl),
-            a { href: "/payments/epsx", onclick: move |event| crate::fullstack::admin_payments::follow(event, "/payments/epsx".to_string()), class: "btn btn-outline mb-4", "EPSX Plan purchases" }
-                a { href: "/plans", onclick: move |event| crate::fullstack::admin_payments::follow(event, "/plans".to_string()), class: "btn btn-outline mb-4", "EPSX Plan catalog" }
+            crate::navigation::AppLink { href: "/payments/epsx", onclick: move |event| crate::fullstack::admin_payments::follow(event, "/payments/epsx".to_string()), class: "btn btn-outline mb-4", "EPSX Plan purchases" }
+                crate::navigation::AppLink { href: "/plans", onclick: move |event| crate::fullstack::admin_payments::follow(event, "/plans".to_string()), class: "btn btn-outline mb-4", "EPSX Plan catalog" }
                 PageHeader {
                 title: "Payments Hub".to_string(),
                 subtitle: Some("Manage payments, user access, and payment links".to_string()),
@@ -743,7 +743,7 @@ fn PaymentsTab(load: PaymentLoad, filters: PaymentFilters) -> Element {
 fn PaymentsActionBar(refresh_url: String) -> Element {
     rsx! {
         div { class: "flex flex-wrap items-center gap-3", aria_label: "Payment actions",
-            a { class: "btn btn-sm bg-gradient-to-r from-[#7645d9] to-[#5a33b8] text-white", href: refresh_url.clone(), onclick: move |event| crate::fullstack::admin_payments::follow(event,refresh_url.clone()),
+            crate::navigation::AppLink { class: "btn btn-sm bg-gradient-to-r from-[#7645d9] to-[#5a33b8] text-white", href: refresh_url.clone(), onclick: move |event| crate::fullstack::admin_payments::follow(event,refresh_url.clone()),
                 Icon { name: "refresh-cw".to_string(), size: Some(15) }
                 " Refresh"
             }
@@ -793,7 +793,7 @@ fn PaymentUserAccessTab(
     rsx! {
         div { class: "space-y-6 sm:space-y-8",
             div { class: "flex items-center gap-3",
-                a { class: "btn btn-sm bg-gradient-to-r from-[#7645d9] to-[#5a33b8] text-white", href: refresh_url.clone(), onclick: move |event| crate::fullstack::admin_payments::follow(event,refresh_url.clone()),
+                crate::navigation::AppLink { class: "btn btn-sm bg-gradient-to-r from-[#7645d9] to-[#5a33b8] text-white", href: refresh_url.clone(), onclick: move |event| crate::fullstack::admin_payments::follow(event,refresh_url.clone()),
                     Icon { name: "refresh-cw".to_string(), size: Some(14) }
                     " Refresh"
                 }
@@ -883,13 +883,13 @@ fn PaymentUserAccessReady(
                 }
                 nav { class: "mt-6 flex items-center justify-between", aria_label: "User access pagination",
                     if let Some(href) = previous {
-                        a { class: "btn btn-sm btn-outline", href:href.clone(),onclick:move |event| crate::fullstack::admin_payments::follow(event,href.clone()), "Previous" }
+                        crate::navigation::AppLink { class: "btn btn-sm btn-outline", href:href.clone(),onclick:move |event| crate::fullstack::admin_payments::follow(event,href.clone()), "Previous" }
                     } else {
                         span { class: "btn btn-sm btn-outline pointer-events-none opacity-40", "Previous" }
                     }
                     span { class: "text-sm text-muted-foreground", "Page {projection.page}" }
                     if let Some(href) = next {
-                        a { class: "btn btn-sm btn-outline", href:href.clone(),onclick:move |event| crate::fullstack::admin_payments::follow(event,href.clone()), "Next" }
+                        crate::navigation::AppLink { class: "btn btn-sm btn-outline", href:href.clone(),onclick:move |event| crate::fullstack::admin_payments::follow(event,href.clone()), "Next" }
                     } else {
                         span { class: "btn btn-sm btn-outline pointer-events-none opacity-40", "Next" }
                     }
@@ -917,7 +917,7 @@ fn PaymentUserAccessRow(item: AdminPaymentUserAccessItem) -> Element {
             td { class: "px-4 py-4 text-sm text-secondary", "{days}" }
             td { class: "px-4 py-4 text-sm text-muted-foreground", "{expires}" }
             td { class: "px-4 py-4",
-                a { class: "btn btn-sm btn-outline", href: detail_url.clone(), onclick: move |event| crate::fullstack::admin_payments::follow(event,detail_url.clone()), "View" }
+                crate::navigation::AppLink { class: "btn btn-sm btn-outline", href: detail_url.clone(), onclick: move |event| crate::fullstack::admin_payments::follow(event,detail_url.clone()), "View" }
             }
         }
     }
@@ -950,7 +950,7 @@ fn PaymentUserAccessCard(item: AdminPaymentUserAccessItem) -> Element {
                 }
             }
             p { class: "mt-3 text-xs text-muted-foreground", "Expires: {expires}" }
-            a { class: "btn btn-sm btn-outline mt-3", href: detail_url.clone(), onclick: move |event| crate::fullstack::admin_payments::follow(event,detail_url.clone()), "View wallet" }
+            crate::navigation::AppLink { class: "btn btn-sm btn-outline mt-3", href: detail_url.clone(), onclick: move |event| crate::fullstack::admin_payments::follow(event,detail_url.clone()), "View wallet" }
         }
     }
 }
@@ -1064,7 +1064,7 @@ fn PaymentLinksActions(available: bool) -> Element {
     rsx! {
         div { class: "flex flex-wrap items-center gap-3", aria_label: "Payment-link actions",
             if available {
-                a { class: "btn btn-sm bg-gradient-to-r from-[#7645d9] to-[#5a33b8] text-white", href: "#create-payment-link",
+                crate::navigation::AppLink { class: "btn btn-sm bg-gradient-to-r from-[#7645d9] to-[#5a33b8] text-white", href: "#create-payment-link",
                     Icon { name: "plus".to_string(), size: Some(15) }
                     " New Link"
                 }
@@ -1074,7 +1074,7 @@ fn PaymentLinksActions(available: bool) -> Element {
                     " New Link"
                 }
             }
-            a { class: "btn btn-sm btn-outline", href: "/payments?tab=payment-links", onclick: move |event| crate::fullstack::admin_payments::follow(event, "/payments?tab=payment-links".to_string()),
+            crate::navigation::AppLink { class: "btn btn-sm btn-outline", href: "/payments?tab=payment-links", onclick: move |event| crate::fullstack::admin_payments::follow(event, "/payments?tab=payment-links".to_string()),
                 Icon { name: "refresh-cw".to_string(), size: Some(15) }
                 " Refresh"
             }
@@ -1292,8 +1292,8 @@ fn PaymentLinksProblem(state: &'static str, title: String, detail: String) -> El
                         p { class: "mt-1 text-sm text-muted-foreground", "{detail}" }
                     }
                     nav { class: "flex shrink-0 flex-wrap gap-2", aria_label: "Payment-link recovery",
-                        a { class: "btn btn-sm btn-outline", href: "/payments?tab=payment-links", onclick: move |event| crate::fullstack::admin_payments::follow(event, "/payments?tab=payment-links".to_string()), "Retry payment links" }
-                        a { class: "btn btn-sm btn-ghost", href: "/", onclick: move |event| crate::fullstack::admin_payments::follow(event, "/".to_string()), "Admin home" }
+                        crate::navigation::AppLink { class: "btn btn-sm btn-outline", href: "/payments?tab=payment-links", onclick: move |event| crate::fullstack::admin_payments::follow(event, "/payments?tab=payment-links".to_string()), "Retry payment links" }
+                        crate::navigation::AppLink { class: "btn btn-sm btn-ghost", href: "/", onclick: move |event| crate::fullstack::admin_payments::follow(event, "/".to_string()), "Admin home" }
                     }
                 }
             }
@@ -1370,7 +1370,7 @@ fn PaymentIntentList(payload: AdminPaymentIntentList, filters: PaymentFilters) -
                 div { class: "border-t border-border/30 p-8 text-center", role: "status",
                     h3 { class: "font-semibold", "No payment intents on this page" }
                     p { class: "mt-2 text-sm text-muted-foreground", "The filtered inventory still contains records. Return to the first page or use Previous." }
-                    a { class: "btn btn-sm btn-outline mt-4", href: filters.page_url(0), onclick: {let url=filters.page_url(0); move |event| crate::fullstack::admin_payments::follow(event,url.clone())}, "Return to first page" }
+                    crate::navigation::AppLink { class: "btn btn-sm btn-outline mt-4", href: filters.page_url(0), onclick: {let url=filters.page_url(0); move |event| crate::fullstack::admin_payments::follow(event,url.clone())}, "Return to first page" }
                 }
             } else {
                 div { class: "hidden overflow-x-auto md:block",
@@ -1402,12 +1402,12 @@ fn PaymentIntentList(payload: AdminPaymentIntentList, filters: PaymentFilters) -
             }
             nav { class: "flex items-center justify-between border-t border-border/30 p-4", aria_label: "Payment intent pagination",
                 if has_previous {
-                    a { class: "btn btn-sm btn-outline", href: filters.page_url(previous_offset), onclick: {let url=filters.page_url(previous_offset); move |event| crate::fullstack::admin_payments::follow(event,url.clone())}, rel: "prev", "Previous" }
+                    crate::navigation::AppLink { class: "btn btn-sm btn-outline", href: filters.page_url(previous_offset), onclick: {let url=filters.page_url(previous_offset); move |event| crate::fullstack::admin_payments::follow(event,url.clone())}, rel: "prev", "Previous" }
                 } else {
                     span { class: "btn btn-sm btn-outline opacity-50", aria_disabled: "true", "Previous" }
                 }
                 if has_next {
-                    a { class: "btn btn-sm btn-outline", href: filters.page_url(next_offset), onclick: {let url=filters.page_url(next_offset); move |event| crate::fullstack::admin_payments::follow(event,url.clone())}, rel: "next", "Next" }
+                    crate::navigation::AppLink { class: "btn btn-sm btn-outline", href: filters.page_url(next_offset), onclick: {let url=filters.page_url(next_offset); move |event| crate::fullstack::admin_payments::follow(event,url.clone())}, rel: "next", "Next" }
                 } else {
                     span { class: "btn btn-sm btn-outline opacity-50", aria_disabled: "true", "Next" }
                 }
@@ -1508,7 +1508,7 @@ fn LoadProblem(title: String, detail: String, retry_url: String) -> Element {
         section { class: "rounded-2xl border border-amber-500/30 bg-amber-500/5 p-8", role: "alert",
             h2 { class: "text-lg font-semibold", "{title}" }
             p { class: "mt-2 text-sm text-muted-foreground", "{detail}" }
-            a { class: "btn btn-sm btn-outline mt-5", href: retry_url.clone(), onclick: move |event| crate::fullstack::admin_payments::follow(event,retry_url.clone()), "Try again" }
+            crate::navigation::AppLink { class: "btn btn-sm btn-outline mt-5", href: retry_url.clone(), onclick: move |event| crate::fullstack::admin_payments::follow(event,retry_url.clone()), "Try again" }
         }
     }
 }

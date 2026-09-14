@@ -122,7 +122,7 @@ fn ContactEmailCard() -> Element {
 fn MailtoBtn() -> Element {
     let href = format!("mailto:{SUPPORT_EMAIL}");
     rsx! {
-        a {
+        crate::navigation::AppLink {
             class: "btn btn-gradient contact-mailto-btn",
             href: "{href}",
             Icon { name: "mail".to_string(), size: Some(16) }

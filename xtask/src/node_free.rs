@@ -203,6 +203,9 @@ fn is_browser_adapter_asset(path: &Path, bytes: &[u8]) -> bool {
         "shared/rust/dioxus_ui/src/fullstack/wallet_disconnect.js" => {
             "925b85698c5e7d851a7812ae9c97c6926b15641a85ace4bc5df0399600bb9d35"
         }
+        "shared/rust/dioxus_ui/src/navigation_lifecycle.js" => {
+            "3d978b7c983de83d5738ecc6ac5842f66f4ad17256c004463ac2c81eb4d0abba"
+        }
         "infrastructure/native/local-deploy.js" => {
             "3363765b1095a9bfb84a7c4aa57e3592740e788fc9c41137df7d41f26ef31497"
         }
@@ -3173,6 +3176,7 @@ mod tests {
         for name in [
             "shared/rust/dioxus_ui/src/fullstack/pay/wallet_adapter.js",
             "shared/rust/dioxus_ui/src/fullstack/wallet_disconnect.js",
+            "shared/rust/dioxus_ui/src/navigation_lifecycle.js",
             "infrastructure/native/local-deploy.js",
         ] {
             let path = Path::new(name);

@@ -20,7 +20,7 @@ pub fn EmptyState(
                 p { class: "empty-state-description text-muted-foreground", "{d}" }
             }
             if let (Some(a), Some(h)) = (action, action_href) {
-                a { class: "btn btn-primary mt-4", href: "{h}", "{a}" }
+                crate::navigation::AppLink { class: "btn btn-primary mt-4", href: "{h}", "{a}" }
             }
         }
     }

@@ -163,11 +163,11 @@ pub fn HydratedCatalog(id: Option<String>) -> Element {
         document::Link{rel:"stylesheet",href:"/public/dist/tailwind.css"}
         document::Link{rel:"stylesheet",href:"/_ui/admin.css"}
         main{class:"container-x max-w-5xl mx-auto py-10 space-y-6",
-            nav{class:"flex gap-5",a{href:"/",class:"underline","Admin home"}Link{to:"/plans",class:"underline","EPSX Plans"}Link{to:"/payments/epsx",class:"underline","Plan purchases"}a{href:"/pay/merchant-escrows",class:"underline","Escrow disputes"}}
+            nav{class:"flex gap-5",crate::navigation::AppLink {href:"/",class:"underline","Admin home"}Link{to:"/plans",class:"underline","EPSX Plans"}Link{to:"/payments/epsx",class:"underline","Plan purchases"}crate::navigation::AppLink {href:"/pay/merchant-escrows",class:"underline","Escrow disputes"}}
             h1{class:"text-3xl font-bold","EPSX Plan catalog"}
             p{class:"text-muted-foreground","These plans appear on the main EPSX website. Set regular token prices, then enable a catalog promotion for checkout. Existing orders keep their reserved price."}
             if saved(){p{role:"status",class:"text-emerald-600","Plan saved."}}
-            if let Some(failure)=error(){p{role:"alert",if failure == LoadError::InvalidQuery {"Plan was not saved. Check prices, duration and permissions."} else {"{failure.message()}"}}}
+            if let Some(failure)=error().filter(|failure| data().as_ref().err() != Some(failure)){if failure == LoadError::InvalidQuery {p{role:"alert","Plan was not saved. Check prices, duration and permissions."}} else {crate::fullstack::load_error::LoadErrorNotice{error:failure.clone()}}}
             match data(){
                 Ok(CatalogData::List(plans))=>rsx!{for plan in plans{article{class:"rounded-2xl border bg-card p-6 flex flex-wrap justify-between gap-5",
                     div{h2{class:"text-xl font-semibold","{plan.name}"}p{if let Some(days)=plan.metadata.duration_days{"{days} days"}else{"{plan.billing_model}"}}p{if plan.is_active{"Enabled"}else{"Disabled"}}}
@@ -188,11 +188,11 @@ pub fn HydratedCatalog(id: Option<String>) -> Element {
                         });
                     }}
                 }},
-                Err(failure)=>rsx!{div{class:"rounded-xl border bg-card p-6 space-y-4",p{role:"status","{failure.message()}"}button{r#type:"button",class:"btn btn-outline",disabled:pending(),onclick:move |_|{
+                Err(failure)=>rsx!{div{class:"rounded-xl border bg-card p-6 space-y-4",crate::fullstack::load_error::LoadErrorNotice { error: failure.clone(), button{r#type:"button",class:"btn btn-outline",disabled:pending(),onclick:move |_|{
                     if *pending.peek(){return;} pending.set(true);
                     let requested = id.as_deref().map(uuid::Uuid::parse_str).transpose();
                     spawn(async move {let result = match requested {Ok(id)=>read_catalog(id).await.map_err(|_|LoadError::Unavailable).and_then(|v|v),Err(_)=>Err(LoadError::NotFound)};data.set(result);pending.set(false);});
-                },"Try again"}}},
+                },"Try again"} }}},
             }
         }
     }

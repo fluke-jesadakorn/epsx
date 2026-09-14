@@ -486,7 +486,7 @@ fn ConversationCard(
         try_use_context::<crate::fullstack::shell::AuthRevision>().map(|_| use_navigator());
     let target = format!("/chat/{}", conversation.id);
     rsx! {
-        a { onclick: move |event| { if let Some(navigation)=navigation {event.prevent_default();navigation.push(target.clone());} },
+        crate::navigation::AppLink { onclick: move |event: MouseEvent| { if let Some(navigation)=navigation {event.prevent_default();navigation.push(target.clone());} },
             class,
             href: format!("/chat/{}", conversation.id),
             "data-conversation-card": "true",
@@ -519,7 +519,7 @@ fn NewConversationPanel(topics: Vec<ChatTopic>, flash: Option<String>) -> Elemen
     }
     rsx! {
         section { class: "chat-panel chat-panel-new", "data-chat-surface": "new-conversation", "data-chat-new-root": "true",
-            a { class: "chat-panel-back chat-mobile-back", href: "/chat",
+            crate::navigation::AppLink { class: "chat-panel-back chat-mobile-back", href: "/chat",
                 Icon { name: "arrow-left".to_string(), size: Some(14) }
                 "Back to conversations"
             }
@@ -632,7 +632,7 @@ fn NewConversationPanel(topics: Vec<ChatTopic>, flash: Option<String>) -> Elemen
                     "Back to topics"
                 }
                 div { class: "chat-topic-header", "data-chat-selected-header": "true",
-                    div { class: "chat-topic-icon", "data-chat-selected-icon": "true", style: "background:rgba(59,130,246,0.92); color:#ffffff; border:1px solid rgba(255,255,255,0.16); box-shadow:0 4px 12px rgba(0,0,0,0.14), inset 0 1px 0 rgba(255,255,255,0.10);",
+                    div { class: "chat-topic-icon fe-selected-chat-icon", "data-chat-selected-icon": "true",
                         Icon { name: "message-circle".to_string(), size: Some(20) }
                     }
                     div {
@@ -836,7 +836,7 @@ fn ChatProblem(title: String, detail: String) -> Element {
                 }
                 h1 { class: "chat-panel-empty-title fe-type-title", "{title}" }
                 p { class: "chat-panel-empty-hint", "{detail}" }
-                a { class: "btn btn-outline mt-4", href: "/chat", "Try again" }
+                crate::navigation::AppLink { class: "btn btn-outline mt-4", href: "/chat", "Try again" }
             }
         }
     }
@@ -947,7 +947,7 @@ fn RenderPublicChat() -> Element {
                 }
             }
             p { class: "fe-support-alternative", "Need another way to reach us? "
-                a { href: "/contact", "Contact EPSX" } }
+                crate::navigation::AppLink { href: "/contact", "Contact EPSX" } }
         }
     }
 }

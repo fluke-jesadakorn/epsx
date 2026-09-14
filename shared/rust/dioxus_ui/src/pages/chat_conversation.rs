@@ -67,7 +67,7 @@ fn ConversationProblem(title: String, detail: String) -> Element {
                 }
                 h1 { class: "chat-panel-empty-title", "{title}" }
                 p { class: "chat-panel-empty-hint", "{detail}" }
-                a { class: "btn btn-outline mt-4", href: "/chat", "Return to inbox" }
+                crate::navigation::AppLink { class: "btn btn-outline mt-4", href: "/chat", "Return to inbox" }
             }
         }
     }

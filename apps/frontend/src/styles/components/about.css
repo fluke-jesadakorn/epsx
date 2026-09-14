@@ -1,0 +1,352 @@
+/* Frontend Tailwind component styles. Edit here; no Rust compilation required. */
+.about-editorial {
+  @apply max-w-[1280px];
+  margin:0 auto;
+  padding:48px 40px 72px;
+  @apply text-fe-text;
+}
+.about-editorial * {
+  @apply box-border;
+}
+.about-editorial p {
+  line-height:1.75;
+}
+.about-eyebrow {
+  @apply text-[10px];
+  @apply font-bold;
+  @apply tracking-[.16em];
+  @apply text-fe-muted;
+  margin:0 0 24px;
+}
+.about-hero {
+  @apply grid;
+  grid-template-columns:1.15fr 1fr;
+  @apply gap-[56px];
+  @apply items-center;
+  padding:24px 0 64px;
+}
+.about-intro h1 {
+  font-size:clamp(42px,5vw,72px);
+  @apply font-[550];
+  line-height:1.06;
+  @apply tracking-[-.065em];
+  margin:0 0 26px;
+}
+.about-intro h1 span {
+  @apply text-fe-primary;
+}
+.about-lead {
+  @apply max-w-[440px];
+  @apply text-[16px];
+  @apply text-fe-muted;
+}
+.about-actions {
+  @apply flex;
+  @apply gap-[24px];
+  @apply items-center;
+  @apply flex-wrap;
+  @apply mt-[28px];
+}
+.about-editorial .fe-button {
+  padding:13px 20px;
+  @apply rounded-[8px];
+  @apply text-[13px];
+}
+.about-text-link {
+  @apply inline-flex;
+  @apply items-center;
+  @apply text-fe-primary;
+  @apply text-[13px];
+  @apply font-[650];
+  @apply no-underline;
+  @apply min-h-[44px];
+}
+.about-text-link:hover {
+  @apply underline;
+}
+.about-art {
+  @apply h-[420px];
+  @apply relative;
+  @apply overflow-hidden;
+  background:#dfe8f2;
+  border:1px solid #ccd7e5;
+  @apply rounded-[20px];
+  color:#20436c;
+  background-image:radial-gradient(circle at 52% 45%,#f7fbff 0,transparent 60%),linear-gradient(135deg,#e6edf4,#cedcec);
+}
+.about-art-top {
+  @apply flex;
+  @apply justify-between;
+  @apply p-[25px];
+  @apply text-[9px];
+  @apply tracking-[.16em];
+  @apply font-[650];
+}
+.about-orbit {
+  @apply absolute;
+  @apply w-[320px];
+  @apply h-[320px];
+  border:1px solid #9bb3cf80;
+  @apply rounded-[50%];
+  @apply left-[50%];
+  @apply top-[48%];
+  transform:translate(-50%,-50%);
+}
+.about-orbit-two {
+  @apply w-[230px];
+  @apply h-[230px];
+}
+.about-art-core {
+  @apply absolute;
+  @apply left-[50%];
+  @apply top-[48%];
+  transform:translate(-50%,-50%) rotate(-10deg);
+  @apply w-[124px];
+  @apply h-[140px];
+  @apply flex;
+  @apply items-center;
+  @apply justify-center;
+  background:#214f91;
+  color:#f5f8ff;
+  @apply rounded-[24px];
+  @apply text-[88px];
+  @apply font-semibold;
+  @apply tracking-[-8px];
+  box-shadow:12px 22px 40px #1e4fa32b,inset 0 1px 1px #ffffff60;
+}
+.about-art-core span {
+  @apply text-[32px];
+  align-self:flex-start;
+  @apply mt-[20px];
+  @apply tracking-[0];
+}
+.about-art-tag {
+  @apply absolute;
+  @apply flex;
+  @apply gap-[12px];
+  @apply items-center;
+  background:#fffffff2;
+  padding:13px 18px;
+  border:1px solid #c9d7e6;
+  @apply rounded-[9px];
+  @apply text-[12px];
+  box-shadow:0 8px 24px #2342670d;
+}
+.about-art-tag span {
+  @apply text-[10px];
+  color:#657d97;
+}
+.about-tag-one {
+  @apply top-[90px];
+  @apply left-[28px];
+  transform:rotate(-5deg);
+}
+.about-tag-two {
+  @apply top-[190px];
+  @apply right-[18px];
+  transform:rotate(5deg);
+}
+.about-tag-three {
+  @apply bottom-[82px];
+  @apply left-[40px];
+  transform:rotate(-3deg);
+}
+.about-art-caption {
+  @apply absolute;
+  @apply bottom-[12px];
+  @apply left-[25px];
+  @apply text-[11px];
+  @apply tracking-[.025em];
+}
+.about-approach {
+  border-top:1px solid var(--fe-border);
+  padding:52px 0;
+}
+.about-section-heading {
+  @apply grid;
+  grid-template-columns:1fr 1fr;
+  @apply gap-x-[60px];
+  align-items:end;
+}
+.about-section-heading .about-eyebrow {
+  grid-column:1/-1;
+  @apply mb-[18px];
+}
+.about-editorial h2 {
+  font-size:clamp(26px,3vw,38px);
+  @apply font-[550];
+  @apply tracking-[-.045em];
+  line-height:1.18;
+  @apply m-[0];
+}
+.about-section-heading>p:last-child {
+  @apply text-[14px];
+  @apply text-fe-muted;
+  @apply max-w-[420px];
+  @apply m-[0];
+}
+.about-steps {
+  @apply grid;
+  grid-template-columns:repeat(3,1fr);
+  @apply gap-[32px];
+  @apply mt-[40px];
+}
+.about-step {
+  border-top:1px solid var(--fe-border);
+  @apply pt-[24px];
+}
+.about-step-number {
+  @apply text-[10px];
+  @apply font-[650];
+  @apply tracking-[.12em];
+  @apply text-fe-primary;
+}
+.about-editorial h3 {
+  @apply text-[18px];
+  @apply tracking-[-.025em];
+  @apply font-semibold;
+  margin:18px 0 10px;
+}
+.about-step p,.about-bottom-grid p:not(.about-eyebrow) {
+  @apply text-[14px];
+  @apply text-fe-muted;
+  @apply m-[0];
+}
+.about-bottom-grid {
+  @apply grid;
+  grid-template-columns:1.1fr 1fr;
+  @apply gap-[24px];
+}
+.about-api,.about-transparency {
+  @apply p-[36px];
+  @apply rounded-[16px];
+  @apply relative;
+}
+.about-api {
+  background:var(--fe-tint);
+  border:1px solid var(--fe-border);
+}
+.about-api h2 {
+  margin:46px 0 20px;
+}
+.about-code-mark {
+  @apply absolute;
+  @apply right-[32px];
+  @apply top-[28px];
+  font-family:monospace;
+  @apply text-[28px];
+  @apply text-fe-primary;
+}
+.about-transparency {
+  border:1px solid var(--fe-border);
+  background:var(--fe-surface);
+}
+.about-transparency h2 {
+  @apply mb-[20px];
+}
+.about-transparency>p:not(.about-eyebrow)+p {
+  @apply mt-[12px];
+}
+.about-help {
+  @apply mt-[24px];
+  @apply pt-[4px];
+  border-top:1px solid var(--fe-border);
+}
+.about-help .about-text-link {
+  @apply mr-[24px];
+}
+.about-editorial a:focus-visible {
+  outline:2px solid var(--fe-primary);
+  outline-offset:5px;
+}
+@media(min-width:1600px) {
+  .about-hero {
+    @apply gap-[80px];
+  }
+}
+@media(max-width:900px) {
+  .about-editorial {
+    padding:32px 24px 48px;
+  }
+  .about-hero {
+    @apply gap-[28px];
+  }
+  .about-art {
+    @apply h-[370px];
+  }
+  .about-intro h1 {
+    @apply text-[46px];
+  }
+  .about-art-tag {
+    padding:10px 12px;
+  }
+  .about-tag-one {
+    @apply left-[12px];
+  }
+  .about-tag-three {
+    @apply left-[20px];
+  }
+  .about-bottom-grid {
+    grid-template-columns:1fr 1fr;
+  }
+  .about-api,.about-transparency {
+    @apply p-[26px];
+  }
+}
+@media(max-width:680px) {
+  .about-editorial {
+    padding:24px 20px 40px;
+  }
+  .about-hero {
+    grid-template-columns:1fr;
+    padding:12px 0 36px;
+  }
+  .about-intro h1 {
+    @apply text-[48px];
+  }
+  .about-art {
+    @apply h-[340px];
+    @apply mt-[12px];
+  }
+  .about-orbit-one {
+    @apply w-[280px];
+    @apply h-[280px];
+  }
+  .about-tag-one {
+    @apply top-[62px];
+    @apply left-[28px];
+  }
+  .about-tag-two {
+    @apply top-[151px];
+    @apply right-[22px];
+  }
+  .about-tag-three {
+    @apply bottom-[62px];
+    @apply left-[35px];
+  }
+  .about-section-heading,.about-steps,.about-bottom-grid {
+    grid-template-columns:1fr;
+  }
+  .about-section-heading {
+    @apply gap-[18px];
+  }
+  .about-section-heading .about-eyebrow {
+    @apply m-[0];
+  }
+  .about-approach {
+    padding:32px 0;
+  }
+  .about-steps {
+    @apply gap-[20px];
+    @apply mt-[28px];
+  }
+  .about-step {
+    @apply pt-[20px];
+  }
+  .about-actions {
+    @apply gap-[18px];
+  }
+  .about-api h2 {
+    @apply mt-[36px];
+  }
+}

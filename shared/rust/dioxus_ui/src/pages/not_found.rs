@@ -33,8 +33,8 @@ fn NotFoundBody(navigation: Option<EventHandler<String>>) -> Element {
             }
             NotFoundIllustration {}
             div { class: "not-found-actions",
-                a { class: "btn btn-primary btn-lg", href: "/", onclick: move |event| { if crate::fullstack::shell::migrated_link("/") { crate::fullstack::analytics::follow_link(event, navigation, "/"); } }, "Back to home" }
-                a { class: "btn btn-outline btn-lg", href: "/contact", onclick: move |event| { if crate::fullstack::shell::migrated_link("/contact") { crate::fullstack::analytics::follow_link(event, navigation, "/contact"); } }, "Contact support" }
+                crate::navigation::AppLink { class: "btn btn-primary btn-lg", href: "/", onclick: move |event| { if crate::fullstack::shell::migrated_link("/") { crate::fullstack::analytics::follow_link(event, navigation, "/"); } }, "Back to home" }
+                crate::navigation::AppLink { class: "btn btn-outline btn-lg", href: "/contact", onclick: move |event| { if crate::fullstack::shell::migrated_link("/contact") { crate::fullstack::analytics::follow_link(event, navigation, "/contact"); } }, "Contact support" }
             }
             NotFoundDestinations { navigation: navigation.map(|value| value.0) }
         }
@@ -76,7 +76,7 @@ fn NotFoundIllustration() -> Element {
     }
 }
 
-/// 4 quick links so a 404 isn't a dead end. The design doc only
+/// Quick links so a 404 isn't a dead end. The design doc only
 /// requires the "Go home" button, but the page is far more useful
 /// with a small "where would you like to go?" panel.
 #[component]
@@ -86,19 +86,15 @@ fn NotFoundDestinations(navigation: Option<EventHandler<String>>) -> Element {
         div { class: "not-found-destinations",
             h2 { class: "not-found-destinations-title", "Popular destinations" }
             div { class: "not-found-destinations-grid",
-                a { class: "not-found-destination card card-glass fe-surface", href: "/", onclick: move |event| { if crate::fullstack::shell::migrated_link("/") { crate::fullstack::analytics::follow_link(event, navigation, "/"); } },
+                crate::navigation::AppLink { class: "not-found-destination card card-glass fe-surface", href: "/", onclick: move |event| { if crate::fullstack::shell::migrated_link("/") { crate::fullstack::analytics::follow_link(event, navigation, "/"); } },
                     Icon { name: "home".to_string(), size: Some(20), class_name: Some("text-primary".to_string()) }
                     span { "Home" }
                 }
-                a { class: "not-found-destination card card-glass fe-surface", href: "/developer/docs", onclick: move |event| { if crate::fullstack::shell::migrated_link("/developer/docs") { crate::fullstack::analytics::follow_link(event, navigation, "/developer/docs"); } },
-                    Icon { name: "book".to_string(), size: Some(20), class_name: Some("text-primary".to_string()) }
-                    span { "API documentation" }
-                }
-                a { class: "not-found-destination card card-glass fe-surface", href: "/plans", onclick: move |event| { if crate::fullstack::shell::migrated_link("/plans") { crate::fullstack::analytics::follow_link(event, navigation, "/plans"); } },
+                crate::navigation::AppLink { class: "not-found-destination card card-glass fe-surface", href: "/plans", onclick: move |event| { if crate::fullstack::shell::migrated_link("/plans") { crate::fullstack::analytics::follow_link(event, navigation, "/plans"); } },
                     Icon { name: "zap".to_string(), size: Some(20), class_name: Some("text-primary".to_string()) }
                     span { "Plans" }
                 }
-                a { class: "not-found-destination card card-glass fe-surface", href: "/contact", onclick: move |event| { if crate::fullstack::shell::migrated_link("/contact") { crate::fullstack::analytics::follow_link(event, navigation, "/contact"); } },
+                crate::navigation::AppLink { class: "not-found-destination card card-glass fe-surface", href: "/contact", onclick: move |event| { if crate::fullstack::shell::migrated_link("/contact") { crate::fullstack::analytics::follow_link(event, navigation, "/contact"); } },
                     Icon { name: "mail".to_string(), size: Some(20), class_name: Some("text-primary".to_string()) }
                     span { "Contact" }
                 }

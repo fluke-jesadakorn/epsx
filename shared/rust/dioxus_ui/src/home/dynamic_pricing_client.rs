@@ -105,7 +105,7 @@ pub fn PricingCard(plan: PricingGroup) -> Element {
                     }
                 }
             }
-            a { class: "dynamic-pricing-card-cta mt-6 w-full inline-flex items-center justify-center px-4 py-2 bg-orange-500 text-white rounded-lg font-bold hover:bg-orange-600",
+            crate::navigation::AppLink { class: "dynamic-pricing-card-cta mt-6 w-full inline-flex items-center justify-center px-4 py-2 bg-orange-500 text-white rounded-lg font-bold hover:bg-orange-600",
                 href: plan.button_href.clone(),
                 "{plan.button_text}"
             }

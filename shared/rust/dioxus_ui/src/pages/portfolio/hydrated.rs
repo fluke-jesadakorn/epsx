@@ -85,7 +85,7 @@ pub fn WatchButton(
                 }pending.set(false);});},
             if heart { span { aria_hidden: "true", if saved() { "♥" } else { "♡" } } } else { Icon{name:"bookmark".to_string(),size:Some(17)}span{"{label}"} }
         }
-        if !error().is_empty(){span{role:"status",class:"text-xs fe-tone-danger","{error}"}}
+        if !error().is_empty(){span{role:"status",class:"text-xs fe-tone-danger",crate::fullstack::load_error::SessionMessage{message:error()}}}
     }
 }
 
@@ -208,6 +208,11 @@ pub(super) struct PortfolioControls {
     pub dragged: Signal<Option<Dragged>>,
     pub keyboard: EventHandler<(Dragged, Key)>,
 }
+
+fn requires_sign_in(error: Option<&LoadError>) -> bool {
+    matches!(error, Some(LoadError::Unauthenticated))
+}
+
 #[component]
 pub fn HydratedPortfolio() -> Element {
     let initial = use_server_future(|| async {
@@ -358,13 +363,19 @@ pub fn HydratedPortfolio() -> Element {
         dragged,
         keyboard,
     });
+    let current_error = error();
+    let signed_out = requires_sign_in(current_error.as_ref());
     rsx! {
         document::Title{"Saved companies — EPSX"}document::Meta{name:"description",content:"Organize and sync your saved companies."}
         div{class:"fe-saved-page portfolio-prod-container",aria_busy:pending(),
-            PortfolioHeader { freshness: if layout().is_some() { "ready" } else { "unavailable" }, watched_count: layout().map(|value|value.watched).unwrap_or_default() }
-            if !announcement().is_empty(){p{role:"status",aria_live:"polite","{announcement}"}}
-            if let Some(failure)=error(){p{role:"status","{failure.message()}"}button{class:"btn btn-outline",disabled:pending(),onclick:move |_|{pending.set(true);spawn(async move{match read_watchlist().await.unwrap_or(Err(LoadError::Unavailable)){Ok(value)=>{layout.set(Some(value));error.set(None);},Err(failure)=>error.set(Some(failure))}pending.set(false);});},"Try again"}}
-            if let Some(layout)=layout(){PortfolioWatchlist{layout}}
+            PortfolioHeader { freshness: if layout().is_some() { "ready" } else if signed_out { "signed_out" } else { "unavailable" }, watched_count: layout().map(|value|value.watched).unwrap_or_default() }
+            if signed_out {
+                PortfolioSignInCard {}
+            } else {
+                if !announcement().is_empty(){p{role:"status",aria_live:"polite","{announcement}"}}
+                if let Some(failure)=error(){crate::fullstack::load_error::LoadErrorNotice { error: failure.clone(), button{class:"btn btn-outline",disabled:pending(),onclick:move |_|{pending.set(true);spawn(async move{match read_watchlist().await.unwrap_or(Err(LoadError::Unavailable)){Ok(value)=>{layout.set(Some(value));error.set(None);},Err(failure)=>error.set(Some(failure))}pending.set(false);});},"Try again"} }}
+                if let Some(layout)=layout(){PortfolioWatchlist{layout}}
+            }
         }
     }
 }
@@ -393,6 +404,13 @@ pub type WatchlistMutationProviderCallback = std::sync::Arc<
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn unauthenticated_watchlist_load_uses_the_sign_in_state() {
+        assert!(requires_sign_in(Some(&LoadError::Unauthenticated)));
+        assert!(!requires_sign_in(Some(&LoadError::Unavailable)));
+        assert!(!requires_sign_in(None));
+    }
+
     #[test]
     fn removing_last_membership_preserves_saved_company() {
         let id = Uuid::nil();

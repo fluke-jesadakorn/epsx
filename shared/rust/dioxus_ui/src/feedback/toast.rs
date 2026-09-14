@@ -124,7 +124,7 @@ pub fn ToastItemView(item: ToastItem) -> Element {
                 }
             }
             if let (Some(lbl), Some(href)) = (&item.action_label, &item.action_href) {
-                a { class: "toast-action", href: "{href}", "{lbl}" }
+                crate::navigation::AppLink { class: "toast-action", href: "{href}", "{lbl}" }
             }
             button { class: "toast-close", "aria-label": "Dismiss",
                 onclick: move |_| dismiss_toast(id),

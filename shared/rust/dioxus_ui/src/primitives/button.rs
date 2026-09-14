@@ -101,7 +101,7 @@ pub fn Button(
 
     if let Some(url) = href {
         rsx! {
-            a { class: "{cls}", href: "{url}", id: id.clone(),
+            crate::navigation::AppLink { class: "{cls}", href: "{url}", id: id.clone(),
                 if let Some(i) = &left_icon {
                     Icon { name: i.clone(), size: Some(16) }
                 }
@@ -116,7 +116,7 @@ pub fn Button(
         let tag = r#as.as_deref().unwrap_or("button");
         if tag == "a" {
             rsx! {
-                a { class: "{cls}", id: id.clone(),
+                crate::navigation::AppLink { class: "{cls}", id: id.clone(),
                     onclick: move |e| if let Some(h) = &onclick { h.call(e); },
                     if let Some(i) = &left_icon {
                         Icon { name: i.clone(), size: Some(16) }

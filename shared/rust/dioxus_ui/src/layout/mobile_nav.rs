@@ -128,7 +128,7 @@ pub fn MobileNav(
                     div { class: "my-3 border-t border-slate-100 dark:border-slate-800" }
                     // Notifications link (only when authed)
                     if is_authenticated {
-                        a {
+                        crate::navigation::AppLink {
                             class: "flex items-center gap-2.5 px-3 py-2.5 rounded-md text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800 transition-colors",
                             href: "/notifications",
                             onclick: move |_| open.set(false),
@@ -227,7 +227,7 @@ pub fn MobileGroupAccordion(
                                 "flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-slate-500 hover:text-slate-900 hover:bg-slate-50 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800"
                             };
                             rsx! {
-                                a {
+                                crate::navigation::AppLink {
                                     key: "{item_key}",
                                     class: "{cls}",
                                     href: "{item_href}",

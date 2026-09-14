@@ -280,6 +280,14 @@ pub fn application(state: AppState) -> Router {
         )
         .route("/plans", axum::routing::get(FullstackState::render_handler))
         .route(
+            "/developer",
+            axum::routing::get(FullstackState::render_handler),
+        )
+        .route(
+            "/developer/usage",
+            axum::routing::get(FullstackState::render_handler),
+        )
+        .route(
             "/developer/docs",
             axum::routing::get(FullstackState::render_handler),
         )
@@ -312,8 +320,6 @@ pub fn application(state: AppState) -> Router {
                 .route("/chat/history", axum::routing::get(private_page))
                 .route("/chat/{id}", axum::routing::get(private_page))
                 .route("/portfolio", axum::routing::get(private_page))
-                .route("/developer", axum::routing::get(private_page))
-                .route("/developer/usage", axum::routing::get(private_page))
                 .route("/payment", axum::routing::get(private_page))
                 .route("/payment/{ptype}/{id}", axum::routing::get(private_page))
                 .route("/notifications", axum::routing::get(private_page))

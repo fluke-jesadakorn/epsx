@@ -116,34 +116,25 @@ pub async fn command_wallet(command: Command) -> Result<Result<(), LoadError>, S
 }
 #[component]
 pub fn CoreWallets(address: Option<String>, query: String) -> Element {
-    let initial_address = address.clone();
-    let initial_query = query.clone();
-    let initial =
-        use_server_future(move || read_wallets(initial_address.clone(), initial_query.clone()))?;
-    let mut data = use_signal(|| {
-        initial
-            .read()
-            .clone()
-            .and_then(Result::ok)
-            .unwrap_or(Err(LoadError::Unavailable))
-    });
+    // Route props are not signals: explicitly subscribe so query-only navigation
+    // cancels the previous request and reads the selected page.
+    let mut initial =
+        use_server_future(use_reactive!(|address, query| read_wallets(address, query)))?;
+    let data = initial
+        .read()
+        .clone()
+        .and_then(Result::ok)
+        .unwrap_or(Err(LoadError::Unavailable));
     let mut pending = use_signal(|| false);
     let mut result = use_signal(|| None::<Result<(), LoadError>>);
-    let command_query = query.clone();
     let execute = use_callback(move |command: Command| {
-        let address = address.clone();
-        let query = command_query.clone();
         spawn(async move {
             pending.set(true);
             let outcome = command_wallet(command)
                 .await
                 .unwrap_or(Err(LoadError::Unavailable));
             if outcome.is_ok() {
-                data.set(
-                    read_wallets(address, query)
-                        .await
-                        .unwrap_or(Err(LoadError::Unavailable)),
-                );
+                initial.restart();
             }
             result.set(Some(outcome));
             pending.set(false);
@@ -165,11 +156,11 @@ pub fn CoreWallets(address: Option<String>, query: String) -> Element {
             if let Some(outcome) = result() {
                 match outcome {
                     Ok(()) => rsx! { p { role: "status", "Saved." } },
-                    Err(e) => rsx! { p { role: "alert", "{e.message()}" } },
+                    Err(e) => rsx! { crate::fullstack::load_error::LoadErrorNotice { error: e.clone(),  } },
                 }
             }
-            match data() {
-                Err(e) => rsx! { p { role: "alert", "{e.message()}" } },
+            match data {
+                Err(e) => rsx! { crate::fullstack::load_error::LoadErrorNotice { error: e.clone(),  } },
                 Ok(Data::List(list)) => rsx! { WalletRows { list, query: query.clone() } },
                 Ok(Data::Detail { detail, assignments, plans }) => rsx! {
                     WalletDetails { detail, assignments, plans, pending: pending(), execute }
@@ -180,19 +171,24 @@ pub fn CoreWallets(address: Option<String>, query: String) -> Element {
 }
 #[component]
 fn WalletRows(list: WalletList, query: String) -> Element {
+    let filter = crate::pages::admin_pages::wallet_wallets::AdminWalletListQuery::from_raw(&query)
+        .unwrap_or_default();
+    let status = filter.status.as_deref().unwrap_or("all").to_owned();
     let nav = use_navigator();
     rsx! {
         form { class: "flex flex-wrap gap-3", onsubmit: move |event| {
             event.prevent_default();
             let mut serializer = url::form_urlencoded::Serializer::new(String::new());
-            for key in ["search", "status"] { serializer.append_pair(key, &event.values().iter().find(|(k, _)| k == key).and_then(|(_, v)| match v { dioxus::html::FormValue::Text(s) => Some(s.clone()), _ => None }).unwrap_or_default()); }
+            serializer.append_pair("page", "1");
+            for key in ["search", "status", "limit"] { serializer.append_pair(key, &event.values().iter().find(|(k, _)| k == key).and_then(|(_, v)| match v { dioxus::html::FormValue::Text(s) => Some(s.clone()), _ => None }).unwrap_or_default()); }
             nav.push(format!("/wallet-management/wallets?{}", serializer.finish()));
         },
-            input { name: "search", placeholder: "Search wallet address", maxlength: 42, class: "input input-bordered" }
-            select { name: "status", class: "select select-bordered",
-                option { value: "all", "All statuses" }
-                option { value: "active", "Active" }
-                option { value: "disabled", "Disabled" }
+            input { r#type: "hidden", name: "limit", value: "{list.pagination.limit}" }
+            input { name: "search", value: filter.search.unwrap_or_default(), placeholder: "Search wallet address", maxlength: 42, class: "input input-bordered" }
+            select { name: "status", value: status.clone(), class: "select select-bordered",
+                option { value: "all", selected: status == "all", "All statuses" }
+                option { value: "active", selected: status == "active", "Active" }
+                option { value: "disabled", selected: status == "disabled", "Disabled" }
             }
             button { r#type: "submit", class: "btn btn-outline", "Search" }
         }
@@ -246,7 +242,7 @@ fn WalletDetails(
         }
         h2 { class: "text-xl font-semibold", "Plan assignments" }
         match assignments {
-            Err(e) => rsx! { p { role: "alert", "{e.message()}" } },
+            Err(e) => rsx! { crate::fullstack::load_error::LoadErrorNotice { error: e.clone(),  } },
             Ok(items) => rsx! {
                 if items.is_empty() { p { "No plan assignments." } }
                 for row in items {

@@ -4582,6 +4582,7 @@ dependencies = [
  "dioxus-server",
  "dioxus-ssr",
  "epsx-templates",
+ "futures",
  "http 1.4.2",
  "pulldown-cmark",
  "qrcode",

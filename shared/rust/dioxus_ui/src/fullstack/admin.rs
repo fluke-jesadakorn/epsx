@@ -100,9 +100,9 @@ pub fn HydratedAdminAnalytics(query: ReadSignal<String>) -> Element {
         section { "data-dioxus-analytics": "true", aria_busy: pending(),
             if pending() { p { role: "status", class: "fe-purchase-note", "Updating results…" } }
             if let Some(failure) = error() {
-                div { role: "status", class: "fe-purchase-note",
-                    p { "{failure.message()}" }
-                    button { r#type: "button", class: "fe-button", onclick: move |_| { let value = *retry.peek() + 1; retry.set(value); }, "Try again" }
+                div {
+                    crate::fullstack::load_error::LoadErrorNotice { error: failure.clone(),
+                    button { r#type: "button", class: "fe-button", onclick: move |_| { let value = *retry.peek() + 1; retry.set(value); }, "Try again" } }
                 }
             }
             if let Some(snapshot) = data() {
@@ -115,7 +115,7 @@ pub fn HydratedAdminAnalytics(query: ReadSignal<String>) -> Element {
                         watchlist: snapshot.watchlist.clone().ok().flatten(),
                         watchlist_state: (if !snapshot.signed_in { "signed_out" } else if snapshot.watchlist.is_ok() { "ready" } else { "unavailable" }).to_string(),
                     } },
-                    Err(failure) => rsx! { p { role: "status", "{failure.message()}" } },
+                    Err(failure) => rsx! { crate::fullstack::load_error::LoadErrorNotice { error: failure.clone(),  } },
                 }
             }
         }
@@ -132,7 +132,11 @@ pub fn AdminAnalyticsShell(
     #[props(default = "Analytics".to_string())] title: String,
     children: Element,
 ) -> Element {
+    if try_use_context::<crate::navigation::AdminShellOwned>().is_some() {
+        return rsx! { document::Title { "{title} | EPSX Admin" } {children} };
+    }
     let navigator = use_navigator();
+    let nav_path = use_route::<crate::routes::AdminRoute>().to_string();
     let existing = try_consume_context::<AdminNavigation>();
     let navigate = use_callback(move |url: String| {
         navigator.push(url);
@@ -142,47 +146,77 @@ pub fn AdminAnalyticsShell(
     let mut dark = try_consume_context::<AdminTheme>()
         .map(|v| v.0)
         .unwrap_or(fallback_dark);
-    let mut drawer = use_signal(|| false);
     let mut account = use_signal(|| false);
     rsx! {
         document::Title { "{title} | EPSX Admin" }
         document::Meta { name: "description", content: "EPSX administrator analytics workspace" }
         document::Link { rel: "stylesheet", href: "/public/dist/tailwind.css" }
         document::Link { rel: "stylesheet", href: "/_ui/admin.css" }
-        div { onmounted: move |_| {spawn(async move {if let Ok(value)=document::eval("let theme=true; try {theme=localStorage.getItem('epsx-theme')!=='light';} catch (_) {} dioxus.send(theme);").recv::<bool>().await {dark.set(value);}});}, class: if dark() { "dark admin-app-shell flex h-screen w-full overflow-hidden bg-background text-foreground" } else { "admin-app-shell flex h-screen w-full overflow-hidden bg-background text-foreground" },
-            div { class: if drawer() { "fixed inset-y-0 left-0 z-50 md:static" } else { "hidden md:block" },
-                crate::layout::sidebar::AdminSidebar { current_path: current_path.clone(), is_authenticated: authenticated }
-            }
-            if drawer() {
-                button { class: "fixed inset-0 z-40 bg-black/50 md:hidden", aria_label: "Close navigation", onclick: move |_| drawer.set(false) }
-            }
-            div { class: "flex flex-1 flex-col h-full min-w-0 overflow-hidden",
-                header { class: "sticky top-0 z-30 border-b border-border/40 bg-card admin-header admin-header-chrome",
-                    div { class: "flex h-16 w-full items-center justify-between px-6 gap-3",
-                        div { class: "flex items-center gap-2",
-                            button { class: "btn btn-ghost btn-icon md:hidden", aria_label: "Toggle navigation", onclick: move |_| drawer.toggle(), crate::primitives::Icon { name: "menu", size: 18 } }
-                            crate::layout::Breadcrumb { current_path: current_path.clone() }
-                        }
+        div { onmounted: move |_| {spawn(async move {if let Ok(value)=document::eval("let theme=true; try {theme=localStorage.getItem('epsx-theme')!=='light';} catch (_) {} dioxus.send(theme);").recv::<bool>().await {dark.set(value);}});}, class: if dark() { "dark admin-app-shell flex flex-col min-h-screen w-full bg-background text-foreground" } else { "admin-app-shell flex flex-col min-h-screen w-full bg-background text-foreground" },
+            crate::layout::site_navbar::SiteNavbar {
+                groups: admin_nav_groups(authenticated),
+                path: nav_path,
+                brand_label: "EPSX Admin",
+                on_navigate: move |(event, href): (MouseEvent, String)| follow_admin_link(event, Some(AdminNavigation(navigate)), &href),
+                actions: rsx! {
                         div { class: "flex items-center gap-3",
-                            a { class: "btn btn-ghost btn-icon", href: "/notifications/manage", onclick: move |event| follow_admin_link(event,Some(AdminNavigation(navigate)),"/notifications/manage"), aria_label: "Notifications", crate::primitives::Icon { name: "bell", size: 18 } }
+                            crate::navigation::AppLink { class: "btn btn-ghost btn-icon", href: "/notifications/manage", onclick: move |event| follow_admin_link(event,Some(AdminNavigation(navigate)),"/notifications/manage"), aria_label: "Notifications", crate::primitives::Icon { name: "bell", size: 18 } }
                             button { class: "btn btn-ghost btn-icon", aria_label: "Toggle theme", onclick: move |_| {dark.toggle();let value=dark();spawn(async move {let _=document::eval(if value {"try {localStorage.setItem('epsx-theme','dark')} catch (_) {}"}else{"try {localStorage.setItem('epsx-theme','light')} catch (_) {}"});});}, crate::primitives::Icon { name: if dark() { "sun" } else { "moon" }, size: 18 } }
                             div { class: "relative",
                                 button { class: "btn btn-ghost", aria_expanded: account(), onclick: move |_| account.toggle(), "Your account" }
                                 if account() {
                                     div { class: "absolute right-0 mt-2 rounded-xl border border-border bg-card p-3 shadow-xl z-50",
-                                        a { class: "block p-2", href: "/settings", onclick: move |event| follow_admin_link(event,Some(AdminNavigation(navigate)),"/settings"), "Settings" }
+                                        crate::navigation::AppLink { class: "block p-2", href: "/settings", onclick: move |event| follow_admin_link(event,Some(AdminNavigation(navigate)),"/settings"), "Settings" }
                                         super::admin_auth::AdminLogoutButton { class: "block p-2" }
                                     }
                                 }
                             }
                         }
-                    }
-                }
-                main { id: "epsx-main-content", class: "flex-1 overflow-y-auto overflow-x-hidden", {children} }
+                },
+            }
+            div { class: "px-6 pt-6", crate::layout::Breadcrumb { current_path: current_path.clone() } }
+            div { class: "flex flex-1 flex-col min-w-0",
+                main { id: "epsx-main-content", class: "flex-1 min-w-0", {children} }
                 crate::layout::footer::AdminFooter {}
             }
         }
     }
+}
+
+fn admin_nav_groups(authenticated: bool) -> Vec<crate::layout::site_navbar::SiteNavGroup> {
+    use crate::layout::site_navbar::{SiteNavGroup, SiteNavItem};
+    let mut groups = vec![
+        SiteNavGroup::new("Workspace", vec![]),
+        SiteNavGroup::new("Manage", vec![]),
+        SiteNavGroup::new("System", vec![]),
+    ];
+    for parent in crate::layout::sidebar::default_nav_items() {
+        let index = match parent.id.as_str() {
+            "dashboard" | "analytics" | "chat" | "news" | "media" => 0,
+            "developer" | "notifications" | "settings" | "audit-log" => 2,
+            _ => 1,
+        };
+        let locked = parent.disabled || (parent.requires_auth && !authenticated);
+        let prefix = parent.label.clone();
+        let nested = parent.children.is_some();
+        for item in parent.children.clone().unwrap_or_else(|| vec![parent]) {
+            let href = match item.tab {
+                Some(tab) => format!("{}?tab={tab}", item.href),
+                None => item.href,
+            };
+            groups[index].items.push(SiteNavItem {
+                href,
+                icon: item.icon,
+                label: if nested {
+                    format!("{prefix} · {}", item.label)
+                } else {
+                    item.label
+                },
+                disabled: locked || item.disabled || (item.requires_auth && !authenticated),
+            });
+        }
+    }
+    groups
 }
 
 #[derive(Clone, Copy)]
@@ -193,7 +227,9 @@ pub struct AdminNavigation(pub EventHandler<String>);
 
 pub fn follow_admin_link(event: MouseEvent, navigation: Option<AdminNavigation>, url: &str) {
     if let Some(navigation) = navigation {
-        if event.modifiers().is_empty() {
+        if event.modifiers().is_empty()
+            && event.trigger_button() == Some(dioxus::html::input_data::MouseButton::Primary)
+        {
             event.prevent_default();
             navigation.0.call(url.to_string());
         }
@@ -317,9 +353,9 @@ pub fn HydratedAdminAudit(query: ReadSignal<String>) -> Element {
         AdminAnalyticsShell { authenticated: data().is_ok(), current_path: "/audit-log", title: "Audit log",
             section { aria_busy: pending(),
                 if pending() { p { role: "status", "Updating audit records…" } }
-                if let Some(failure) = error() {
-                    div { role: "status", p { "{failure.message()}" }
-                        button { class: "btn btn-primary", onclick: move |_| { let next = *retry.peek() + 1; retry.set(next); }, "Try again" }
+                if let Some(failure) = error().filter(|_| data().is_ok()) {
+                    div { role: "status", crate::fullstack::load_error::LoadErrorNotice { error: failure.clone(),
+                        button { class: "btn btn-primary", onclick: move |_| { let next = *retry.peek() + 1; retry.set(next); }, "Try again" } }
                     }
                 }
                 crate::pages::admin_pages::audit_log::HydratedAuditBody { data: data(), category: location.category, cursor: location.cursor }
@@ -388,7 +424,7 @@ pub fn HydratedAdminDashboard() -> Element {
                 }, if pending() { "Refreshing…" } else { "Refresh dashboard" } }
                 match data() {
                     Ok(snapshot) => rsx! { crate::pages::admin_pages::dashboard::HydratedDashboardBody { data: snapshot } },
-                    Err(failure) => rsx! { div { class: "p-6", role: "status", p { "{failure.message()}" } a { class: "btn btn-primary", href: "/auth", "Sign in" } } },
+                    Err(failure) => rsx! { div { class: "p-6", role: "status", crate::fullstack::load_error::LoadErrorNotice { error: failure.clone(),  } } },
                 }
             }
         }

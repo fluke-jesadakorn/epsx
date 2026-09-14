@@ -162,7 +162,32 @@ guarantee; readiness remains unavailable until replay catches up.
 
 ### Frontend development through dev.epsx.io
 
+For backend changes, run `python3 infrastructure/native/dev-control.py watch epsx`.
+The existing dev backend LaunchAgent then runs this checkout with Cargo Watch
+on port 8080, loading the existing dev configuration and signing keys. Rust
+changes compile and restart automatically; no release package or tunnel change
+is needed. The frontend HMR process continues on port 3000. Rust still requires
+compilation, and requests may briefly fail during a rebuild. Restore the packaged
+backend with `dev-control.py install epsx` followed by `dev-control.py restart epsx`.
+
 #### Default: workspace UI hot reload
+
+`python3 infrastructure/native/dev-control.py realtime bff-frontend` (or `ui`)
+starts the realtime UI mode. `hmr` is an alias for the same mode. DX keeps its
+file watcher and RSX/asset hot reload enabled, with **automatic Rust rebuilds
+disabled** using DX 0.7's `p` control. Text and layout edits that DX can hot reload
+are applied without recompiling. Changes that require compilation are reported
+as `Ignoring full rebuild` in the UI log; they do not silently launch Cargo.
+Rust logic and new dynamic expressions still require compilation. After those changes, explicitly run
+`python3 infrastructure/native/dev-control.py rebuild bff-frontend`.
+
+Starting DX still prepares an initial client/server build (reusing Cargo's
+existing artifacts). This mode eliminates automatic rebuilds during editing;
+it does not interpret Rust. To inspect the switch, run
+`python3 infrastructure/native/dev-ui-realtime.py bff-frontend status` and check
+`automatic_rebuilds: false`. The private control socket accepts only status and
+an explicit rebuild. It is not exposed through the tunnel. Existing service-worker
+artifacts are reused on startup; service-worker Rust remains a separate build.
 
 Run `python3 infrastructure/native/dev-control.py hmr ui` to start Frontend,
 Admin and Pay with `dx serve --hot-reload true` through the existing dev domains
@@ -187,11 +212,31 @@ DX bundles remain separate under
 target, features and profile match; native and WASM artifacts are distinct.
 
 RSX edits can hot reload across shared UI crates. Rust logic/signature changes
-rebuild automatically; experimental Rust hot-patching is disabled. Tailwind
-is managed by DX for Frontend/Admin. Public files and CSS embedded with
-`include_str!` may require a rebuild in DX 0.7.9. Generated build directories
+require the explicit `rebuild` command; experimental Rust hot-patching is disabled. Tailwind
+is managed by DX for Frontend/Admin. The shared dev asset worker publishes CSS
+updates from each app’s public directory. Its dev-only browser loader swaps the
+stylesheet after it loads, without refreshing the page or rebuilding Rust. The
+loader is added only to generated debug bundles. Generated build directories
 are not watched. Do not run the older `--all-hmr` command alongside these jobs:
 it starts backend services as well and would conflict with occupied ports.
+
+#### Frontend Tailwind styles
+
+All Frontend routes load `/public/dist/tailwind.css`. Edit
+`apps/frontend/src/styles/index.css` and its imports under `components/`;
+DX’s native Tailwind watcher regenerates the public bundle and the dev asset
+worker updates the open page. No Node runtime or Rust rebuild is needed for CSS.
+Tailwind utilities can also be used directly in Dioxus `class:` attributes.
+
+Component selectors use `@apply` with the existing colors, dimensions, and
+responsive rules. `tokens.css` owns Frontend theme variables; `foundation.css`
+preserves shared legacy utilities used by its pages. Custom gradients, animation
+keyframes, and runtime chart dimensions remain CSS where appropriate. Frontend
+no longer injects these styles from Rust strings. Shared Admin/Pay components
+retain their own fallback styles. The old `/public/enterprise.css` URL redirects
+to Tailwind for compatibility; it is no longer a second editable stylesheet.
+Commit the generated public Tailwind bundle with source changes for native
+packaging. An initial build is needed when starting DX or changing Rust logic.
 
 Inspect `python3 infrastructure/native/dev-control.py status ui` and logs in
 `~/.config/epsx/dev/logs/{bff-frontend,bff-admin,bff-pay,ui-worker}.log`.

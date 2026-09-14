@@ -567,7 +567,7 @@ fn NewsListHeader() -> Element {
                 Icon { name: "newspaper".to_string(), size: Some(20), class_name: Some("text-[#1fc7d4]".to_string()) }
                 h1 { class: "text-xl font-bold text-foreground", "News Management" }
             }
-            a {
+            crate::navigation::AppLink {
                 class: "flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#7645d9] to-[#5a33b8] px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 sm:w-auto",
                 href: "/news/create", onclick: { let target = ("/news/create").to_string(); move |event| crate::fullstack::admin_news::follow(event, target.clone()) },
                 Icon { name: "plus".to_string(), size: Some(16) }
@@ -583,7 +583,7 @@ fn NewsStatusNavigation(active: String, total_count: Option<i64>) -> Element {
         div { class: "flex flex-wrap items-center gap-2",
             nav { class: "flex flex-wrap gap-2", aria_label: "Filter news by publication status",
                 for (status, label) in [("all", "All"), ("draft", "Draft"), ("published", "Published")] {
-                    a {
+                    crate::navigation::AppLink {
                         class: if active == status { "rounded-lg bg-[#7645d9] px-3 py-1.5 text-sm font-medium capitalize text-white shadow-lg shadow-[#7645d9]/20" } else { "rounded-lg border border-border/20 bg-card px-3 py-1.5 text-sm font-medium capitalize text-muted-foreground transition-colors hover:border-border/40 hover:text-foreground" },
                         href: (news_href(status, 1)).clone(), onclick: { let target = (news_href(status, 1)).to_string(); move |event| crate::fullstack::admin_news::follow(event, target.clone()) },
                         aria_current: if active == status { Some("page") } else { None },
@@ -619,7 +619,7 @@ fn NewsReady(projection: AdminNewsList, filters: NewsFilters) -> Element {
                 div { class: "rounded-2xl border border-border/20 bg-card p-10 text-center shadow-xl", role: "status",
                     h3 { class: "font-semibold text-foreground", "No articles on this page" }
                     p { class: "mt-2 text-sm text-muted-foreground", "The filtered inventory still contains records. Return to the first page or use Previous." }
-                    a { class: "btn btn-sm btn-outline mt-5", href: (filters.href(1)).clone(), onclick: { let target = (filters.href(1)).to_string(); move |event| crate::fullstack::admin_news::follow(event, target.clone()) }, "Return to first page" }
+                    crate::navigation::AppLink { class: "btn btn-sm btn-outline mt-5", href: (filters.href(1)).clone(), onclick: { let target = (filters.href(1)).to_string(); move |event| crate::fullstack::admin_news::follow(event, target.clone()) }, "Return to first page" }
                 }
             } else {
                 div { class: "space-y-3",
@@ -631,13 +631,13 @@ fn NewsReady(projection: AdminNewsList, filters: NewsFilters) -> Element {
             if total_pages > 1 {
                 nav { class: "flex items-center justify-center gap-2 pt-3", aria_label: "News pagination",
                     if has_previous {
-                        a { class: "rounded-lg border border-border/20 px-3 py-1.5 text-sm transition-colors hover:bg-muted/50", href: (filters.href(projection.page - 1)).clone(), onclick: { let target = (filters.href(projection.page - 1)).to_string(); move |event| crate::fullstack::admin_news::follow(event, target.clone()) }, rel: "prev", "Previous" }
+                        crate::navigation::AppLink { class: "rounded-lg border border-border/20 px-3 py-1.5 text-sm transition-colors hover:bg-muted/50", href: (filters.href(projection.page - 1)).clone(), onclick: { let target = (filters.href(projection.page - 1)).to_string(); move |event| crate::fullstack::admin_news::follow(event, target.clone()) }, rel: "prev", "Previous" }
                     } else {
                         span { class: "pointer-events-none rounded-lg border border-border/20 px-3 py-1.5 text-sm opacity-40", aria_disabled: "true", "Previous" }
                     }
                     span { class: "text-sm text-muted-foreground", "{projection.page} / {total_pages}" }
                     if has_next {
-                        a { class: "rounded-lg border border-border/20 px-3 py-1.5 text-sm transition-colors hover:bg-muted/50", href: (filters.href(projection.page + 1)).clone(), onclick: { let target = (filters.href(projection.page + 1)).to_string(); move |event| crate::fullstack::admin_news::follow(event, target.clone()) }, rel: "next", "Next" }
+                        crate::navigation::AppLink { class: "rounded-lg border border-border/20 px-3 py-1.5 text-sm transition-colors hover:bg-muted/50", href: (filters.href(projection.page + 1)).clone(), onclick: { let target = (filters.href(projection.page + 1)).to_string(); move |event| crate::fullstack::admin_news::follow(event, target.clone()) }, rel: "next", "Next" }
                     } else {
                         span { class: "pointer-events-none rounded-lg border border-border/20 px-3 py-1.5 text-sm opacity-40", aria_disabled: "true", "Next" }
                     }
@@ -728,7 +728,7 @@ fn NewsSummaryActions(article: AdminNewsArticleSummary) -> Element {
                 title: "Open the editor to change publication state with the complete versioned article contract",
                 Icon { name: if article.status == "published" { "eye-off".to_string() } else { "eye".to_string() }, size: Some(16) }
             }
-            a {
+            crate::navigation::AppLink {
                 class: "rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground",
                 href: (format!("/news/{}/edit", article.id)).clone(), onclick: { let target = (format!("/news/{}/edit", article.id)).to_string(); move |event| crate::fullstack::admin_news::follow(event, target.clone()) },
                 aria_label: "Edit article",
@@ -766,11 +766,11 @@ fn NewsEmpty(filters: NewsFilters) -> Element {
                 h2 { class: "font-semibold text-foreground", "No articles yet" }
                 p { class: "mt-1 text-sm text-muted-foreground", "Create your first article to get started." }
             }
-            a { class: "flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#7645d9] to-[#5a33b8] px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90", href: "/news/create", onclick: { let target = ("/news/create").to_string(); move |event| crate::fullstack::admin_news::follow(event, target.clone()) },
+            crate::navigation::AppLink { class: "flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#7645d9] to-[#5a33b8] px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90", href: "/news/create", onclick: { let target = ("/news/create").to_string(); move |event| crate::fullstack::admin_news::follow(event, target.clone()) },
                 Icon { name: "plus".to_string(), size: Some(16) }
                 "Create Article"
             }
-            a { class: "text-xs text-muted-foreground hover:text-foreground", href: (filters.href(1)).clone(), onclick: { let target = (filters.href(1)).to_string(); move |event| crate::fullstack::admin_news::follow(event, target.clone()) }, "Refresh articles" }
+            crate::navigation::AppLink { class: "text-xs text-muted-foreground hover:text-foreground", href: (filters.href(1)).clone(), onclick: { let target = (filters.href(1)).to_string(); move |event| crate::fullstack::admin_news::follow(event, target.clone()) }, "Refresh articles" }
         }
     }
 }
@@ -786,7 +786,7 @@ fn NewsUnavailableInventory() -> Element {
                 h2 { class: "font-semibold text-foreground", "No verified articles" }
                 p { class: "mt-1 text-sm text-muted-foreground", "The article list will appear here after an authoritative response." }
             }
-            a { class: "flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#7645d9] to-[#5a33b8] px-4 py-2 text-sm font-semibold text-white opacity-60", href: "/news/create", onclick: { let target = ("/news/create").to_string(); move |event| crate::fullstack::admin_news::follow(event, target.clone()) }, tabindex: "-1",
+            crate::navigation::AppLink { class: "flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#7645d9] to-[#5a33b8] px-4 py-2 text-sm font-semibold text-white opacity-60", href: "/news/create", onclick: { let target = ("/news/create").to_string(); move |event| crate::fullstack::admin_news::follow(event, target.clone()) }, tabindex: "-1",
                 Icon { name: "plus".to_string(), size: Some(16) }
                 "Create Article"
             }
@@ -806,7 +806,7 @@ fn NewsProblem(state: &'static str, title: String, detail: String, retry_href: S
                         p { class: "mt-1 max-w-3xl text-sm leading-6 text-muted-foreground", "{detail}" }
                     }
                 }
-                a { class: "btn btn-sm btn-outline shrink-0", href: (retry_href).clone(), onclick: { let target = (retry_href).to_string(); move |event| crate::fullstack::admin_news::follow(event, target.clone()) }, "Try again" }
+                crate::navigation::AppLink { class: "btn btn-sm btn-outline shrink-0", href: (retry_href).clone(), onclick: { let target = (retry_href).to_string(); move |event| crate::fullstack::admin_news::follow(event, target.clone()) }, "Try again" }
             }
         }
     }
@@ -952,7 +952,7 @@ pub(crate) fn NewsEditor(
                     div { class: "flex flex-wrap items-center justify-between gap-3 border-t border-border/20 pt-5",
                         p { class: "text-xs text-muted-foreground", "Saved through the versioned content BFF contract." }
                         div { class: "flex gap-3",
-                            a { class: "btn btn-outline", href: NEWS_PATH, onclick: { let target = (NEWS_PATH).to_string(); move |event| crate::fullstack::admin_news::follow(event, target.clone()) }, "Cancel" }
+                            crate::navigation::AppLink { class: "btn btn-outline", href: NEWS_PATH, onclick: { let target = (NEWS_PATH).to_string(); move |event| crate::fullstack::admin_news::follow(event, target.clone()) }, "Cancel" }
                             button { r#type: "submit", class: "btn btn-primary", "data-admin-news-submit": "bff", "{save_label}" }
                         }
                     }
@@ -993,7 +993,7 @@ fn NewsEditorToolbar(status: String, save_label: &'static str) -> Element {
     let status = draft.map(|d| (d.status)()).unwrap_or(status);
     rsx! {
         header { class: "sticky top-0 z-10 flex flex-col gap-3 border-b border-border/10 bg-background/80 py-3 backdrop-blur-md sm:flex-row sm:items-center sm:justify-between",
-            a { class: "flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground", href: NEWS_PATH, onclick: { let target = (NEWS_PATH).to_string(); move |event| crate::fullstack::admin_news::follow(event, target.clone()) },
+            crate::navigation::AppLink { class: "flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground", href: NEWS_PATH, onclick: { let target = (NEWS_PATH).to_string(); move |event| crate::fullstack::admin_news::follow(event, target.clone()) },
                 Icon { name: "arrow-left".to_string(), size: Some(16) }
                 "Back to News"
             }
@@ -1070,7 +1070,7 @@ fn NewsMutationNotice(state: &'static str, detail: String) -> Element {
             h2 { class: "text-lg font-semibold text-foreground", "Content mutation: {state}" }
             p { class: "mt-2 text-sm leading-6 text-muted-foreground", "{detail}" }
             if matches!(state, ADMIN_NEWS_MUTATION_CONFLICT | ADMIN_NEWS_MUTATION_UNAVAILABLE | ADMIN_NEWS_MUTATION_MALFORMED) {
-                a { class: "btn btn-sm btn-outline mt-4", href: NEWS_PATH, onclick: { let target = (NEWS_PATH).to_string(); move |event| crate::fullstack::admin_news::follow(event, target.clone()) }, "Return to news inventory" }
+                crate::navigation::AppLink { class: "btn btn-sm btn-outline mt-4", href: NEWS_PATH, onclick: { let target = (NEWS_PATH).to_string(); move |event| crate::fullstack::admin_news::follow(event, target.clone()) }, "Return to news inventory" }
             }
         }
     }

@@ -471,7 +471,7 @@ pub fn PageAuthRequired(
             if let Some(action) = extra_action {
                 {action}
             } else {
-                a {
+                crate::navigation::AppLink {
                     class: "px-10 py-5 bg-gradient-to-r from-[#7645d9] to-[#5a33b8] text-white rounded-xl font-bold text-xl shadow-lg hover:opacity-90 hover:scale-[1.02] active:scale-95 transition-all",
                     href: "/auth",
                     "Connect Wallet"

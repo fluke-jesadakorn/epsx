@@ -645,7 +645,7 @@ fn FrontendAccessNote(access: Option<AnalyticsAccessInfo>) -> Element {
                 } else { span { "Viewing: Ranks {access.min_accessible_rank}+" } }
                 if access.locked_ranks_count > 0 {
                     span { "Ranks 1-{access.locked_ranks_count} locked" }
-                    a { href: "/plans", onclick: move |event| crate::fullstack::analytics::follow_link(event, navigation, "/plans"), "Review plans" }
+                    crate::navigation::AppLink { href: "/plans", onclick: move |event| crate::fullstack::analytics::follow_link(event, navigation, "/plans"), "Review plans" }
                 }
             }
         }
@@ -745,7 +745,7 @@ fn AnalyticsAccessStatus(access: Option<AnalyticsAccessInfo>) -> Element {
                     }
                 }
                 if access.as_ref().is_some_and(|access| access.locked_ranks_count > 0) {
-                    a { class: "inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-pink-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-purple-900/20 sm:w-auto", href: "/plans", onclick: move |event| crate::fullstack::analytics::follow_link(event, navigation, "/plans"),
+                    crate::navigation::AppLink { class: "inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-pink-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-purple-900/20 sm:w-auto", href: "/plans", onclick: move |event| crate::fullstack::analytics::follow_link(event, navigation, "/plans"),
                         Icon { name: "rocket".to_string(), size: Some(16) }
                         "Review plans"
                     }
@@ -890,7 +890,7 @@ fn AnalyticsFilterForm(
                         }
                     }
                     if active_count > 0 || (enterprise && query.is_custom_view()) {
-                        a {
+                        crate::navigation::AppLink {
                             class: "inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-100 px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-gray-200 dark:border-white/[0.08] dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-700/60",
                             href: "{reset_url}",
                             onclick: move |event| crate::fullstack::analytics::follow_link(event, navigation, &reset_url),
@@ -906,7 +906,7 @@ fn AnalyticsFilterForm(
                     if query.is_custom_view() {
                         span { class: "fe-badge", "Custom view" }
                         span { "Your link’s custom conditions are applied." }
-                        a { href: query.default_ranking_url(authoritative_limit.max(1) as u32), onclick: { let target = query.default_ranking_url(authoritative_limit.max(1) as u32); move |event| crate::fullstack::analytics::follow_link(event, navigation, &target) }, "Use EPSX ranking" }
+                        crate::navigation::AppLink { href: query.default_ranking_url(authoritative_limit.max(1) as u32), onclick: { let target = query.default_ranking_url(authoritative_limit.max(1) as u32); move |event| crate::fullstack::analytics::follow_link(event, navigation, &target) }, "Use EPSX ranking" }
                     } else { span { "Order: EPSX ranking" } }
                     if let Some(country) = &query.country { span { class: "fe-filter-chip", "Country: {country}" } }
                     if let Some(sector) = &query.sector { span { class: "fe-filter-chip", "Sector: {sector}" } }
@@ -954,8 +954,7 @@ fn AnalyticsCardGrid(
         .unwrap_or_default();
     rsx! {
         section {
-            class: "analytics-card-grid grid gap-6",
-            style: "grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 24px;",
+            class: "analytics-card-grid grid grid-cols-[repeat(auto-fit,minmax(min(100%,300px),1fr))]! gap-[24px]!",
             "data-section": "analytics-card-grid",
             "aria-label": "EPS growth rankings",
             for row in rows {
@@ -1045,14 +1044,17 @@ fn AnalyticsPaginationNav(pagination: AnalyticsPagination, query: AnalyticsQuery
     let standard_limits = [10_u32, 25, 50, 100];
     let requested_query =
         try_consume_context::<crate::fullstack::analytics::AnalyticsRequestedQuery>();
-    let selected_limit = requested_query
+    let requested_limit = requested_query
         .and_then(|requested| AnalyticsQueryState::from_normalized_query(&(requested.0)()).ok())
         .and_then(|requested| requested.limit)
+        .or(query.limit)
         .unwrap_or(limit);
     let navigation = try_consume_context::<crate::fullstack::analytics::AnalyticsNavigation>();
     let limit_query = query.clone();
     let loading = try_consume_context::<crate::fullstack::analytics::AnalyticsLoading>();
-    let controls_disabled = loading.is_some_and(|state| !(state.ready)() || (state.pending)());
+    let updating = loading.is_some_and(|state| (state.pending)());
+    let selected_limit = if updating { requested_limit } else { limit };
+    let controls_disabled = loading.is_some_and(|state| !(state.ready)() || updating);
     rsx! {
         nav {
             class: "mt-8 rounded-xl border border-gray-200 bg-white p-4 backdrop-blur-sm dark:border-white/[0.06] dark:bg-slate-900/80",
@@ -1074,6 +1076,7 @@ fn AnalyticsPaginationNav(pagination: AnalyticsPagination, query: AnalyticsQuery
                     label { class: "text-xs text-slate-600 dark:text-slate-400", r#for: "analytics-limit", "Per page" }
                     select {
                         id: "analytics-limit",
+                        value: "{selected_limit}",
                         disabled: controls_disabled,
                         name: "limit",
                         class: "h-9 rounded-lg border border-gray-200 bg-gray-100 px-3 text-sm text-slate-700 dark:border-white/[0.08] dark:bg-slate-800/60 dark:text-slate-200",
@@ -1095,7 +1098,7 @@ fn AnalyticsPaginationNav(pagination: AnalyticsPagination, query: AnalyticsQuery
             }
             div { class: "flex items-center justify-center gap-1",
                 if pagination.has_prev {
-                    a {
+                    crate::navigation::AppLink {
                         class: "flex h-9 items-center gap-1 rounded-lg border border-gray-200 bg-gray-100 px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-gray-200 hover:text-slate-900 dark:border-white/[0.08] dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-700/60 dark:hover:text-white",
                         href: "{previous_url}",
                         onclick: move |event| crate::fullstack::analytics::follow_link(event, navigation, &previous_url),
@@ -1126,7 +1129,7 @@ fn AnalyticsPaginationNav(pagination: AnalyticsPagination, query: AnalyticsQuery
                             PageToken::Page(candidate) => {
                                 let href = query.page_url(candidate, limit);
                                 rsx! {
-                                    a {
+                                    crate::navigation::AppLink {
                                         class: "flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-gray-100 text-sm font-medium text-slate-700 transition-colors hover:bg-gray-200 hover:text-slate-900 dark:border-white/[0.08] dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-700/60 dark:hover:text-white",
                                         href: "{href}",
                         onclick: move |event| crate::fullstack::analytics::follow_link(event, navigation, &href),
@@ -1139,7 +1142,7 @@ fn AnalyticsPaginationNav(pagination: AnalyticsPagination, query: AnalyticsQuery
                     }
                 }
                 if pagination.has_next {
-                    a {
+                    crate::navigation::AppLink {
                         class: "flex h-9 items-center gap-1 rounded-lg border border-gray-200 bg-gray-100 px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-gray-200 hover:text-slate-900 dark:border-white/[0.08] dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-700/60 dark:hover:text-white",
                         href: "{next_url}",
                         onclick: move |event| crate::fullstack::analytics::follow_link(event, navigation, &next_url),
@@ -1445,6 +1448,27 @@ mod tests {
             assert_eq!(attributes.contains("disabled"), disabled);
             assert_eq!(rendered.matches("data-stock-card=\"true\"").count(), 1);
         }
+    }
+
+    #[test]
+    fn pagination_displays_backend_cap_instead_of_requested_page_size() {
+        let page = AnalyticsPagination {
+            page: 1,
+            limit: 5,
+            total: 5,
+            total_pages: 1,
+            has_next: false,
+            has_prev: false,
+        };
+        let query = AnalyticsQueryState {
+            limit: Some(25),
+            ..Default::default()
+        };
+        let rendered =
+            dioxus_ssr::render_element(rsx! { AnalyticsPaginationNav { pagination: page, query } });
+        assert!(rendered.contains("value=\"5\" selected"));
+        assert!(!rendered.contains("Your current access allows"));
+        assert!(rendered.contains("aria-disabled=\"true\""));
     }
 
     #[test]

@@ -94,7 +94,7 @@ pub fn NotFoundContent(
                 // Actions
                 div { class: "flex flex-col sm:flex-row gap-3 justify-center",
                     if show_home_link {
-                        a {
+                        crate::navigation::AppLink {
                             class: "inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-500 to-orange-500 text-white rounded-2xl font-semibold shadow-lg shadow-purple-500/20 hover:shadow-xl hover:shadow-purple-500/30 hover-lift transition-all",
                             href: "/",
                             Icon { name: "home".to_string(), size: Some(20), class_name: Some("w-5 h-5".to_string()) }
@@ -168,7 +168,7 @@ pub fn ErrorContent(
                         {action}
                     }
                     if show_home_link {
-                        a {
+                        crate::navigation::AppLink {
                             class: "w-full inline-flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-purple-500 to-orange-500 text-white rounded-2xl font-semibold shadow-lg shadow-purple-500/20 hover:shadow-xl hover:shadow-purple-500/30 hover-lift transition-all",
                             href: "/",
                             Icon { name: "home".to_string(), size: Some(20), class_name: Some("w-5 h-5".to_string()) }
@@ -287,7 +287,7 @@ pub fn AccessDeniedContent(
                 // Actions
                 div { class: "flex flex-col sm:flex-row gap-3",
                     if show_login_button {
-                        a {
+                        crate::navigation::AppLink {
                             class: "flex-1 inline-flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-2xl font-semibold shadow-lg shadow-red-500/20 hover:shadow-xl hover:shadow-red-500/30 hover-lift transition-all",
                             href: "/auth",
                             Icon { name: "rotate-ccw".to_string(), size: Some(20), class_name: Some("w-5 h-5".to_string()) }

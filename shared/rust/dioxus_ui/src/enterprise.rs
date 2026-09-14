@@ -52,7 +52,7 @@ pub fn DataState(
             Icon { name: "database".to_string(), size: Some(24) }
         }
         h2 { "{title}" } p { "{message}" }
-        a { class: "fe-button", href, onclick: move |event| {
+        crate::navigation::AppLink { class: "fe-button", href, onclick: move |event| {
             if crate::fullstack::shell::migrated_link(&target) { crate::fullstack::analytics::follow_link(event, navigation, &target); }
         },
             Icon { name: "arrow-right".to_string(), size: Some(16) } "{action}"
@@ -74,10 +74,10 @@ pub fn HomeHero() -> Element {
                 h1 { id: "home-title", "Financial technology. " span { "Connected by design." } }
                 p { class: "fe-lead", "{HOME_DESCRIPTION}" }
                 div { class: "fe-actions",
-                    a { class: "fe-button fe-primary", href: "/analytics", onclick: move |event| crate::fullstack::analytics::follow_link(event, navigation, "/analytics"),
+                    crate::navigation::AppLink { class: "fe-button fe-primary", href: "/analytics", onclick: move |event| crate::fullstack::analytics::follow_link(event, navigation, "/analytics"),
                         "Explore platform" Icon { name: "arrow-up-right".to_string(), size: Some(18) }
                     }
-                    a { class: "fe-button fe-hero-secondary", href: "/about", onclick: move |event| crate::fullstack::analytics::follow_link(event, navigation, "/about"),
+                    crate::navigation::AppLink { class: "fe-button fe-hero-secondary", href: "/about", onclick: move |event| crate::fullstack::analytics::follow_link(event, navigation, "/about"),
                         "About EPSX" Icon { name: "arrow-right".to_string(), size: Some(18) }
                     }
                 }
@@ -256,7 +256,7 @@ fn FrontendWatch(
     let sign_in = format!("/auth?{}", query.finish());
     match state {
         StockCardWatchlist::SignedOut => rsx! {
-            a { href: sign_in, "data-watchlist-signed-out": "true",
+            crate::navigation::AppLink { href: sign_in, "data-watchlist-signed-out": "true",
                 "data-symbol": symbol.clone(), aria_label: "Sign in to save {symbol}",
                 Icon { name: "bookmark".to_string(), size: Some(17) } span { "Save" }
             }
@@ -319,7 +319,7 @@ pub fn RankingCards(
                                 p { class: "fe-card-company-name", title: row.company_name.clone().unwrap_or_default(), {row.company_name.as_deref().unwrap_or("Company name unavailable")} }
                             }
                             CardNextAction { action: NextAction::from_row(row), today, previous_report: row.last_earnings_date }
-                            a { class: "fe-card-details", href: tradingview_symbol_url(&row.symbol),
+                            crate::navigation::AppLink { class: "fe-card-details", href: tradingview_symbol_url(&row.symbol),
                                 target: "_blank", rel: "noopener noreferrer", "data-tradingview-details": "true",
                                 aria_label: "View details for {row.symbol} on TradingView (opens in a new tab)",
                                 title: "Open {row.symbol} on TradingView in a new tab",

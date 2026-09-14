@@ -141,7 +141,7 @@ fn render_page_list<F: Fn(u32) -> String>(current: u32, total: u32, href_for: F)
                         let active = p == current;
                         rsx! {
                             li { class: "pagination-page",
-                                a { class: if active {
+                                crate::navigation::AppLink { class: if active {
                                         "pagination-link is-active px-3 py-1 rounded border bg-primary text-primary-foreground"
                                     } else {
                                         "pagination-link px-3 py-1 rounded border"

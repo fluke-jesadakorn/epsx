@@ -180,12 +180,12 @@ fn RenderWalletCredits(ctx: PageContext) -> Element {
 fn CreditWorkspaceNav() -> Element {
     rsx! {
         nav { class: "flex gap-1 overflow-x-auto border-b border-border/30", aria_label: "Credit workspace",
-            a { class: "relative flex items-center gap-2 whitespace-nowrap px-4 py-3 text-sm font-semibold text-[#1fc7d4]", href: "#credit-overview", aria_current: "page",
+            crate::navigation::AppLink { class: "relative flex items-center gap-2 whitespace-nowrap px-4 py-3 text-sm font-semibold text-[#1fc7d4]", href: "#credit-overview", aria_current: "page",
                 Icon { name: "bar-chart-3".to_string(), size: Some(16) }
                 "Overview"
                 span { class: "absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[#1fc7d4] to-[#7645d9]", aria_hidden: "true" }
             }
-            a { class: "flex items-center gap-2 whitespace-nowrap px-4 py-3 text-sm font-semibold text-muted-foreground hover:text-foreground", href: "#credit-grant",
+            crate::navigation::AppLink { class: "flex items-center gap-2 whitespace-nowrap px-4 py-3 text-sm font-semibold text-muted-foreground hover:text-foreground", href: "#credit-grant",
                 Icon { name: "plus".to_string(), size: Some(16) }
                 "Grant Credits"
             }
@@ -285,8 +285,8 @@ fn CreditProblem(state: &'static str, title: String, detail: String) -> Element 
                         p { class: "mt-1 max-w-3xl text-sm text-muted-foreground", "{detail}" }
                     }
                     nav { class: "flex shrink-0 flex-wrap gap-2", aria_label: "Credit statistics recovery",
-                        a { class: "btn btn-sm btn-outline", href: WALLET_CREDITS_PATH, "Retry statistics" }
-                        a { class: "btn btn-sm btn-ghost", href: ADMIN_HOME_PATH, "Admin home" }
+                        crate::navigation::AppLink { class: "btn btn-sm btn-outline", href: WALLET_CREDITS_PATH, "Retry statistics" }
+                        crate::navigation::AppLink { class: "btn btn-sm btn-ghost", href: ADMIN_HOME_PATH, "Admin home" }
                     }
                 }
             }
@@ -308,7 +308,7 @@ fn CreditProblem(state: &'static str, title: String, detail: String) -> Element 
                     }
                 }
                 div { class: "mt-6 flex flex-wrap gap-3",
-                    a { class: "btn btn-sm bg-gradient-to-r from-[#7645d9] to-[#5a33b8] text-white", href: WALLET_CREDITS_PATH,
+                    crate::navigation::AppLink { class: "btn btn-sm bg-gradient-to-r from-[#7645d9] to-[#5a33b8] text-white", href: WALLET_CREDITS_PATH,
                         Icon { name: "refresh-cw".to_string(), size: Some(15) }
                         " Refresh Stats"
                     }
@@ -432,7 +432,8 @@ mod tests {
         for state in [ADMIN_CREDITS_UNAUTHENTICATED, ADMIN_CREDITS_UNAUTHORIZED] {
             let rendered = html(&with_state(state, Some(projection())));
             assert!(rendered.contains(&format!("data-admin-data-state=\"{state}\"")));
-            assert!(rendered.contains("Sign in"));
+            assert!(rendered.contains("Connect wallet"));
+            assert!(rendered.contains("href=\"/auth?return_url="));
             assert!(!rendered.contains("1,200"));
         }
     }

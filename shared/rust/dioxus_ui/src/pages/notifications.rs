@@ -721,8 +721,7 @@ fn NotificationPageSection(page: NotificationPage) -> Element {
             div { class: "notifications-summary",
                 p {
                     id: "notifications-list-summary",
-                    class: "notifications-unread-count",
-                    style: "margin: 0;",
+                    class: "notifications-unread-count m-0",
                     "aria-current": "page",
                     "{summary}"
                 }
@@ -734,7 +733,7 @@ fn NotificationPageSection(page: NotificationPage) -> Element {
                     if let Some(control) = control { "{(control.live)()}" } else { "Live notification updates are connecting…" }
                 }
                 if !page.items.is_empty() {
-                    p { class: "notifications-unread-count", style: "margin: 0;", "{unread_label}" }
+                    p { class: "notifications-unread-count m-0", "{unread_label}" }
                 }
                 if page.has_bounded_window() {
                     p {
@@ -812,9 +811,8 @@ fn NotificationPageSection(page: NotificationPage) -> Element {
             } else {
                 div { class: "card card-glass notifications-list-card fe-surface",
                 ul {
-                    class: "card-body p-0",
+                    class: "card-body list-none m-0 p-0",
                     role: "list",
-                    style: "list-style: none; margin: 0; padding: 0;",
                         for notification in page.items.clone() {
                         NotificationRow { notification, rendered_at }
                     }
@@ -1742,7 +1740,7 @@ mod tests {
         assert!(html.contains(">Page 1 of 1 · 3 loaded. Showing notifications 1–3 of 3.</p>"));
         assert!(html.contains(">2 unread on this page</p>"));
         assert_eq!(html.matches("<ul").count(), 1);
-        assert!(html.contains("<ul class=\"card-body p-0\" role=\"list\""));
+        assert!(html.contains("<ul class=\"card-body list-none m-0 p-0\" role=\"list\""));
         assert_eq!(html.matches("<li").count(), 3);
         assert_eq!(html.matches("<h3 class=\"notification-title\"").count(), 3);
         assert_eq!(html.matches("notification-row-unread").count(), 2);

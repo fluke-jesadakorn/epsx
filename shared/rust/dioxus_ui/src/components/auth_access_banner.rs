@@ -28,7 +28,7 @@ pub fn AuthAccessBanner(href: String) -> Element {
                         }
                     }
                 }
-                a {
+                crate::navigation::AppLink {
                     class: "auth-access-banner-cta inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-700 to-pink-700 px-5 py-3 text-sm font-semibold text-white shadow-lg transition hover:from-purple-800 hover:to-pink-800",
                     href: "{href}",
                     Icon { name: "log-in".to_string(), size: Some(16) }

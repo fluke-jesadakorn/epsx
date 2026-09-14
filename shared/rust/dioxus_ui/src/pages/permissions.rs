@@ -105,7 +105,7 @@ fn PermissionsBody(session_permissions: Vec<String>) -> Element {
                                 nav {
                                     class: "mt-6 flex flex-wrap gap-3 border-t border-border/40 pt-5",
                                     "aria-label": "Permission page alternatives",
-                                    a {
+                                    crate::navigation::AppLink {
                                         class: "btn btn-primary",
                                         href: "/account",
                                         onclick: move |event| crate::fullstack::analytics::follow_link(event, navigation, "/account"),

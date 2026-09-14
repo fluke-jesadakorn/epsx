@@ -12,15 +12,11 @@ pub fn chat_widget(is_authed: bool, _user_id: &str) -> String {
     }
     let icon = epsx_templates::lucide("message-circle", "24", "chat-bubble-icon");
     format!(
-        r##"<div id="chat-widget" style="position:fixed;bottom:1.5rem;right:1.5rem;z-index:50;">
-  <a class="chat-bubble-btn" href="/chat" aria-label="Open support chat" style="width:3.5rem;height:3.5rem;border-radius:9999px;background:linear-gradient(135deg,#3b82f6 0%,#2563eb 55%,#4f46e5 100%);color:white;border:none;cursor:pointer;box-shadow:0 10px 15px -3px rgba(0,0,0,.2),0 4px 6px -4px rgba(0,0,0,.2);display:flex;align-items:center;justify-content:center;position:relative;transition:all 0.3s;text-decoration:none;">
+        r##"<div id="chat-widget" class="fixed bottom-6 right-6 z-50">
+  <a class="chat-bubble-btn relative flex size-14 items-center justify-center rounded-full border-0 bg-[linear-gradient(135deg,#3b82f6_0%,#2563eb_55%,#4f46e5_100%)] text-white no-underline shadow-lg cursor-pointer transition-all duration-300 hover:scale-105" href="/chat" aria-label="Open support chat">
     {icon}
   </a>
 </div>
-<style>
-.chat-bubble-btn:hover {{ transform:scale(1.05); box-shadow:0 20px 25px -5px rgba(59,130,246,.25),0 8px 10px -6px rgba(59,130,246,.25); }}
-.chat-bubble-icon {{ display:block;flex:none;color:#fff; }}
-</style>
 "##
     )
 }

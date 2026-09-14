@@ -1,18 +1,10 @@
 /**
- * EPSX frontend BFF — Tailwind v4 source.
- *
- * Wave 28 T2: mirror prod's full shadcn new-york "gray" baseColor token
- * set so `bg-background`, `text-foreground`, `bg-primary`, `border-border`,
- * `ring-ring`, `bg-muted`, etc. resolve via the @theme inline block below.
- *
- * The v4 @theme inline directive maps Tailwind utility classes to CSS
- * variables that are defined in :root / .dark below.
- *
- * @source directives scan shared Rust crates so the v4 content scanner
- * picks up Dioxus `class:`-syntax classes, including PlanCard dark fixes.
+ * Frontend Tailwind v4 entry point for every route and component.
+ * DX runs the native Tailwind watcher; the dev asset worker reloads its CSS.
+ * Edit component sources here instead of embedding styles in Rust.
  */
 
-@import "tailwindcss";
+@import "tailwindcss" source("../");
 @plugin "@tailwindcss/typography";
 
 @source "../../../../shared/rust/dioxus_ui/src";
@@ -111,3 +103,43 @@
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
 }
+
+
+/* Frontend styles have one owner: this Tailwind pipeline. Component selectors
+ * retain their established cascade while their declarations use @apply. */
+@theme inline {
+  --color-fe-text: var(--fe-text);
+  --color-fe-muted: var(--fe-muted);
+  --color-fe-primary: var(--fe-primary);
+  --color-fe-on-primary: var(--fe-on-primary);
+  --color-fe-positive: var(--fe-positive);
+  --color-fe-danger: var(--fe-danger);
+  --color-fe-warning: var(--fe-warning);
+  --color-fe-border: var(--fe-border);
+  --color-fe-primary-hover: var(--fe-primary-hover);
+}
+@import "./tokens.css";
+@import "./foundation.css";
+@import "./components/enterprise.css";
+@import "./components/navbar.css";
+@import "./components/session.css";
+@import "./components/legal.css";
+@import "./components/about.css";
+@import "./components/account.css";
+@import "./components/analytics-loading.css";
+
+body:has(#main > .epsx-frontend) { @apply m-0; }
+.epsx-frontend { --font-sans: ui-sans-serif, system-ui, sans-serif; }
+
+/* Legacy server-rendered support link shares the same Tailwind pipeline. */
+.chat-bubble-btn { box-shadow: 0 10px 15px -3px rgba(0,0,0,.2), 0 4px 6px -4px rgba(0,0,0,.2); }
+.chat-bubble-btn:hover { box-shadow: 0 20px 25px -5px rgba(59,130,246,.25), 0 8px 10px -6px rgba(59,130,246,.25); }
+.chat-bubble-icon { @apply block flex-none text-white; }
+.epsx-frontend .fe-selected-chat-icon {
+  @apply bg-[rgba(59,130,246,0.92)] text-white;
+  border: 1px solid rgba(255,255,255,0.16);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.14), inset 0 1px 0 rgba(255,255,255,0.10);
+}
+
+/* Keep the card action legible in both themes despite the shell link reset. */
+.epsx-frontend .stock-data-card a.text-white { @apply text-white; }

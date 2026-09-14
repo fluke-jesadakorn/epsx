@@ -12,6 +12,9 @@ pub fn HydratedAdminHome() -> Element {
 #[component]
 pub fn HydratedAdminDenied(query: String, #[props(default)] unauthorized: bool) -> Element {
     crate::pages::news::hydrated::response_status(403);
+    let session = use_server_future(super::admin_auth::auth_session)?;
+    let authenticated =
+        matches!(session.read().as_ref(), Some(Ok(Ok(value))) if value.authenticated);
     let navigator = use_navigator();
     let navigate = use_callback(move |target: String| {
         navigator.push(target);
@@ -43,21 +46,28 @@ pub fn HydratedAdminDenied(query: String, #[props(default)] unauthorized: bool) 
         document::Meta{name:"robots",content:"noindex"}
         document::Link{rel:"stylesheet",href:"/public/dist/tailwind.css"}
         document::Link{rel:"stylesheet",href:"/_ui/admin.css"}
-        div{class:"dark admin-app-shell min-h-screen bg-background text-foreground grid place-items-center p-6",
+        super::admin::AdminAnalyticsShell { authenticated, current_path: if unauthorized { "/unauthorized" } else { "/access-denied" }, title: "Access denied",
+          div{class:"grid place-items-center p-6",
             crate::auth::AccessDenied{reason:Some(reason),required_permissions:unauthorized.then(||vec!["admin:*".into()]),on_navigate:Some(navigate)}
+          }
         }
     }
 }
 #[component]
 pub fn HydratedAdminNotFound() -> Element {
+    let session = use_server_future(super::admin_auth::auth_session)?;
+    let authenticated =
+        matches!(session.read().as_ref(), Some(Ok(Ok(value))) if value.authenticated);
     crate::pages::news::hydrated::response_status(404);
     rsx! {
         document::Title{"Page not found | EPSX Admin"}
         document::Meta{name:"robots",content:"noindex"}
         document::Link{rel:"stylesheet",href:"/public/dist/tailwind.css"}
         document::Link{rel:"stylesheet",href:"/_ui/admin.css"}
-        main{class:"dark admin-app-shell min-h-screen bg-background text-foreground grid place-items-center p-6",
+        super::admin::AdminAnalyticsShell { authenticated, current_path: "/404", title: "Page not found",
+          div{class:"grid place-items-center p-6",
             section{class:"max-w-lg text-center space-y-5",div{class:"text-7xl font-bold text-primary","404"}h1{class:"text-3xl font-semibold","Page not found"}p{class:"text-muted-foreground","The page you are looking for does not exist."}Link{class:"btn btn-primary",to:"/","Back to home"}}
+          }
         }
     }
 }

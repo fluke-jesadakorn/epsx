@@ -45,7 +45,7 @@ pub fn WalletDetailHeader(
     rsx! {
         div { class: "{cls}",
             // Back link
-            a {
+            crate::navigation::AppLink {
                 href: "/wallet-management",
                 class: "p-2 rounded-xl bg-card border border-border/40 hover:bg-muted/30 transition-colors",
                 title: "Back to wallets",

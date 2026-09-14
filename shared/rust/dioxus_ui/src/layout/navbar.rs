@@ -58,7 +58,7 @@ pub fn Navbar(
     rsx! {
         nav { class: "navbar",
             div { class: "navbar-inner",
-                a { class: "navbar-brand", href: "/",
+                crate::navigation::AppLink { class: "navbar-brand", href: "/",
                     span { class: "navbar-logo", dangerous_inner_html: "{logo_svg}" }
                     span { class: "navbar-title gradient-text", "EPSX" }
                 }
@@ -71,7 +71,7 @@ pub fn Navbar(
                             }
                             div { class: "nav-dropdown-menu",
                                 for item in &group.items {
-                                    a {
+                                    crate::navigation::AppLink {
                                         class: if path == item.href { "nav-dropdown-item active" } else { "nav-dropdown-item" },
                                         href: "{item.href}",
                                         if let Some(i) = &item.icon {
@@ -90,12 +90,12 @@ pub fn Navbar(
                         span { class: "theme-icon-moon", dangerous_inner_html: "{moon_svg}" }
                     }
                     if let Some(u) = &user {
-                        a { class: "btn btn-primary", href: "/dashboard",
+                        crate::navigation::AppLink { class: "btn btn-primary", href: "/dashboard",
                             span { dangerous_inner_html: "{epsx_templates::lucide(\"wallet\", \"16\", \"\")}" }
                             span { "{u.short_address()}" }
                         }
                     } else {
-                        a { class: "btn btn-gradient", href: "/auth",
+                        crate::navigation::AppLink { class: "btn btn-gradient", href: "/auth",
                             span { "{t(\"nav.connect\")}" }
                         }
                     }
@@ -296,7 +296,7 @@ pub fn GroupDropdown(group: NavGroup, current_path: String) -> Element {
                             role: "menuitem",
                             "aria-current": if item_active { "page" } else { "" },
                             onclick: move |_| on_click_open.set(false),
-                            a { href: "{item_href}",
+                            crate::navigation::AppLink { href: "{item_href}",
                                 div { class: "flex items-center gap-2.5 min-w-0",
                                     if let Some(i) = item_icon {
                                         span { class: "text-orange-500 shrink-0", Icon { name: i, size: Some(16) } }
@@ -433,7 +433,7 @@ pub fn NavigationClient(
         return rsx! {
             header { class: "epsx-header sticky top-0 z-50",
                 div { class: "mx-auto flex h-14 max-w-7xl items-center justify-between px-4 md:px-6",
-                    a { class: "navbar-brand", href: "/",
+                    crate::navigation::AppLink { class: "navbar-brand", href: "/",
                         span { class: "navbar-logo",
                             dangerous_inner_html: "{epsx_templates::epsx_icon_svg()}"
                         }
@@ -469,7 +469,7 @@ pub fn NavigationClient(
                 // broke Playwright's `document.querySelector('a.navbar-brand')`
                 // click test (it picked the first, mobile-only link
                 // which is hidden at desktop viewports).
-                a { class: "navbar-brand flex items-center gap-2.5 group",
+                crate::navigation::AppLink { class: "navbar-brand flex items-center gap-2.5 group",
                     href: "/",
                     span { class: "navbar-logo",
                         dangerous_inner_html: "{epsx_templates::epsx_icon_svg()}"

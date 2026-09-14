@@ -211,7 +211,7 @@ fn AttachmentView(att: Attachment) -> Element {
     let size_kb = (att.size as f64 / 1024.0).max(0.1);
     if is_image {
         rsx! {
-            a {
+            crate::navigation::AppLink {
                 class: "chat-attachment chat-attachment-image",
                 href: "{att.url}",
                 target: "_blank",
@@ -225,7 +225,7 @@ fn AttachmentView(att: Attachment) -> Element {
         }
     } else {
         rsx! {
-            a {
+            crate::navigation::AppLink {
                 class: "chat-attachment chat-attachment-file",
                 href: "{att.url}",
                 target: "_blank",

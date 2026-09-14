@@ -10,8 +10,7 @@ pub(super) fn LandingStyles() -> Element {
 }
 
 #[component]
-pub(super) fn Landing(environment: Environment, mut dark: Signal<bool>) -> Element {
-    let mut menu_open = use_signal(|| false);
+pub(super) fn Landing(environment: Environment, dark: Signal<bool>) -> Element {
     let dashboard = format!("/dashboard?environment={}", environment.as_str());
     let docs = format!("/docs/merchant?environment={}", environment.as_str());
     let api = format!("/docs?environment={}", environment.as_str());
@@ -22,29 +21,9 @@ pub(super) fn Landing(environment: Environment, mut dark: Signal<bool>) -> Eleme
             content: "Accept USDT and USDC with EPSX Pay. Create payment links, sell packages, and track crypto payments with hosted checkout, APIs, and webhooks."
         }
         div { class: if dark() { "epsx-merchant epsx-pay-home dark" } else { "epsx-merchant epsx-pay-home" },
-            a { class: "ph-skip", href: "#pay-home-main", "Skip to content" }
-            header { class: "ph-header",
-                div { class: "ph-wrap ph-header-inner",
-                    Link { class: "ph-brand", to: format!("/?environment={}", environment.as_str()), "aria-label": "EPSX Pay home",
-                        img { src: "/brand-icon.svg", alt: "", width: "32", height: "32" }
-                        "EPSX" span { "Pay" }
-                    }
-                    nav { id: "pay-home-nav", class: if menu_open() { "ph-nav ph-nav-open" } else { "ph-nav" }, "aria-label": "Main navigation",
-                        for (href, label) in [("#features", "Features"), ("#how-it-works", "How it works"), ("#pricing", "Pricing")] {
-                            a { href, onclick: move |_| menu_open.set(false), "{label}" }
-                        }
-                        Link { to: docs.clone(), "Developer guide" }
-                    }
-                    div { class: "ph-header-actions",
-                        button { class: "ph-icon-button", "aria-label": "Toggle theme", "aria-pressed": dark().to_string(), onclick: move |_| dark.toggle(),
-                            Icon { kind: if dark() { "sun" } else { "moon" } }
-                        }
-                        Link { class: "ph-button ph-button-small", to: dashboard.clone(), "Dashboard" Icon { kind: "arrow" } }
-                        button { class: "ph-icon-button ph-menu-button", "aria-label": "Toggle navigation", "aria-controls": "pay-home-nav", "aria-expanded": menu_open().to_string(), onclick: move |_| menu_open.toggle(),
-                            Icon { kind: if menu_open() { "close" } else { "menu" } }
-                        }
-                    }
-                }
+            crate::navigation::AppLink { class: "ph-skip", href: "#pay-home-main", "Skip to content" }
+            super::ui::PayNavbar { environment, path: format!("/?environment={}",environment.as_str()), dark,
+                actions: rsx! { Link { class: "ph-button ph-button-small", to: dashboard.clone(), "Dashboard" Icon { kind: "arrow" } } },
             }
             main { id: "pay-home-main", tabindex: "-1",
                 section { class: "ph-wrap ph-hero", "aria-labelledby": "pay-home-title",

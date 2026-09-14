@@ -43,7 +43,7 @@ pub fn NewsList(#[props(default = Vec::new())] items: Vec<NewsListItem>) -> Elem
 #[component]
 fn NewsListCard(item: NewsListItem) -> Element {
     rsx! {
-        a {
+        crate::navigation::AppLink {
             class: "news-list-card block rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6 hover:scale-[1.02] transition-all shadow-sm",
             href: format!("/news/{}", item.id),
             if item.pinned {

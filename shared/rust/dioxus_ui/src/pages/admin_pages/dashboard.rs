@@ -554,7 +554,7 @@ fn DashboardToolCard(
     accent: &'static str,
 ) -> Element {
     rsx! {
-        a { href: href, class: "group relative flex flex-col overflow-hidden rounded-2xl border border-border/20 bg-card/60 backdrop-blur-md transition-all duration-300 hover:border-white/20 hover:shadow-xl {span}",
+        crate::navigation::AppLink { href: href, class: "group relative flex flex-col overflow-hidden rounded-2xl border border-border/20 bg-card/60 backdrop-blur-md transition-all duration-300 hover:border-white/20 hover:shadow-xl {span}",
             div { class: "absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-60", aria_hidden: "true" }
             div { class: "relative z-10 flex h-full flex-col p-5 sm:p-6",
                 div { class: "mb-4 flex items-start justify-between gap-3",
@@ -755,11 +755,11 @@ fn DashboardProblem(state: &'static str, title: String, detail: String) -> Eleme
                     }
                     p { class: "mt-2 max-w-3xl text-sm leading-6 text-muted-foreground", "{detail}" }
                     nav { class: "mt-5 flex flex-wrap gap-3", aria_label: "Dashboard snapshot recovery",
-                        a { class: "btn btn-sm btn-outline", href: "/",
+                        crate::navigation::AppLink { class: "btn btn-sm btn-outline", href: "/",
                             Icon { name: "refresh-cw".to_string(), size: Some(15) }
                             " Retry snapshot"
                         }
-                        a { class: "btn btn-sm btn-ghost", href: "/audit-log",
+                        crate::navigation::AppLink { class: "btn btn-sm btn-ghost", href: "/audit-log",
                             Icon { name: "history".to_string(), size: Some(15) }
                             " Audit workspace"
                         }
@@ -1059,7 +1059,8 @@ mod tests {
         ] {
             let rendered = html(&ctx_with_snapshot(state, Some(status_json(1_234, 900))));
             assert!(rendered.contains(&format!("data-admin-data-state=\"{state}\"")));
-            assert!(rendered.contains("Sign in"));
+            assert!(rendered.contains("Connect wallet"));
+            assert!(rendered.contains("href=\"/auth?return_url="));
             assert!(!rendered.contains("<dl"));
             assert!(!rendered.contains("1,234"));
             assert_no_fabricated_dashboard_claims(&rendered);

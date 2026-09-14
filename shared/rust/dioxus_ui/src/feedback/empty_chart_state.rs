@@ -35,7 +35,7 @@ pub fn EmptyChartState(
             }
             p { class: "empty-chart-state-title", "{title}" }
             if let (Some(label), Some(href)) = (cta_label.clone(), cta_href.clone()) {
-                a { class: "btn btn-primary empty-chart-state-cta", href: "{href}", "{label}" }
+                crate::navigation::AppLink { class: "btn btn-primary empty-chart-state-cta", href: "{href}", "{label}" }
             }
         }
     }

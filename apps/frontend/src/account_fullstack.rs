@@ -131,25 +131,9 @@ pub async fn logout(
     state: AppState,
     headers: HeaderMap,
 ) -> Result<epsx_dioxus_ui::fullstack::shell::LogoutResult, LoadError> {
-    // Do not allow a cross-origin browser request to clear the local session.
-    let host = headers
-        .get(axum::http::header::HOST)
-        .and_then(|value| value.to_str().ok())
-        .ok_or(LoadError::Forbidden)?;
-    let origin = headers
-        .get(axum::http::header::ORIGIN)
-        .and_then(|value| value.to_str().ok())
-        .ok_or(LoadError::Forbidden)?;
-    if origin != format!("https://{host}") && origin != format!("http://{host}") {
-        return Err(LoadError::Forbidden);
-    }
-    if headers
-        .get("sec-fetch-site")
-        .and_then(|value| value.to_str().ok())
-        .is_some_and(|value| !matches!(value, "same-origin" | "same-site"))
-    {
-        return Err(LoadError::Forbidden);
-    }
+    // Use the same public-origin check as sign-in/refresh: DX rewrites Host
+    // to its internal server address before this handler receives the request.
+    crate::auth_fullstack::same_origin(&headers)?;
     let axum::Extension(effects) = dioxus_fullstack::FullstackContext::extract::<
         axum::Extension<epsx_bff::fullstack::ResponseHeaders>,
         _,

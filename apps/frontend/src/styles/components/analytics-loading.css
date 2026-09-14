@@ -1,0 +1,8 @@
+/* Frontend Tailwind component styles. Edit here; no Rust compilation required. */
+.epsx-frontend .fe-analytics-loading { @apply sticky;@apply top-[12px];@apply z-[40];@apply flex;@apply items-center;@apply gap-[12px];@apply overflow-hidden;margin:12px auto;padding:16px 20px;@apply max-w-[640px];border:1px solid var(--fe-border);@apply rounded-[12px];background:var(--fe-surface);@apply text-fe-text;box-shadow:var(--fe-shadow-soft);@apply font-semibold; }
+.epsx-frontend .fe-loading-spinner { flex:none;@apply w-[22px];@apply h-[22px];border:3px solid var(--fe-border);border-top-color:var(--fe-primary);@apply rounded-[50%];animation:fe-loading-spin .8s linear infinite; }
+.epsx-frontend .fe-loading-track { @apply absolute;@apply bottom-[0];@apply left-[0];@apply w-[100%];@apply h-[3px];background:var(--fe-tint); }
+.epsx-frontend .fe-loading-track span { @apply block;@apply w-[35%];@apply h-[100%];background:var(--fe-primary);animation:fe-loading-slide 1.4s ease-in-out infinite; }
+@keyframes fe-loading-spin { to { transform:rotate(360deg); } }
+@keyframes fe-loading-slide { from { transform:translateX(-100%); } to { transform:translateX(390%); } }
+@media(prefers-reduced-motion:reduce) { .epsx-frontend .fe-loading-spinner,.epsx-frontend .fe-loading-track span { animation:none; } }

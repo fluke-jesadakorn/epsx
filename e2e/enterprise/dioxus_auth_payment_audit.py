@@ -63,7 +63,7 @@ def main():
    if os.environ.get('EPSX_HOLD_AUTH_FIXTURE')=='1':
     print(json.dumps({'fixture_url':base+'/auth','server_pid':process.pid}),flush=True)
     while True:time.sleep(30)
-   with urlopen(base+'/auth') as response:assert 'enterprise.css?v=dioxus-2' in response.read().decode()
+   with urlopen(base+'/auth') as response:assert 'dist/tailwind.css' in response.read().decode()
    browser('open',base+f'/auth?return_url=%2Fpayment%2Fplan%2F{PLAN}')
    browser('wait','[data-dioxus-hydrated="true"]')
    assert browser('eval','!document.querySelector(".fe-sidebar")')=='true'

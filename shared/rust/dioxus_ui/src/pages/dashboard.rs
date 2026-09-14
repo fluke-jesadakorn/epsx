@@ -93,7 +93,7 @@ fn SignedOutDashboard() -> Element {
             div { class: "mt-4",
                 h2 { id: "dashboard-sign-in-title", "Sign in required" }
                 p { "Sign in to review the dashboard state associated with your verified session. No account data is shown while signed out." }
-                a { href: DASHBOARD_SIGN_IN_PATH, "Sign in" }
+                crate::navigation::AppLink { href: DASHBOARD_SIGN_IN_PATH, "Sign in" }
             }
         }
     }
@@ -110,7 +110,7 @@ fn AuthenticatedDashboard(user: User) -> Element {
                     ("/portfolio","Saved companies","Return to the companies you follow."),
                     ("/account","Account","Manage your profile, preferences and access."),
                 ] {
-                    a { href, onclick: move |event| {
+                    crate::navigation::AppLink { href, onclick: move |event| {
                         if crate::fullstack::shell::migrated_link(href) {
                             crate::fullstack::analytics::follow_link(event, navigation, href);
                         }
@@ -220,7 +220,7 @@ fn DashboardUnavailableCard() -> Element {
             }
 
             nav { class: "mt-6 flex flex-wrap gap-3", aria_label: "Dashboard alternatives",
-                a { class: "btn btn-primary inline-flex items-center gap-2", href: "/profile",
+                crate::navigation::AppLink { class: "btn btn-primary inline-flex items-center gap-2", href: "/profile",
                     Icon { name: "user".to_string(), size: Some(16) }
                     "Review verified profile"
                 }

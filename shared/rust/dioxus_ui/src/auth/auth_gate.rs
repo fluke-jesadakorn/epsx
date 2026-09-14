@@ -110,7 +110,7 @@ pub fn AuthGate(
                     }
                 }
                 div { class: "auth-gate-actions",
-                    a { class: "btn btn-primary", href: "/", "Back to home" }
+                    crate::navigation::AppLink { class: "btn btn-primary", href: "/", "Back to home" }
                 }
             }
         };
@@ -182,9 +182,9 @@ pub fn AuthGate(
                         "{primary_label}"
                     }
                 } else {
-                    a { class: "btn btn-primary", href: "{connect_href}", "{primary_label}" }
+                    crate::navigation::AppLink { class: "btn btn-primary", href: "{connect_href}", "{primary_label}" }
                 }
-                a { class: "btn btn-outline", href: "/", "Back to home" }
+                crate::navigation::AppLink { class: "btn btn-outline", href: "/", "Back to home" }
             }
         }
     }
@@ -264,9 +264,9 @@ pub fn AdminAuthGate(
                         "Connect Admin Wallet"
                     }
                 } else {
-                    a { class: "btn btn-primary", href: "{connect_href}", "Connect Admin Wallet" }
+                    crate::navigation::AppLink { class: "btn btn-primary", href: "{connect_href}", "Connect Admin Wallet" }
                 }
-                a { class: "btn btn-outline", href: "/", "Back to home" }
+                crate::navigation::AppLink { class: "btn btn-outline", href: "/", "Back to home" }
             }
         }
     }

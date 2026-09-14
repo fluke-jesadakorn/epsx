@@ -83,8 +83,8 @@ pub fn HydratedNews(query: ReadSignal<String>) -> Element {
         section { "data-dioxus-news": "true", aria_busy: pending(),
             if pending() { p { role: "status", "Updating articles…" } }
             if let Some(failure) = error() {
-                div { role: "status", class: "fe-purchase-note", p { "{failure.message()}" }
-                    button { r#type: "button", class: "fe-button", disabled: pending(), onclick: move |_| { let next = *retry.peek() + 1; retry.set(next); }, "Try again" }
+                div { crate::fullstack::load_error::LoadErrorNotice { error: failure.clone(),
+                    button { r#type: "button", class: "fe-button", disabled: pending(), onclick: move |_| { let next = *retry.peek() + 1; retry.set(next); }, "Try again" } }
                 }
             }
             if let Some(outcome) = data() { NewsPageBody { outcome, retry_href: format!("/news?{}", query()) } }

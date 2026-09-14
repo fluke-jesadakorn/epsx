@@ -25,20 +25,6 @@ use super::PageMeta;
 use crate::layout::main_layout::MainLayout;
 use dioxus::prelude::*;
 
-/// Inline CSS rules for Tailwind v2 CDN arbitrary-value classes
-/// that the CDN doesn't generate. We inject these into the page so
-/// `bg-[#hex]`, `rounded-[24px]`, etc. render with the correct
-/// colors and shape. Without this block, the card bg is
-/// transparent (default) and the card border is invisible.
-const PRIVACY_INLINE_CSS: &str = r#"
-body:not(.epsx-frontend) .privacy-page-prod { background-color: #08060B !important; color: #ffffff !important; }
-body:not(.epsx-frontend) .privacy-prod-card { background-color: #27262c !important; border-color: #383241 !important; border-radius: 24px !important; }
-body:not(.epsx-frontend) .privacy-prod-title { background-image: linear-gradient(to right, #c084fc, #f472b6) !important; -webkit-background-clip: text !important; background-clip: text !important; color: transparent !important; }
-body:not(.epsx-frontend) .privacy-prod-last-updated { color: #9ca3af !important; }
-body:not(.epsx-frontend) .privacy-prod-h3 { color: #c084fc !important; }
-body:not(.epsx-frontend) .privacy-prod-p, body:not(.epsx-frontend) .privacy-prod-list { color: #d1d5db !important; }
-"#;
-
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let mut meta = PageMeta::marketing("Privacy policy");
     meta.description = "EPSX privacy policy.".into();
@@ -54,10 +40,6 @@ pub fn HydratedPrivacy() -> Element {
         document::Title { "Privacy policy — EPSX" }
         document::Meta { name: "description", content: "EPSX privacy policy." }
 
-                // Inject inline CSS for Tailwind v2 CDN arbitrary-value
-                // classes that the CDN doesn't generate. Scoped to this
-                // page only.
-                style { "{PRIVACY_INLINE_CSS}" }
                 div { class: "privacy-page-prod min-h-screen fe-base-page",
                     div { class: "max-w-4xl mx-auto p-6",
                         // Hero — gradient h1 + Last updated text
@@ -209,9 +191,7 @@ mod tests {
     }
 
     /// Wave 25 T2 — privacy page mirrors the prod Next.js page:
-    /// - dark page background `#08060B` via inline `<style>` block
-    /// - dark card `#27262c` with purple border `#383241` via
-    ///   inline `<style>` block
+    /// Styling is supplied by the frontend Tailwind bundle.
     /// - purple-gradient h1 (`from-purple-400 to-pink-400`)
     /// - 7 sections with `text-purple-400` accessible h2 headings
     #[test]
@@ -221,14 +201,8 @@ mod tests {
         let html = dioxus_ssr::render_element(el);
         for marker in &[
             "privacy-page-prod",
-            "background-color: #08060B",
-            "background-color: #27262c",
-            "border-color: #383241",
-            "linear-gradient(to right, #c084fc, #f472b6)",
             "privacy-prod-card",
             "privacy-prod-h3",
-            "color: #c084fc",
-            "border-radius: 24px",
             "shadow-xl",
         ] {
             assert!(
@@ -247,12 +221,12 @@ mod tests {
         let ctx = empty_ctx();
         let (_meta, el) = render(&ctx);
         let html = dioxus_ssr::render_element(el);
-        // Section headings count — `privacy-prod-h3` appears 7× in
-        // the section titles (the inline `<style>` block also
-        // contains the selector `privacy-prod-h3 { color: #c084fc }`,
-        // which adds one more match).
+        // Styling is now external; each marker identifies one real heading.
         let h3_count = html.matches("privacy-prod-h3").count();
-        assert_eq!(h3_count, 8, "privacy page should render 7 `privacy-prod-h3` section headings (8 matches total — 7 in markup + 1 in inline CSS). Got {h3_count} in: {html}");
+        assert_eq!(
+            h3_count, 7,
+            "privacy page should render seven section headings"
+        );
         // Per-section numbered titles.
         for n in 1..=7 {
             let marker = format!("{n}.");

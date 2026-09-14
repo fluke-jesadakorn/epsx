@@ -22,12 +22,12 @@ pub fn Pagination(
     };
     rsx! {
         nav { class: "pagination", "aria-label": "Pagination",
-            a { class: "pagination-btn", href: "{base_href}?{qp}={prev}",
+            crate::navigation::AppLink { class: "pagination-btn", href: "{base_href}?{qp}={prev}",
                 span { Icon { name: "chevron-down".to_string(), size: Some(16) } }
                 span { "Prev" }
             }
             span { class: "pagination-info", "Page {current_page} of {total_pages}" }
-            a { class: "pagination-btn", href: "{base_href}?{qp}={next}",
+            crate::navigation::AppLink { class: "pagination-btn", href: "{base_href}?{qp}={next}",
                 span { "Next" }
                 span { Icon { name: "chevron-right".to_string(), size: Some(16) } }
             }

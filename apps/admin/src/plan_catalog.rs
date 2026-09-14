@@ -72,7 +72,7 @@ fn CatalogPage(data: Value, saved: bool) -> Element {
         .unwrap_or_default();
     let metadata = &data["metadata"];
     rsx! {main{class:"container-x max-w-5xl mx-auto py-10 space-y-6",
-        nav{class:"flex gap-5",a{href:"/",class:"underline","Admin home"}a{href:"/plans",class:"underline","EPSX Plans"}a{href:"/payments/epsx",class:"underline","Plan purchases"}a{href:"/pay/merchant-escrows",class:"underline","Escrow disputes"}}
+        nav{class:"flex gap-5",epsx_dioxus_ui::navigation::AppLink {href:"/",class:"underline","Admin home"}epsx_dioxus_ui::navigation::AppLink {href:"/plans",class:"underline","EPSX Plans"}epsx_dioxus_ui::navigation::AppLink {href:"/payments/epsx",class:"underline","Plan purchases"}epsx_dioxus_ui::navigation::AppLink {href:"/pay/merchant-escrows",class:"underline","Escrow disputes"}}
         h1{class:"text-3xl font-bold","EPSX Plan catalog"}
         p{class:"text-muted-foreground","These plans appear on the main EPSX website. Set regular token prices, then enable a catalog promotion for checkout. Existing orders keep their reserved price."}
         if saved{p{role:"status",class:"text-emerald-600","Plan saved."}}
@@ -99,7 +99,7 @@ fn CatalogPage(data: Value, saved: bool) -> Element {
         }else{
             for row in rows{article{class:"rounded-2xl border bg-card p-6 flex flex-wrap justify-between gap-5",
                 div{h2{class:"text-xl font-semibold",{text(&row,"name")}}p{{row["metadata"]["duration_days"].as_i64().map(|days|format!("{days} days")).unwrap_or_else(||text(&row,"billing_model"))}}p{if row["is_active"]==true{"Enabled"}else{"Disabled"}}}
-                a{href:format!("/plans/{}",text(&row,"id")),class:"btn btn-outline","Edit plan"}
+                epsx_dioxus_ui::navigation::AppLink {href:format!("/plans/{}",text(&row,"id")),class:"btn btn-outline","Edit plan"}
             }}
         }
     }}

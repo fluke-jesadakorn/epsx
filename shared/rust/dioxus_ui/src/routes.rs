@@ -124,6 +124,14 @@ pub fn HomeView() -> Element {
 
 #[component]
 pub fn AuthPageView(query: String) -> Element {
+    // Routable decodes a catch-all query before passing this prop. Read the
+    // original history URL so encoded '&' inside return_url stays nested.
+    let route = use_context::<dioxus_router::RouterContext>().full_route_string();
+    let query = route
+        .split_once('?')
+        .map(|(_, query)| query.split('#').next().unwrap_or(query))
+        .unwrap_or(&query)
+        .to_owned();
     rsx! { crate::fullstack::frontend_auth::HydratedAuth { query } }
 }
 
@@ -242,17 +250,35 @@ pub fn PortfolioAddressView(address: String) -> Element {
 
 #[component]
 pub fn DeveloperView(query: String) -> Element {
-    rsx! { crate::pages::developer::hydrated::HydratedDeveloper { query, usage: false } }
+    let _ = query;
+    rsx! { DeveloperComingSoon {} }
 }
 
 #[component]
 pub fn DeveloperUsageView(query: String) -> Element {
-    rsx! { crate::pages::developer::hydrated::HydratedDeveloper { query, usage: true } }
+    let _ = query;
+    rsx! { DeveloperComingSoon {} }
 }
 
 #[component]
 pub fn DeveloperDocsView() -> Element {
-    rsx! { crate::pages::developer::hydrated::HydratedDeveloperDocs {} }
+    rsx! { DeveloperComingSoon {} }
+}
+
+// Temporary frontend placeholder; keep the developer implementation for a future release.
+#[component]
+fn DeveloperComingSoon() -> Element {
+    rsx! {
+        document::Title { "Developer API — Coming soon | EPSX" }
+        section { class: "card card-glass fe-surface",
+            div { class: "card-body space-y-5",
+                h1 { class: "text-2xl font-semibold", "Developer API" }
+                p { class: "text-lg", "Coming soon" }
+                p { class: "fe-tone-muted", "API keys, usage, and documentation will be available in a future release." }
+                crate::fullstack::shell::ShellLink { class: "fe-button", href: "/analytics", "Explore companies" }
+            }
+        }
+    }
 }
 
 #[component]
@@ -299,6 +325,7 @@ pub fn NotFoundView(route: Vec<String>) -> Element {
 
 #[derive(Clone, Routable, PartialEq, Debug)]
 pub enum AdminRoute {
+    #[layout(crate::navigation::AdminRouteShell)]
     #[route("/wallet-management/wallets?:..query")]
     AdminWalletListView { query: String },
     #[route("/wallet-management/:address?:..query")]
@@ -483,6 +510,12 @@ pub fn AdminHomeView() -> Element {
 
 #[component]
 pub fn AdminAuthView(query: String) -> Element {
+    let route = use_context::<dioxus_router::RouterContext>().full_route_string();
+    let query = route
+        .split_once('?')
+        .map(|(_, query)| query.split('#').next().unwrap_or(query))
+        .unwrap_or(&query)
+        .to_owned();
     rsx! { crate::fullstack::admin_auth::HydratedAdminAuth { query } }
 }
 
@@ -626,7 +659,9 @@ pub fn purchase_route_query(
 pub fn PurchasesView(query: String) -> Element {
     match purchase_route_query("/account/payments", &query) {
         Ok(query) => rsx! { crate::payment::purchases::HydratedPurchases { query } },
-        Err(error) => rsx! { p { role: "status", "{error.message()}" } },
+        Err(error) => {
+            rsx! { crate::fullstack::load_error::LoadErrorNotice { error: error.clone(),  } }
+        }
     }
 }
 
@@ -634,7 +669,9 @@ pub fn PurchasesView(query: String) -> Element {
 pub fn PurchaseDetailView(order_id: String) -> Element {
     match purchase_route_query(&format!("/account/payments/{order_id}"), "") {
         Ok(query) => rsx! { crate::payment::purchases::HydratedPurchases { query } },
-        Err(error) => rsx! { p { role: "status", "{error.message()}" } },
+        Err(error) => {
+            rsx! { crate::fullstack::load_error::LoadErrorNotice { error: error.clone(),  } }
+        }
     }
 }
 
@@ -651,7 +688,9 @@ pub fn AdminCatalogDetailView(id: String) -> Element {
 pub fn AdminOrdersView(query: String) -> Element {
     match purchase_route_query("/account/payments", &query) {
         Ok(query) => rsx! { crate::fullstack::admin_orders::HydratedAdminOrders { query } },
-        Err(error) => rsx! { p { role: "alert", "{error.message()}" } },
+        Err(error) => {
+            rsx! { crate::fullstack::load_error::LoadErrorNotice { error: error.clone(),  } }
+        }
     }
 }
 #[component]
@@ -660,7 +699,9 @@ pub fn AdminOrderDetailView(id: String) -> Element {
         Ok(query) => {
             rsx! { crate::fullstack::admin_orders::HydratedAdminOrders { key: "{id}", query } }
         }
-        Err(error) => rsx! { p { role: "alert", "{error.message()}" } },
+        Err(error) => {
+            rsx! { crate::fullstack::load_error::LoadErrorNotice { error: error.clone(),  } }
+        }
     }
 }
 

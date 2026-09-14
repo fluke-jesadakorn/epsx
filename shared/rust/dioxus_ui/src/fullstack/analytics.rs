@@ -69,10 +69,37 @@ async fn load(query: &str) -> Result<AnalyticsData, LoadError> {
     Ok(value)
 }
 
+async fn reload(
+    query: &str,
+    was_signed_in: bool,
+    recovery: &super::frontend_auth::SessionRecovery,
+) -> Result<AnalyticsData, LoadError> {
+    let result = load(query).await.and_then(|value| {
+        if was_signed_in && !value.signed_in {
+            Err(LoadError::Unauthenticated)
+        } else {
+            Ok(value)
+        }
+    });
+    if result == Err(LoadError::Unauthenticated) {
+        recovery.restore().await?;
+        // Retry the exact requested page and filters once, after cookies rotate.
+        let value = load(query).await?;
+        return if value.signed_in {
+            Ok(value)
+        } else {
+            Err(LoadError::Unauthenticated)
+        };
+    }
+    result
+}
+
 #[component]
 pub fn HydratedAnalytics(query: ReadSignal<String>) -> Element {
     // Only the initial read participates in SSR hydration. Later reads keep the
     // last successful data visible while the requested query is pending.
+    let auth_revision = use_context::<super::shell::AuthRevision>();
+    let recovery = use_context::<super::frontend_auth::SessionRecovery>();
     let initial_query = use_hook(|| query.read().clone());
     let seed_query = initial_query.clone();
     let initial = use_server_future(move || {
@@ -98,6 +125,9 @@ pub fn HydratedAnalytics(query: ReadSignal<String>) -> Element {
             message: None,
         });
     }
+    let mut session_required = use_signal(|| {
+        seed.as_ref().is_ok_and(|value| value.signed_in) || seed == Err(LoadError::Unauthenticated)
+    });
     let mut data = use_signal(|| seed.clone().ok());
     let mut error = use_signal(|| seed.err());
     let mut pending = use_signal(|| false);
@@ -105,34 +135,48 @@ pub fn HydratedAnalytics(query: ReadSignal<String>) -> Element {
     use_context_provider(|| AnalyticsLoading { ready, pending });
     let mut generation = use_signal(|| 0_u64);
     let mut loaded_query = use_signal(|| initial_query);
+    let mut loaded_session = use_signal(|| (auth_revision.0)());
     let mut retry = use_signal(|| 0_u64);
     let mut attempted_retry = use_signal(|| 0_u64);
     let mut failed_query = use_signal(|| query.read().clone());
     let navigator = use_navigator();
     let navigate = use_callback(move |url: String| {
-        navigator.push(url);
+        if url.strip_prefix("/analytics?") == Some(query.peek().as_str()) {
+            // A backend-capped selection can request the same URL again.
+            let next = *retry.peek() + 1;
+            retry.set(next);
+        } else {
+            navigator.push(url);
+        }
     });
     use_context_provider(|| AnalyticsNavigation(navigate));
     use_context_provider(|| AnalyticsRequestedQuery(query));
     use_effect(move || {
         let requested = query();
+        let session_revision = (auth_revision.0)();
         let retry_count = retry();
         let is_retry = retry_count != *attempted_retry.peek();
         attempted_retry.set(retry_count);
         let ticket = *generation.peek() + 1;
         generation.set(ticket);
-        if requested == *loaded_query.peek() && !is_retry {
+        if requested == *loaded_query.peek()
+            && session_revision == *loaded_session.peek()
+            && !is_retry
+            && data.peek().is_some()
+        {
             // Back navigation must invalidate any response still in flight.
             pending.set(false);
             return;
         }
+        let was_signed_in = *session_required.peek();
+        if session_revision != *loaded_session.peek() {
+            data.set(None);
+        }
         pending.set(true);
         error.set(None);
+        let recovery = recovery.clone();
         spawn(async move {
-            let result = load(&requested).await.and_then(|value| {
-                value.rankings.as_ref().map_err(Clone::clone)?;
-                Ok(value)
-            });
+            let result = reload(&requested, was_signed_in, &recovery).await;
             if *generation.peek() != ticket {
                 return;
             }
@@ -140,12 +184,20 @@ pub fn HydratedAnalytics(query: ReadSignal<String>) -> Element {
             match result {
                 Ok(value) => {
                     loaded_query.set(requested);
+                    loaded_session.set(session_revision);
+                    if value.signed_in {
+                        session_required.set(true);
+                    }
                     data.set(Some(value));
                 }
                 Err(failure) => {
-                    failed_query.set(requested);
+                    failed_query.set(requested.clone());
+                    let session_ended =
+                        matches!(failure, LoadError::Unauthenticated | LoadError::Forbidden);
                     error.set(Some(failure));
-                    if data.peek().is_some() {
+                    if session_ended {
+                        data.set(None);
+                    } else if data.peek().is_some() {
                         navigator.replace(format!("/analytics?{}", loaded_query.peek()));
                     }
                 }
@@ -153,7 +205,6 @@ pub fn HydratedAnalytics(query: ReadSignal<String>) -> Element {
         });
     });
     rsx! {
-        style { dangerous_inner_html: include_str!("analytics_loading.css") }
         document::Title { "Company rankings — EPSX" }
         document::Meta { name: "description", content: "Explore company rankings, EPS performance and upcoming company reports." }
         section { "data-dioxus-analytics": "true", aria_busy: !ready() || pending(),
@@ -166,13 +217,13 @@ pub fn HydratedAnalytics(query: ReadSignal<String>) -> Element {
                 }
             }
             if let Some(failure) = error() {
-                div { role: "status", class: "fe-purchase-note",
-                    p { "{failure.message()}" }
+                div {
+                    crate::fullstack::load_error::LoadErrorNotice { error: failure.clone(), return_path: format!("/analytics?{}", failed_query()),
                     button { r#type: "button", class: "fe-button", onclick: move |_| {
                         navigator.push(format!("/analytics?{}", failed_query.peek()));
                         let value = *retry.peek() + 1;
                         retry.set(value);
-                    }, "Try again" }
+                    }, "Try again" } }
                 }
             }
             if let Some(snapshot) = data() {
@@ -185,7 +236,7 @@ pub fn HydratedAnalytics(query: ReadSignal<String>) -> Element {
                         watchlist: snapshot.watchlist.clone().ok().flatten(),
                         watchlist_state: (if !snapshot.signed_in { "signed_out" } else if snapshot.watchlist.is_ok() { "ready" } else { "unavailable" }).to_string(),
                     } },
-                    Err(failure) => rsx! { p { role: "status", "{failure.message()}" } },
+                    Err(failure) => rsx! { crate::fullstack::load_error::LoadErrorNotice { error: failure.clone(),  } },
                 }
             }
         }

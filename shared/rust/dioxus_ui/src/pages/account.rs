@@ -445,7 +445,6 @@ fn AccountBody(
     notification_preferences_form_state: NotificationPreferencesFormState,
 ) -> Element {
     rsx! {
-            style { dangerous_inner_html: include_str!("account.css") }
             div { class: "account-page relative min-h-screen overflow-hidden px-3 pb-20 sm:px-6 fe-base-page",
                 div { class: "pointer-events-none fixed inset-0 overflow-hidden", aria_hidden: "true",
                     div { class: "absolute left-20 top-20 h-32 w-32 rounded-full bg-gradient-to-r from-yellow-400/20 to-orange-500/20 blur-xl fe-decoration fe-fill-neutral" }
@@ -571,7 +570,7 @@ fn AccountStatsRow(
                     } else if signed_in {
                         div { class: "text-sm font-semibold text-muted-foreground fe-tone-muted", "Not available" }
                     } else {
-                        a { class: "text-sm font-semibold text-blue-500 hover:underline", href: ACCOUNT_SIGN_IN_PATH,
+                        crate::navigation::AppLink { class: "text-sm font-semibold text-blue-500 hover:underline", href: ACCOUNT_SIGN_IN_PATH,
                             "Sign in to view"
                         }
                     }
@@ -597,7 +596,7 @@ fn AccountStatsRow(
                 }
             }
             // Credit authority is the payments database owner endpoint.
-            a {
+            crate::navigation::AppLink {
                 class: "account-stat-balance account-panel p-5 sm:p-6 shadow-xl border-2 border-orange-300/50 block fe-surface",
                 "data-account-stat-state": if available_credits.is_some() { "verified" } else if matches!(credit_balance, CreditBalanceLoad::Malformed) { "malformed" } else { "unavailable" },
                 href: "/account/credits",
@@ -1201,7 +1200,7 @@ fn NotificationPreferencesSection(
                         }
                     }
                     div { class: "flex flex-col gap-3 pt-2",
-                        a { class: "btn btn-outline w-full justify-between group hover:border-purple-300 font-bold",
+                        crate::navigation::AppLink { class: "btn btn-outline w-full justify-between group hover:border-purple-300 font-bold",
                             href: "/notifications",
                             span { "Browse All Alerts" }
                             span { "→" }
@@ -1252,7 +1251,7 @@ fn NotificationPreferencesSection(
                                     if signed_in && ready.is_none() {
                                         hydrated::AccountLink { class: "btn btn-sm btn-outline", href: ACCOUNT_PATH, "Retry" }
                                     } else if !signed_in {
-                                        a { class: "btn btn-sm btn-primary", href: ACCOUNT_SIGN_IN_PATH, "Sign in" }
+                                        crate::navigation::AppLink { class: "btn btn-sm btn-primary", href: ACCOUNT_SIGN_IN_PATH, "Sign in" }
                                     }
                                 }
                             }
@@ -1316,7 +1315,7 @@ fn NotificationPushSection(signed_in: bool) -> Element {
                         "Disable browser notifications"
                     }
                 } else {
-                    a {
+                    crate::navigation::AppLink {
                         class: "btn btn-sm btn-outline",
                         href: ACCOUNT_SIGN_IN_PATH,
                         "Sign in"
@@ -1417,7 +1416,7 @@ fn PrivacyBannerSection() -> Element {
                     "Review the privacy policy to understand how EPSX handles account data."
                 }
             }
-            a { class: "relative z-10 bg-white text-indigo-600 hover:bg-white/90 font-bold px-8 py-3 rounded-xl fe-fill-neutral",
+            crate::navigation::AppLink { class: "relative z-10 bg-white text-indigo-600 hover:bg-white/90 font-bold px-8 py-3 rounded-xl fe-fill-neutral",
                 href: "/privacy",
                 "Read Policy"
             }

@@ -6,6 +6,7 @@ use std::collections::BTreeMap;
 
 #[derive(Clone, Debug, PartialEq, Routable)]
 enum PayRoute {
+    #[layout(PayLayout)]
     #[route("/?:..query")]
     Home { query: String },
     #[route("/:..segments?:..query")]
@@ -55,7 +56,37 @@ pub(super) fn page_for(path: &str) -> Option<Page> {
 #[derive(Clone, Copy)]
 struct PayTheme(Signal<bool>);
 #[component]
+pub(super) fn PayNavbar(
+    environment: Environment,
+    path: String,
+    mut dark: Signal<bool>,
+    #[props(default = rsx! {})] actions: Element,
+) -> Element {
+    if try_use_context::<PayShellOwned>().is_some() {
+        return rsx! { div { class: "md-route-actions", {actions} } };
+    }
+    use crate::layout::site_navbar::{SiteNavGroup, SiteNavItem, SiteNavbar};
+    let navigator = use_navigator();
+    let url = |href: &str| format!("{href}?environment={}", environment.as_str());
+    rsx! { SiteNavbar {
+        brand_href: url("/"), brand_label: "EPSX Pay", logo_src: "/brand-icon.svg", path,
+        groups: vec![
+            SiteNavGroup::new("Workspace", [("/dashboard","Overview"),("/payments","Payments"),("/packages","Packages"),("/payment-links","Payment links"),("/webhooks","Webhooks"),("/settings","Settings")].into_iter().map(|(href,label)| SiteNavItem::new(url(href),label)).collect()),
+            SiteNavGroup::new("Developer", vec![SiteNavItem::new(url("/docs/merchant"), "Developer guide"), SiteNavItem::new(url("/docs"), "API documentation")]),
+            SiteNavGroup::new("About Pay", [("features","Features"),("how-it-works","How it works"),("pricing","Pricing")].into_iter().map(|(id,label)| SiteNavItem::new(format!("{}#{id}",url("/")),label)).collect()),
+        ],
+        on_navigate: move |(event, href): (MouseEvent, String)| {
+            if event.modifiers().is_empty() && event.trigger_button() == Some(dioxus::html::input_data::MouseButton::Primary) {
+                event.prevent_default(); navigator.push(href);
+            }
+        },
+        actions: rsx! { button { class: "md-quiet", aria_label: "Toggle theme", aria_pressed: dark(), onclick: move |_| dark.toggle(), crate::primitives::Icon { name: if dark() { "sun" } else { "moon" }, size: 18 } } {actions} },
+    } }
+}
+
+#[component]
 pub fn PayApp() -> Element {
+    crate::navigation::use_navigation_lifecycle();
     let mut dark = use_signal(|| false);
     let mut theme_ready = use_signal(|| false);
     use_context_provider(|| PayTheme(dark));
@@ -75,6 +106,7 @@ pub fn PayApp() -> Element {
     });
     rsx! {
         document::Meta{name:"viewport",content:"width=device-width,initial-scale=1"}
+        document::Style { ".md-route-actions {{ display:flex;justify-content:flex-end;gap:.75rem;padding:.75rem 2rem; }} .md-route-actions:empty {{ display:none; }}" }
         document::Link{rel:"stylesheet",href:"/public/dist/tailwind.css"}
         document::Link{rel:"stylesheet",href:"/merchant.css"}
         document::Link{rel:"stylesheet",href:"/checkout.css"}
@@ -87,13 +119,14 @@ pub fn PayApp() -> Element {
 fn View(segments: Vec<String>, query: String) -> Element {
     let path = format!("/{}", segments.join("/"));
     let env = environment_for(&query);
+    let PayTheme(dark) = use_context::<PayTheme>();
     if matches!(path.as_str(), "/docs" | "/docs/merchant") {
         return rsx! {Docs{merchant:path=="/docs/merchant",environment:env}};
     }
     match page_for(&path) {
         Some(page) => rsx! {PayPage{key:"{path}:{env:?}",page,environment:env,path}},
         None => {
-            rsx! {main{class:"container-x py-10",document::Title{"Page not found · EPSX Pay"}h1{"Page not found"}Link{to:"/","Back to Pay"}}}
+            rsx! {div { class: if dark() { "epsx-merchant dark" } else { "epsx-merchant" }, PayNavbar { environment: env, path, dark } main{class:"container-x py-10",document::Title{"Page not found · EPSX Pay"}h1{"Page not found"}Link{to:"/","Back to Pay"}}}}
         }
     }
 }
@@ -313,7 +346,7 @@ fn PayPage(page: Page, environment: Environment, path: String) -> Element {
             }
         }
     });
-    let PayTheme(mut dark) = use_context::<PayTheme>();
+    let PayTheme(dark) = use_context::<PayTheme>();
     let current = data();
     let signed_in = current.as_ref().is_some_and(|v| v.signed_in);
     if matches!(page, Page::Checkout(_)) {
@@ -322,19 +355,19 @@ fn PayPage(page: Page, environment: Environment, path: String) -> Element {
     rsx! {
         document::Title{"{page.title()} · EPSX Pay"}
         div{class:if dark(){"dark epsx-merchant"}else{"epsx-merchant"},
-            main{class:if page.public(){"md-app md-public"}else{"md-app"},
-                aside{class:"md-sidebar",Link{class:"md-brand",to:format!("/?environment={}",environment.as_str()),img{src:"/brand-icon.svg",alt:""}"EPSX" small{"Pay"}}
-                    if !page.public(){nav{for (href,label) in [("/dashboard","Overview"),("/payments","Payments"),("/packages","Packages"),("/payment-links","Payment links"),("/webhooks","Webhooks"),("/settings","Settings")]{Link{to:format!("{href}?environment={}",environment.as_str()),class:if label==page.title(){"active"}else{""},"{label}"}}}}
-                    div{class:"md-sidebar-bottom",Link{to:format!("/docs?environment={}",environment.as_str()),"Developer guide ↗"}p{"Crypto payments, simply."}}
-                }
+            main{class:"md-app md-shared-nav",
                 div{class:"md-workspace",
-                    header{class:"md-topbar",span{if let Some(m)=current.as_ref().and_then(|d|d.merchant.as_ref()){"{m.name}"}else{"Your business"}}
-                        div{class:"md-tools",
-                            if !page.public(){EnvironmentSelect{path,environment}}
-                            button{class:"md-quiet",onclick:move |_|controller.revision+=1,"Refresh"}
-                            button{class:"md-quiet","aria-label":"Toggle theme",onclick:move |_|dark.toggle(),"◐"}
+                    PayNavbar { environment, path: format!("{path}?environment={}",environment.as_str()), dark,
+                        actions: rsx! {
                             if signed_in{button{class:"md-quiet",disabled:(controller.busy)(),onclick:move |_|{spawn(async move{match wallet::logout().await{Ok(_)=>controller.revision+=1,Err(e)=>controller.message.set(e)}});},"Sign out"}}
                             else if !page.public(){SignIn{}}
+                        },
+                    }
+                    div { class: "md-context-bar",
+                        span { if let Some(m)=current.as_ref().and_then(|d|d.merchant.as_ref()) { "{m.name}" } else { "Your business" } }
+                        div { class: "md-tools",
+                            if !page.public(){EnvironmentSelect{path,environment}}
+                            button{class:"md-quiet",onclick:move |_|controller.revision+=1,"Refresh"}
                         }
                     }
                     div{class:"md-content",
@@ -378,7 +411,11 @@ fn SignIn() -> Element {
 #[component]
 fn Feedback() -> Element {
     let c = use_context::<Controller>();
-    rsx! {p{class:"md-feedback",role:"status","aria-live":"polite","{(c.message)()}"}}
+    let message = (c.message)();
+    if message == LoadError::Unauthenticated.message() {
+        return rsx! { crate::fullstack::load_error::SessionNotice { actions: rsx! { SignIn {} } } };
+    }
+    rsx! { if !message.is_empty() { p { class: "md-feedback", role: "status", aria_live: "polite", "{message}" } } }
 }
 #[component]
 fn Secret() -> Element {
@@ -515,14 +552,17 @@ fn Checkout(mut dark: Signal<bool>) -> Element {
         .map(|d| d.frontend_origin.clone())
         .unwrap_or_default();
     let p = data.and_then(|d| d.payment);
-    rsx! {document::Title{"Checkout · EPSX Pay"}div{class:"pay-shell",header{class:"pay-header",a{class:"pay-brand",href:origin.clone(),img{class:"pay-brand-icon",src:"/brand-icon.svg",alt:""}"EPSX" small{"Pay"}}div{class:"pay-header-actions",button{class:"pay-theme-toggle","aria-label":"Toggle theme",onclick:move |_|dark.toggle(),"◐"}a{class:"pay-back",href:format!("{origin}/plans"),"← Back to plans"}}}
+    rsx! {document::Title{"Checkout · EPSX Pay"}PayNavbar { environment: (c.credentials)().environment, path: "/checkout".to_string(), dark,
+        actions: rsx! { crate::navigation::AppLink { class: "pay-back", href: format!("{origin}/plans"), "← Back to plans" } },
+    }
+    div{class:"pay-shell",
         if let Some(payment)=p{div{class:"pay-layout",section{class:"pay-summary",p{class:"pay-eyebrow","{payment.checkout_snapshot.merchant_name}"}h1{"A simple way to pay."}div{class:"pay-total","{display_amount(&payment.amount,payment.token_decimals.unwrap_or(0))} {payment.token}"}
             if payment.checkout_snapshot.pricing.promotion_active{div{class:"pay-sale",div{class:"pay-sale-row",span{"Regular price"}del{"{payment.checkout_snapshot.pricing.original_price} {payment.token}"}}div{class:"pay-sale-row pay-sale-saving",span{"Sale applied"}strong{"Save {payment.checkout_snapshot.pricing.savings} {payment.token}"}}p{"One-time payment · price reserved for this checkout"}}}
             p{class:"pay-subtitle","One-time crypto payment. No automatic renewal."}div{class:"pay-item",span{class:"pay-item-icon","↗"}div{strong{"{payment.description}"}p{"{payment.checkout_snapshot.description}"}}}p{class:"pay-note",if payment.checkout_snapshot.kind=="epsx_plan"{"Payment confirmation and plan access are tracked separately. Check both in your EPSX account."}else{"Keep this checkout link as your receipt. Your merchant provides the purchased service after payment confirmation."}}
             div{class:"pay-steps",for(label,n)in[("Send the exact amount from your wallet",1),("We verify payment on the network",2),("Your merchant receives payment confirmation",3)]{div{class:"pay-step",span{"{n}"}"{label}"}}}
         }
         section{class:"pay-card","aria-label":"Crypto checkout",div{class:"pay-card-head",h2{"Pay with crypto"}p{"Scan a QR code or connect your wallet."}}
-            if payment.terminal(){div{class:"pay-result",div{class:"pay-result-icon",if payment.status=="succeeded"{"✓"}else{"!"}}h3{match payment.status.as_str(){"succeeded"=>"Payment received","expired"=>"Checkout expired","refunded"=>"Payment refunded",_=>"Payment needs review"}}p{if payment.status=="expired"{"Do not send funds to this address. Start a new checkout."}else if payment.status=="succeeded"{"Payment confirmed on the network. Contact your merchant for service delivery."}else{"Contact support with your payment reference."}}if payment.checkout_snapshot.kind=="epsx_plan"{a{class:"pay-button",href:format!("{origin}/account/payments"),"View plan access"}}else{Link{class:"pay-button",to:format!("/m/{}?environment={}",payment.merchant_id,payment.environment.as_str()),"Back to merchant"}}if let Some(hash)=&payment.tx_hash{p{class:"pay-transaction","{hash}"}}}}
+            if payment.terminal(){div{class:"pay-result",div{class:"pay-result-icon",if payment.status=="succeeded"{"✓"}else{"!"}}h3{match payment.status.as_str(){"succeeded"=>"Payment received","expired"=>"Checkout expired","refunded"=>"Payment refunded",_=>"Payment needs review"}}p{if payment.status=="expired"{"Do not send funds to this address. Start a new checkout."}else if payment.status=="succeeded"{"Payment confirmed on the network. Contact your merchant for service delivery."}else{"Contact support with your payment reference."}}if payment.checkout_snapshot.kind=="epsx_plan"{crate::navigation::AppLink {class:"pay-button",href:format!("{origin}/account/payments"),"View plan access"}}else{Link{class:"pay-button",to:format!("/m/{}?environment={}",payment.merchant_id,payment.environment.as_str()),"Back to merchant"}}if let Some(hash)=&payment.tx_hash{p{class:"pay-transaction","{hash}"}}}}
             else if payment.payment_method=="transfer"{div{class:"pay-card-body",if payment.environment==Environment::Test{span{class:"pay-test","TEST PAYMENT · SIMULATED FUNDS"}}div{class:"pay-network-row",div{class:"pay-asset",span{class:"pay-coin","₮"}div{strong{"{payment.token}"}small{"Chain {payment.chain_id}"}}}Expiry{expires:payment.expires_at.clone()}}
                 div{class:"pay-methods","aria-label":"Payment method",button{"aria-pressed":(!method_wallet()).to_string(),onclick:move |_|method_wallet.set(false),"QR / Transfer"}button{"aria-pressed":method_wallet().to_string(),onclick:move |_|method_wallet.set(true),"Connect wallet"}}
                 if !method_wallet(){div{class:"pay-qr-wrap",img{class:"pay-qr",src:svg_uri(&payment.qr_svg),alt:"Payment QR with token, network, amount and recipient"}span{class:"pay-qr-caption","Scan with a compatible crypto wallet"}}CopyField{label:"Amount to send",text:display_amount(&payment.amount,payment.token_decimals.unwrap_or(0))}CopyField{label:"Payment address · unique to this checkout",text:payment.deposit_address.clone()}}
@@ -539,7 +579,7 @@ fn Checkout(mut dark: Signal<bool>) -> Element {
             div{class:"pay-status",role:"status",span{class:"pay-status-dot"}span{"{payment.status}"}}
         }}}
         else{p{class:"pay-feedback","Preparing your checkout…"}button{class:"pay-button",onclick:move |_|c.revision+=1,"Retry"}}
-        Feedback{}footer{class:"pay-footer",span{"Payments by EPSX"}div{class:"pay-footer-links",a{href:format!("{origin}/contact"),"Support"}a{href:format!("{origin}/terms"),"Terms"}a{href:format!("{origin}/privacy"),"Privacy"}}}
+        Feedback{}footer{class:"pay-footer",span{"Payments by EPSX"}div{class:"pay-footer-links",crate::navigation::AppLink {href:format!("{origin}/contact"),"Support"}crate::navigation::AppLink {href:format!("{origin}/terms"),"Terms"}crate::navigation::AppLink {href:format!("{origin}/privacy"),"Privacy"}}}
     }}
 }
 fn pairing_qr(uri: &str) -> String {
@@ -569,6 +609,7 @@ fn CopyField(label: String, text: String) -> Element {
 }
 #[component]
 fn Docs(merchant: bool, environment: Environment) -> Element {
+    let PayTheme(dark) = use_context::<PayTheme>();
     let source = if merchant {
         include_str!("../../../../../../docs/pay/merchant-dashboard-dev.md")
     } else {
@@ -579,7 +620,7 @@ fn Docs(merchant: bool, environment: Environment) -> Element {
         &mut html,
         pulldown_cmark::Parser::new_ext(source, pulldown_cmark::Options::ENABLE_TABLES),
     );
-    rsx! {document::Title{"Integration guide · EPSX Pay"}main{class:"container-x max-w-5xl mx-auto py-10 prose",Link{to:format!("/?environment={}",environment.as_str()),"Back to Pay"}article{dangerous_inner_html:html}}}
+    rsx! {document::Title{"Integration guide · EPSX Pay"}div { class: if dark() { "epsx-merchant dark" } else { "epsx-merchant" }, PayNavbar { environment, path: format!("{}?environment={}",if merchant { "/docs/merchant" } else { "/docs" },environment.as_str()), dark } main{class:"container-x max-w-5xl mx-auto py-10 prose",Link{to:format!("/?environment={}",environment.as_str()),"Back to Pay"}article{dangerous_inner_html:html}}}}
 }
 #[cfg(test)]
 mod tests {
@@ -647,4 +688,25 @@ fn Expiry(expires: String) -> Element {
         }
     });
     rsx! {span{class:"pay-timer",if let Some(seconds)=remaining(){"{seconds/60:02}:{seconds%60:02} remaining"}else{"Time remaining"}}}
+}
+
+#[derive(Clone, Copy)]
+struct PayShellOwned;
+#[component]
+fn PayLayout() -> Element {
+    let route = use_route::<PayRoute>().to_string();
+    let query = route.split_once('?').map(|(_, query)| query).unwrap_or("");
+    let environment = environment_for(query.split('#').next().unwrap_or(query));
+    let PayTheme(dark) = use_context::<PayTheme>();
+    rsx! { div { class: if dark() { "epsx-merchant dark" } else { "epsx-merchant" },
+        PayNavbar { environment, path: route, dark }
+        div { id: "epsx-main-content", tabindex: -1,
+            SuspenseBoundary { fallback: |_| rsx! { crate::navigation::PageSkeleton {} }, PayContent {} }
+        }
+    } }
+}
+#[component]
+fn PayContent() -> Element {
+    use_context_provider(|| PayShellOwned);
+    rsx! { Outlet::<PayRoute> {} }
 }

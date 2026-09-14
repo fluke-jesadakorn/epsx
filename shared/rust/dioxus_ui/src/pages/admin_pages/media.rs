@@ -445,7 +445,7 @@ fn MediaToolbar(selected: MediaBucket, file_count: Option<usize>) -> Element {
     rsx! {
         div { class: "flex flex-wrap items-center gap-2",
             nav { class: "flex flex-wrap items-center gap-2", aria_label: "Media bucket",
-                a {
+                crate::navigation::AppLink {
                     class: if selected == MediaBucket::News { "rounded-lg bg-[#7645d9] px-3 py-1.5 text-sm font-medium capitalize text-white shadow-lg shadow-[#7645d9]/20" } else { "rounded-lg border border-border/20 bg-card px-3 py-1.5 text-sm font-medium capitalize text-muted-foreground transition-colors hover:border-border/40 hover:text-foreground" },
                     href: MediaBucket::News.href(),
                     onclick: move |event| crate::fullstack::admin_media::navigate(event, MediaBucket::News.href()),
@@ -460,7 +460,7 @@ fn MediaToolbar(selected: MediaBucket, file_count: Option<usize>) -> Element {
                         "{label}"
                     }
                 }
-                a {
+                crate::navigation::AppLink {
                     class: if selected == MediaBucket::Public { "rounded-lg bg-[#7645d9] px-3 py-1.5 text-sm font-medium capitalize text-white shadow-lg shadow-[#7645d9]/20" } else { "rounded-lg border border-border/20 bg-card px-3 py-1.5 text-sm font-medium capitalize text-muted-foreground transition-colors hover:border-border/40 hover:text-foreground" },
                     href: MediaBucket::Public.href(),
                     onclick: move |event| crate::fullstack::admin_media::navigate(event, MediaBucket::Public.href()),
@@ -657,7 +657,7 @@ fn MediaProblem(state: &'static str, title: String, detail: String, retry_href: 
                         p { class: "mt-1 max-w-3xl text-sm leading-6 text-muted-foreground", "{detail}" }
                     }
                 }
-                a { class: "btn btn-sm btn-outline shrink-0", href: retry_href.clone(), onclick: move |event| crate::fullstack::admin_media::navigate(event, retry_href.clone()), "Try again" }
+                crate::navigation::AppLink { class: "btn btn-sm btn-outline shrink-0", href: retry_href.clone(), onclick: move |event| crate::fullstack::admin_media::navigate(event, retry_href.clone()), "Try again" }
             }
         }
     }

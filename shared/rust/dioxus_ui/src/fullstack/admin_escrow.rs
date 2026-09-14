@@ -222,7 +222,7 @@ pub fn HydratedAdminEscrows(merchant: bool, id: Option<String>, query: String) -
       if merchant{select{aria_label:"Environment",class:"input",value:request.environment.clone(),disabled:busy(),onchange:{let request=request.clone();move|event|{let mut next=request.clone();next.environment=event.value();nav.push(next.url(next.id.as_deref()));}},option{value:"test","Test"}option{value:"live","Live"}}}
       button{class:"btn btn-outline",disabled:loading(),onclick:move |_|{let mut value=revision;value+=1;},"Refresh"}
      }
-     if let Some(message)=failure(){p{role:"alert","{message}"}}
+     if let Some(message)=failure(){p{role:"alert",crate::fullstack::load_error::SessionMessage{message}}}
      p{role:"status","aria-live":"polite","{status}"}
      match data(){Ok(value)=>rsx!{
       if let Some(item)=value.selected{section{class:"border rounded-2xl p-6 space-y-3",h2{class:"text-xl font-semibold","{item.description}"}p{"{display_amount(&item)} {item.token}"}p{class:"break-all","Recipient: {item.payee}"}p{"Status: {item.status}"}
@@ -232,7 +232,7 @@ pub fn HydratedAdminEscrows(merchant: bool, id: Option<String>, query: String) -
        for mode in if merchant{vec!["direct","escrow"]}else{vec!["escrow"]}{div{class:"flex flex-wrap items-center gap-3",strong{"{mode}"}for(paused,label)in[(true,"Pause"),(false,"Resume")]{EscrowActionButton{query:request.clone(),command:EscrowCommand::Pause{mode:mode.into(),paused},label}}}}
       }
       section{class:"border rounded-2xl p-6 space-y-3",h2{class:"text-xl font-semibold","Escrows"}if value.items.is_empty(){p{"No escrows in this environment."}}for item in value.items{Link{class:"block border-b py-3",to:request.url(Some(&item.id)),"{item.description} · {item.token} · {item.status}"}}}
-     },Err(error)=>rsx!{section{role:"alert",p{"{error.message()}"}Link{class:"btn btn-primary",to:format!("/auth?return_url={}",url::form_urlencoded::byte_serialize(request.url(request.id.as_deref()).as_bytes()).collect::<String>()),"Sign in"}}}
+     },Err(error)=>rsx!{section{role:"alert",crate::fullstack::load_error::LoadErrorNotice { error: error.clone(),  }}}
     }
     }}}
 }

@@ -740,7 +740,7 @@ fn WalletDisableWorkspace(ctx: PageContext, reference: Option<String>) -> Elemen
                                     Icon { name: "shield".to_string(), size: Some(16) }
                                     "Disable Wallet"
                                 }
-                                a { class: "btn btn-ghost mt-2 w-full", href: format!("/wallet-management/{}", projection.address), "Cancel" }
+                                crate::navigation::AppLink { class: "btn btn-ghost mt-2 w-full", href: format!("/wallet-management/{}", projection.address), "Cancel" }
                             }
                         }
                     }
@@ -798,7 +798,7 @@ fn WalletDisableNotice(state: &'static str, title: String, detail: String) -> El
                             p { class: "mt-1 text-sm leading-6 text-muted-foreground", "{detail}" }
                         }
                     }
-                    a { class: "btn btn-sm btn-outline shrink-0", href: "/wallet-management/wallets", "Wallet inventory" }
+                    crate::navigation::AppLink { class: "btn btn-sm btn-outline shrink-0", href: "/wallet-management/wallets", "Wallet inventory" }
                 }
             }
             WalletDisableScaffold {}
@@ -810,7 +810,7 @@ fn WalletDisableNotice(state: &'static str, title: String, detail: String) -> El
 fn WalletDisableHeader() -> Element {
     rsx! {
         header { class: "flex items-center gap-4",
-            a { class: "rounded-xl border border-border/20 bg-muted/30 p-2.5 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground", href: WALLETS_PATH, aria_label: "Back to wallets",
+            crate::navigation::AppLink { class: "rounded-xl border border-border/20 bg-muted/30 p-2.5 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground", href: WALLETS_PATH, aria_label: "Back to wallets",
                 Icon { name: "arrow-left".to_string(), size: Some(20) }
             }
             div {
@@ -874,7 +874,7 @@ fn WalletDisableScaffold() -> Element {
                 h2 { class: "text-sm font-bold uppercase tracking-wider text-amber-400", "Action Summary" }
                 p { class: "mt-4 text-sm text-muted-foreground", "Wallet status and version must be verified before this action can be configured." }
                 button { class: "btn mt-6 w-full cursor-not-allowed bg-gradient-to-r from-amber-600 to-red-600 text-white opacity-50", r#type: "button", disabled: true, "Disable Wallet" }
-                a { class: "btn btn-ghost mt-2 w-full", href: WALLETS_PATH, tabindex: "-1", "Cancel" }
+                crate::navigation::AppLink { class: "btn btn-ghost mt-2 w-full", href: WALLETS_PATH, tabindex: "-1", "Cancel" }
             }
         }
     }
@@ -943,7 +943,7 @@ fn WalletDetailWorkspace(
     rsx! {
         section { class: "mx-auto max-w-6xl space-y-6", "data-admin-wallet-detail-surface": "workspace",
             header { class: "flex flex-col gap-4 sm:flex-row sm:items-center",
-                a { class: "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border/40 bg-card transition-colors hover:bg-muted/30", href: WALLETS_PATH, aria_label: "Back to wallet inventory",
+                crate::navigation::AppLink { class: "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border/40 bg-card transition-colors hover:bg-muted/30", href: WALLETS_PATH, aria_label: "Back to wallet inventory",
                     Icon { name: "arrow-left".to_string(), size: Some(20) }
                 }
                 div { class: "min-w-0 flex-1",
@@ -953,7 +953,7 @@ fn WalletDetailWorkspace(
                     }
                     p { class: "mt-1 text-sm text-muted-foreground", "Manage wallet access and plans" }
                 }
-                a { class: "btn btn-outline gap-2 self-start sm:self-auto", href: format!("/wallet-management/{route_address}"),
+                crate::navigation::AppLink { class: "btn btn-outline gap-2 self-start sm:self-auto", href: format!("/wallet-management/{route_address}"),
                     Icon { name: "refresh-cw".to_string(), size: Some(16) }
                     "Refresh"
                 }
@@ -1062,7 +1062,7 @@ fn WalletMetadataPanel(wallet: Option<AdminWalletDetailProjection>, address: Str
                     " Update Details"
                 }
                 if wallet.as_ref().is_some_and(|wallet| wallet.status == "active") {
-                    a { class: "btn btn-sm btn-outline text-amber-400", href: format!("/wallet-management/wallets/{address}/disable"), "Disable wallet" }
+                    crate::navigation::AppLink { class: "btn btn-sm btn-outline text-amber-400", href: format!("/wallet-management/wallets/{address}/disable"), "Disable wallet" }
                 }
             }
         }
@@ -1252,8 +1252,8 @@ fn WalletDetailProblemBanner(
                     p { class: "mt-1 max-w-3xl text-sm text-muted-foreground", "{detail}" }
                 }
                 nav { class: "flex shrink-0 flex-wrap gap-2", aria_label: "Wallet detail recovery",
-                    a { class: "btn btn-sm btn-outline", href: format!("/wallet-management/{route_address}"), "Retry wallet read" }
-                    a { class: "btn btn-sm btn-ghost", href: WALLETS_PATH, "Wallet list" }
+                    crate::navigation::AppLink { class: "btn btn-sm btn-outline", href: format!("/wallet-management/{route_address}"), "Retry wallet read" }
+                    crate::navigation::AppLink { class: "btn btn-sm btn-ghost", href: WALLETS_PATH, "Wallet list" }
                 }
             }
         }
@@ -1491,7 +1491,7 @@ fn WalletPagination(projection: AdminWalletListProjection, query: AdminWalletLis
             p { class: "text-xs text-muted-foreground", "{start}-{end} of {projection.total}" }
             div { class: "flex items-center gap-2",
                 if let Some(href) = previous {
-                    a { class: "btn btn-sm btn-outline", href, aria_label: "Previous wallet page",
+                    crate::navigation::AppLink { class: "btn btn-sm btn-outline", href, aria_label: "Previous wallet page",
                         Icon { name: "arrow-left".to_string(), size: Some(14) }
                     }
                 } else {
@@ -1501,7 +1501,7 @@ fn WalletPagination(projection: AdminWalletListProjection, query: AdminWalletLis
                 }
                 span { class: "px-1.5 text-xs text-muted-foreground", "{page} / {total_pages}" }
                 if let Some(href) = next {
-                    a { class: "btn btn-sm btn-outline", href, aria_label: "Next wallet page",
+                    crate::navigation::AppLink { class: "btn btn-sm btn-outline", href, aria_label: "Next wallet page",
                         Icon { name: "arrow-right".to_string(), size: Some(14) }
                     }
                 } else {
@@ -1588,7 +1588,7 @@ fn WalletListRow(wallet: AdminWalletListItemProjection) -> Element {
             }
             td { class: "px-4 py-4 font-mono text-sm text-muted-foreground", "v{wallet.version}" }
             td { class: "px-5 py-4 text-right",
-                a { class: "inline-flex items-center gap-1.5 rounded-xl border border-[#7645d9]/30 px-3 py-1.5 text-sm font-semibold text-purple-400 transition-colors hover:bg-purple-500/10", href: detail_href,
+                crate::navigation::AppLink { class: "inline-flex items-center gap-1.5 rounded-xl border border-[#7645d9]/30 px-3 py-1.5 text-sm font-semibold text-purple-400 transition-colors hover:bg-purple-500/10", href: detail_href,
                     "View"
                     Icon { name: "chevron-right".to_string(), size: Some(14) }
                 }
@@ -1703,11 +1703,11 @@ fn WalletStatsProblem(state: &'static str, title: String, detail: String) -> Ele
                     }
                     p { class: "mt-2 max-w-3xl text-sm leading-6 text-muted-foreground", "{detail}" }
                     nav { class: "mt-5 flex flex-wrap gap-3", aria_label: "Wallet summary recovery",
-                        a { class: "btn btn-sm btn-outline", href: WALLETS_PATH,
+                        crate::navigation::AppLink { class: "btn btn-sm btn-outline", href: WALLETS_PATH,
                             Icon { name: "refresh-cw".to_string(), size: Some(15) }
                             " Retry summary"
                         }
-                        a { class: "btn btn-sm btn-ghost", href: "/",
+                        crate::navigation::AppLink { class: "btn btn-sm btn-ghost", href: "/",
                             Icon { name: "home".to_string(), size: Some(15) }
                             " Admin home"
                         }
@@ -2120,7 +2120,8 @@ mod tests {
             let rendered = html(render(&ctx).1);
 
             assert!(rendered.contains(&format!("data-admin-data-state=\"{state}\"")));
-            assert!(rendered.contains("Sign in"));
+            assert!(rendered.contains("Connect wallet"));
+            assert!(rendered.contains("href=\"/auth?return_url="));
             assert!(!rendered.contains(">777<"));
             assert!(!rendered.contains("data-admin-wallets-state"));
             assert_no_samples_or_controls(&rendered);
@@ -2139,7 +2140,8 @@ mod tests {
             let rendered = html(render(&ctx).1);
 
             assert!(rendered.contains(&format!("data-admin-data-state=\"{state}\"")));
-            assert!(rendered.contains("Sign in"));
+            assert!(rendered.contains("Connect wallet"));
+            assert!(rendered.contains("href=\"/auth?return_url="));
             assert!(!rendered.contains(TEST_ADDRESS));
             assert_no_samples_or_controls(&rendered);
         }

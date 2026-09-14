@@ -264,7 +264,7 @@ pub fn PaymentTableRow(payment: PaymentRow) -> Element {
             td { class: "px-4 py-4 whitespace-nowrap",
                 if let Some(hash) = payment.transaction_hash.clone() {
                     if !hash.is_empty() {
-                        a {
+                        crate::navigation::AppLink {
                             class: "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-[#1fc7d4] border border-[#1fc7d4]/30 hover:bg-[#1fc7d4]/10 transition-colors",
                             href: "#explorer-{hash}",
                             Icon { name: "external-link".to_string(), size: Some(14), class_name: Some("w-3.5 h-3.5".to_string()) }
@@ -313,7 +313,7 @@ pub fn PaymentMobileCard(payment: PaymentRow) -> Element {
                 span { class: "text-xs text-muted-foreground", "{payment.created_at}" }
                 if let Some(hash) = payment.transaction_hash.clone() {
                     if !hash.is_empty() {
-                        a {
+                        crate::navigation::AppLink {
                             class: "inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-[#1fc7d4] border border-[#1fc7d4]/30 hover:bg-[#1fc7d4]/10 transition-colors",
                             href: "#explorer-{hash}",
                             Icon { name: "external-link".to_string(), size: Some(12), class_name: Some("w-3 h-3".to_string()) }

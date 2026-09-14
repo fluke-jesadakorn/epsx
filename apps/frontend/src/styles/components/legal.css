@@ -1,0 +1,16 @@
+/* Legal page compatibility rules compiled by Tailwind. */
+
+body:not(.epsx-frontend) .privacy-page-prod { background-color: #08060B !important; color: #ffffff !important; }
+body:not(.epsx-frontend) .privacy-prod-card { background-color: #27262c !important; border-color: #383241 !important; border-radius: 24px !important; }
+body:not(.epsx-frontend) .privacy-prod-title { background-image: linear-gradient(to right, #c084fc, #f472b6) !important; -webkit-background-clip: text !important; background-clip: text !important; color: transparent !important; }
+body:not(.epsx-frontend) .privacy-prod-last-updated { color: #9ca3af !important; }
+body:not(.epsx-frontend) .privacy-prod-h3 { color: #c084fc !important; }
+body:not(.epsx-frontend) .privacy-prod-p, body:not(.epsx-frontend) .privacy-prod-list { color: #d1d5db !important; }
+
+body:not(.epsx-frontend) .terms-page-prod { background-color: #08060B !important; color: #ffffff !important; }
+body:not(.epsx-frontend) .terms-prod-card { background-color: #27262c !important; border-color: #383241 !important; border-radius: 24px !important; }
+body:not(.epsx-frontend) .terms-page-prod .legal-section-title { color: #c084fc !important; }
+body:not(.epsx-frontend) .terms-page-prod .legal-section-text,
+body:not(.epsx-frontend) .terms-page-prod .legal-section-list { color: #d1d5db !important; }
+body:not(.epsx-frontend) .terms-page-prod .legal-section-list { list-style: disc !important; }
+body:not(.epsx-frontend) .terms-page-prod .legal-section-list li { margin-bottom: 0.25rem; }

@@ -660,11 +660,11 @@ pub fn HydratedNotificationBody(
 fn NotificationSectionTabs(active: &'static str) -> Element {
     rsx! {
         nav { class: "mx-auto mb-8 grid max-w-xl grid-cols-2 gap-1 rounded-full border border-border/20 bg-card p-1 shadow-xl", aria_label: "Notification workspace",
-            a { class: if active == "manage" { "flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#1fc7d4] to-[#7645d9] px-5 py-3 text-sm font-bold text-white" } else { "flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-bold text-foreground" }, href: NOTIFICATIONS_PATH, onclick: move |event| crate::fullstack::admin_notifications::follow(event, NOTIFICATIONS_PATH.to_string()),
+            crate::navigation::AppLink { class: if active == "manage" { "flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#1fc7d4] to-[#7645d9] px-5 py-3 text-sm font-bold text-white" } else { "flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-bold text-foreground" }, href: NOTIFICATIONS_PATH, onclick: move |event| crate::fullstack::admin_notifications::follow(event, NOTIFICATIONS_PATH.to_string()),
                 Icon { name: "bell".to_string(), size: Some(15) }
                 "Overview"
             }
-            a { class: if active == "create" { "flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#1fc7d4] to-[#7645d9] px-5 py-3 text-sm font-bold text-white" } else { "flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-bold text-foreground" }, href: "/notifications/create", onclick: move |event| crate::fullstack::admin_notifications::follow(event, "/notifications/create".to_string()),
+            crate::navigation::AppLink { class: if active == "create" { "flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#1fc7d4] to-[#7645d9] px-5 py-3 text-sm font-bold text-white" } else { "flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-bold text-foreground" }, href: "/notifications/create", onclick: move |event| crate::fullstack::admin_notifications::follow(event, "/notifications/create".to_string()),
                 Icon { name: "send".to_string(), size: Some(15) }
                 "Send Signal"
             }
@@ -676,7 +676,7 @@ fn NotificationSectionTabs(active: &'static str) -> Element {
 fn NotificationActionCards() -> Element {
     rsx! {
         section { class: "mb-8 grid gap-6 sm:grid-cols-2", aria_label: "Notification actions",
-            a { class: "group rounded-2xl border border-border/20 bg-card p-6 shadow-xl transition-colors hover:border-cyan-500/30", href: NOTIFICATIONS_PATH, onclick: move |event| crate::fullstack::admin_notifications::follow(event, NOTIFICATIONS_PATH.to_string()),
+            crate::navigation::AppLink { class: "group rounded-2xl border border-border/20 bg-card p-6 shadow-xl transition-colors hover:border-cyan-500/30", href: NOTIFICATIONS_PATH, onclick: move |event| crate::fullstack::admin_notifications::follow(event, NOTIFICATIONS_PATH.to_string()),
                 div { class: "flex items-center justify-between gap-4",
                     div { class: "flex items-center gap-5",
                         span { class: "flex h-14 w-14 items-center justify-center rounded-2xl border border-cyan-500/20 bg-cyan-500/10 text-cyan-400",
@@ -739,7 +739,7 @@ fn NotificationFilters(page: NotificationPage) -> Element {
                 }
             }
             button { type: "submit", class: "btn btn-sm btn-outline", "Apply filters" }
-            a { class: "btn btn-sm btn-ghost", href: page.href(1), onclick: {let url=page.href(1); move |event| crate::fullstack::admin_notifications::follow(event,url.clone())}, "Clear" }
+            crate::navigation::AppLink { class: "btn btn-sm btn-ghost", href: page.href(1), onclick: {let url=page.href(1); move |event| crate::fullstack::admin_notifications::follow(event,url.clone())}, "Clear" }
         }
     }
 }
@@ -824,7 +824,7 @@ fn NotificationReady(projection: AdminNotificationList, page: NotificationPage) 
                     "data-admin-notifications-page-state": "out-of-range",
                     h3 { class: "font-semibold text-foreground", "No notifications on this page" }
                     p { class: "mt-2 text-sm text-muted-foreground", "The inventory still contains records. Return to the first page or use Previous." }
-                    a { class: "btn btn-sm btn-outline mt-5", href: page.href(1), onclick: {let url=page.href(1); move |event| crate::fullstack::admin_notifications::follow(event,url.clone())}, "Return to first page" }
+                    crate::navigation::AppLink { class: "btn btn-sm btn-outline mt-5", href: page.href(1), onclick: {let url=page.href(1); move |event| crate::fullstack::admin_notifications::follow(event,url.clone())}, "Return to first page" }
                 }
             } else {
                 ul { class: "divide-y divide-border/20 border-t border-border/30", aria_label: "Notification summaries",
@@ -835,12 +835,12 @@ fn NotificationReady(projection: AdminNotificationList, page: NotificationPage) 
             }
             nav { class: "flex items-center justify-between border-t border-border/30 p-4", aria_label: "Notification pagination",
                 if has_previous {
-                    a { class: "btn btn-sm btn-outline", href: page.href(page.page - 1), onclick: {let url=page.href(page.page - 1); move |event| crate::fullstack::admin_notifications::follow(event,url.clone())}, rel: "prev", "Previous" }
+                    crate::navigation::AppLink { class: "btn btn-sm btn-outline", href: page.href(page.page - 1), onclick: {let url=page.href(page.page - 1); move |event| crate::fullstack::admin_notifications::follow(event,url.clone())}, rel: "prev", "Previous" }
                 } else {
                     span { class: "btn btn-sm btn-outline opacity-50", aria_disabled: "true", "Previous" }
                 }
                 if has_next {
-                    a { class: "btn btn-sm btn-outline", href: page.href(page.page + 1), onclick: {let url=page.href(page.page + 1); move |event| crate::fullstack::admin_notifications::follow(event,url.clone())}, rel: "next", "Next" }
+                    crate::navigation::AppLink { class: "btn btn-sm btn-outline", href: page.href(page.page + 1), onclick: {let url=page.href(page.page + 1); move |event| crate::fullstack::admin_notifications::follow(event,url.clone())}, rel: "next", "Next" }
                 } else {
                     span { class: "btn btn-sm btn-outline opacity-50", aria_disabled: "true", "Next" }
                 }
@@ -932,7 +932,7 @@ fn NotificationEmpty(page: NotificationPage) -> Element {
                 span { class: "inline-flex rounded-2xl bg-muted/30 p-5", Icon { name: "bell".to_string(), size: Some(36) } }
                 h3 { class: "mt-5 text-lg font-black uppercase tracking-tight text-muted-foreground", "No notifications found" }
                 p { class: "mt-2 text-sm text-muted-foreground/60", "Silence is Golden — no active notifications detected in the grid" }
-                a { class: "btn btn-sm btn-outline mt-5", href: page.href(1), onclick: {let url=page.href(1); move |event| crate::fullstack::admin_notifications::follow(event,url.clone())}, "Refresh notifications" }
+                crate::navigation::AppLink { class: "btn btn-sm btn-outline mt-5", href: page.href(1), onclick: {let url=page.href(1); move |event| crate::fullstack::admin_notifications::follow(event,url.clone())}, "Refresh notifications" }
             }
         }
     }
@@ -953,8 +953,8 @@ fn NotificationProblem(
                     p { class: "mt-1 max-w-3xl text-sm leading-6 text-muted-foreground", "{detail}" }
                 }
                 nav { class: "flex flex-shrink-0 flex-wrap gap-2", aria_label: "Notification recovery",
-                    a { class: "btn btn-sm btn-primary", href: retry_href.clone(), onclick: move |event| crate::fullstack::admin_notifications::follow(event, retry_href.clone()), "Try again" }
-                    a { class: "btn btn-sm btn-ghost", href: "/", onclick: move |event| crate::fullstack::admin_notifications::follow(event, "/".to_string()), "Admin home" }
+                    crate::navigation::AppLink { class: "btn btn-sm btn-primary", href: retry_href.clone(), onclick: move |event| crate::fullstack::admin_notifications::follow(event, retry_href.clone()), "Try again" }
+                    crate::navigation::AppLink { class: "btn btn-sm btn-ghost", href: "/", onclick: move |event| crate::fullstack::admin_notifications::follow(event, "/".to_string()), "Admin home" }
                 }
             }
             section { class: "overflow-hidden rounded-2xl border border-border/20 bg-card shadow-xl",
@@ -1142,7 +1142,7 @@ fn NotificationCreateForm() -> Element {
                         }
                     }
                     div { class: "flex items-center gap-4 border-t border-border/20 pt-8",
-                        a { class: "btn btn-ghost flex-1", href: NOTIFICATIONS_PATH, onclick: move |event| crate::fullstack::admin_notifications::follow(event, NOTIFICATIONS_PATH.to_string()), "Abort" }
+                        crate::navigation::AppLink { class: "btn btn-ghost flex-1", href: NOTIFICATIONS_PATH, onclick: move |event| crate::fullstack::admin_notifications::follow(event, NOTIFICATIONS_PATH.to_string()), "Abort" }
                         button { type: "submit", class: "btn btn-primary flex-[2] bg-gradient-to-r from-[#7645d9] to-[#5a33b8] uppercase tracking-widest",
                             Icon { name: "send".to_string(), size: Some(16) }
                             " Execute Broadcast"
@@ -1185,8 +1185,8 @@ fn NotificationCreateOutcome(
                 }
             }
             nav { class: "mt-8 flex flex-wrap gap-3 border-t border-border/30 pt-6", aria_label: "Notification route recovery",
-                a { class: "btn btn-primary", href: NOTIFICATIONS_PATH, onclick: move |event| crate::fullstack::admin_notifications::follow(event, NOTIFICATIONS_PATH.to_string()), "Return to notifications" }
-                a { class: "btn btn-outline", href: "/notifications/create", onclick: move |event| crate::fullstack::admin_notifications::follow(event, "/notifications/create".to_string()), "Create another" }
+                crate::navigation::AppLink { class: "btn btn-primary", href: NOTIFICATIONS_PATH, onclick: move |event| crate::fullstack::admin_notifications::follow(event, NOTIFICATIONS_PATH.to_string()), "Return to notifications" }
+                crate::navigation::AppLink { class: "btn btn-outline", href: "/notifications/create", onclick: move |event| crate::fullstack::admin_notifications::follow(event, "/notifications/create".to_string()), "Create another" }
             }
         }
     }
@@ -1203,8 +1203,8 @@ fn NotificationCreateProblem(state: &'static str, title: String, detail: String)
             h2 { class: "text-2xl font-semibold text-foreground", "{title}" }
             p { class: "mt-3 text-sm leading-6 text-muted-foreground", "{detail}" }
             nav { class: "mt-8 flex flex-wrap gap-3 border-t border-border/30 pt-6", aria_label: "Notification route recovery",
-                a { class: "btn btn-primary", href: NOTIFICATIONS_PATH, onclick: move |event| crate::fullstack::admin_notifications::follow(event, NOTIFICATIONS_PATH.to_string()), "Return to notifications" }
-                a { class: "btn btn-outline", href: "/", onclick: move |event| crate::fullstack::admin_notifications::follow(event, "/".to_string()), "Admin home" }
+                crate::navigation::AppLink { class: "btn btn-primary", href: NOTIFICATIONS_PATH, onclick: move |event| crate::fullstack::admin_notifications::follow(event, NOTIFICATIONS_PATH.to_string()), "Return to notifications" }
+                crate::navigation::AppLink { class: "btn btn-outline", href: "/", onclick: move |event| crate::fullstack::admin_notifications::follow(event, "/".to_string()), "Admin home" }
             }
         }
     }

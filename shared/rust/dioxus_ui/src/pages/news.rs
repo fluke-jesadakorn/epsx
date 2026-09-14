@@ -408,7 +408,7 @@ fn NewsFeaturedCard(post: NewsPost) -> Element {
     let navigation = try_use_context::<NewsNavigation>();
     let target = format!("/news/{}", post.slug);
     rsx! {
-        a { class: "group block news-featured-card", href: "/news/{post.slug}", onclick: move |event| follow(event, navigation, target.clone()),
+        crate::navigation::AppLink { class: "group block news-featured-card", href: "/news/{post.slug}", onclick: move |event| follow(event, navigation, target.clone()),
             article { class: "relative rounded-3xl overflow-hidden h-[360px] sm:h-[480px] bg-gradient-to-br from-purple-500/20 via-cyan-500/10 to-slate-900/50 fe-fill-neutral",
                 if let Some(cover) = &post.cover_image_url {
                     img { class: "absolute inset-0 w-full h-full object-cover", src: cover, alt: "", loading: "eager" }
@@ -442,7 +442,7 @@ fn ArticleCard(post: NewsPost) -> Element {
     let navigation = try_use_context::<NewsNavigation>();
     let target = format!("/news/{}", post.slug);
     rsx! {
-        a { class: "group block h-full news-article-card", href: "/news/{post.slug}", onclick: move |event| follow(event, navigation, target.clone()),
+        crate::navigation::AppLink { class: "group block h-full news-article-card", href: "/news/{post.slug}", onclick: move |event| follow(event, navigation, target.clone()),
             article { class: "rounded-2xl bg-card border border-border/20 overflow-hidden hover:border-cyan-500/40 transition-all h-full flex flex-col fe-surface",
                 div { class: "relative w-full h-48 overflow-hidden bg-gradient-to-br from-purple-500/15 via-cyan-500/5 to-transparent flex items-center justify-center fe-fill-neutral",
                     if let Some(cover) = &post.cover_image_url {
@@ -507,7 +507,7 @@ fn NewsEmptyState(
                 p { class: "text-sm text-muted-foreground mt-1.5 max-w-xs leading-relaxed fe-tone-muted", "{message}" }
             }
             if let Some(href) = recovery_href {
-                a { class: "btn btn-outline", href: href.clone(), onclick: move |event| follow(event, navigation, href.clone()), "Previous page" }
+                crate::navigation::AppLink { class: "btn btn-outline", href: href.clone(), onclick: move |event| follow(event, navigation, href.clone()), "Previous page" }
             }
         }
     }
@@ -531,9 +531,9 @@ fn NewsErrorState(code: String, retry_href: String) -> Element {
                 }
             }
             div { class: "mt-6 flex flex-wrap justify-center gap-3",
-                a { class: "btn btn-primary", href: retry_href, "Try again" }
+                crate::navigation::AppLink { class: "btn btn-primary", href: retry_href, "Try again" }
                 if invalid_query {
-                    a { class: "btn btn-outline", href: "/news", onclick: move |event| follow(event, navigation, "/news".into()), "Reset filters" }
+                    crate::navigation::AppLink { class: "btn btn-outline", href: "/news", onclick: move |event| follow(event, navigation, "/news".into()), "Reset filters" }
                 }
             }
         }
@@ -582,7 +582,7 @@ fn NewsPagination(page: u32, total_pages: u32, query: String, category: String) 
     rsx! {
         nav { class: "flex items-center justify-center gap-3 mt-12 news-pagination", aria_label: "News pages",
             if page > 1 {
-                a { class: "flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium border border-border/20 bg-card hover:bg-muted/50 transition-colors news-pagination-prev fe-surface",
+                crate::navigation::AppLink { class: "flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium border border-border/20 bg-card hover:bg-muted/50 transition-colors news-pagination-prev fe-surface",
                     href: page_href(page - 1, &query, &category), onclick: move |event| follow(event, navigation, previous.clone()),
                     Icon { name: "arrow-left".to_string(), size: Some(14) }
                     " Previous"
@@ -597,7 +597,7 @@ fn NewsPagination(page: u32, total_pages: u32, query: String, category: String) 
                 "{page} of {total_pages}"
             }
             if page < total_pages {
-                a { class: "flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium border border-border/20 bg-card hover:bg-muted/50 transition-colors news-pagination-next fe-surface",
+                crate::navigation::AppLink { class: "flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium border border-border/20 bg-card hover:bg-muted/50 transition-colors news-pagination-next fe-surface",
                     href: page_href(page + 1, &query, &category), onclick: move |event| follow(event, navigation, next.clone()),
                     "Next "
                     Icon { name: "arrow-right".to_string(), size: Some(14) }

@@ -2111,7 +2111,16 @@ pub(crate) async fn load_fullstack_analytics(
         .map_err(|_| LoadError::InvalidQuery)?;
     let token = match state.session().access_verification(&headers).await {
         AccessVerification::Verified { token, .. } => Some(token),
-        AccessVerification::MissingOrRejected => None,
+        AccessVerification::MissingOrRejected => {
+            // An expired session is not an anonymous request. Let the browser
+            // recover via the existing CSRF-protected refresh command first.
+            if state.session().access_token(&headers).is_some()
+                || state.session().refresh_token(&headers).is_some()
+            {
+                return Err(LoadError::Unauthenticated);
+            }
+            None
+        }
         AccessVerification::VerifierUnavailable => return Err(LoadError::Unavailable),
     };
     fn error(error: AnalyticsLoadError) -> LoadError {
