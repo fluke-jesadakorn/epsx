@@ -109,6 +109,16 @@ async fn read(
     headers: HeaderMap,
 ) -> Result<PageData, LoadError> {
     validate_credentials(&c)?;
+    let frontend_origin =
+        std::env::var("FRONTEND_URL").unwrap_or_else(|_| "http://localhost:3000".into());
+    // The first HTML response must not wait for either Pay or identity/JWKS.
+    // Capability and optional authentication are read after client hydration.
+    if matches!(&page, Page::Checkout(_)) && c.capability.is_none() {
+        return Ok(PageData {
+            frontend_origin,
+            ..Default::default()
+        });
+    }
     let signed_in = state
         .session()
         .verified_access_token(&headers)
@@ -123,8 +133,7 @@ async fn read(
                 epsx_bff::cookies::CookieClient::Pay,
             )
             .is_some(),
-        frontend_origin: std::env::var("FRONTEND_URL")
-            .unwrap_or_else(|_| "http://localhost:3000".into()),
+        frontend_origin,
         ..Default::default()
     };
     let get = |path: String, public| {
@@ -185,6 +194,38 @@ async fn read(
                 )
                 .await?,
             );
+            if let Some(token) = &c.capability {
+                let result = state
+                    .identity
+                    .auth_client()
+                    .get(format!(
+                        "{}/api/payments/checkout-completion/{}",
+                        state.api_url,
+                        identifier(id)?
+                    ))
+                    .header("x-pay-checkout-token", token)
+                    .timeout(std::time::Duration::from_secs(3))
+                    .send()
+                    .await;
+                if let Ok(response) = result {
+                    if response.status().is_success() {
+                        #[derive(serde::Deserialize)]
+                        struct CompletionReply {
+                            completion: Option<CheckoutCompletion>,
+                        }
+                        if let Ok(reply) = response.json::<CompletionReply>().await {
+                            if reply
+                                .completion
+                                .as_ref()
+                                .is_none_or(|v| v.valid_return(&data.frontend_origin))
+                            {
+                                data.completion = reply.completion;
+                                data.completion_available = true;
+                            }
+                        }
+                    }
+                }
+            }
         }
         Page::Link(id) => {
             data.link = Some(
@@ -615,6 +656,7 @@ async fn page_boundary(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use axum::{http::StatusCode, response::IntoResponse};
     fn fixture_state(url: String) -> AppState {
         let client = Arc::new(epsx_client::ServiceClient::new(epsx_client::ClientConfig {
             base_url: url.clone(),
@@ -699,6 +741,80 @@ mod tests {
         );
         task.abort();
     }
+    #[tokio::test]
+    async fn completion_is_scoped_and_failures_preserve_payment() {
+        let origin =
+            std::env::var("FRONTEND_URL").unwrap_or_else(|_| "http://localhost:3000".into());
+        let order = uuid::Uuid::nil();
+        let reply = Arc::new(std::sync::Mutex::new(
+            json!({"completion":{"order_id":order,"payment_status":"succeeded","fulfillment_status":"pending","return_url":format!("{}/account/payments/{order}",origin.trim_end_matches('/'))}}),
+        ));
+        let upstream = reply.clone();
+        let app = Router::new()
+            .route(
+                "/api/v1/pay/config",
+                axum::routing::get(|| async { axum::Json(json!({})) }),
+            )
+            .route(
+                "/api/v1/pay/checkout-sessions/cs_completion",
+                axum::routing::get(|| async {
+                    axum::Json(json!({"checkout_id":"cs_completion","status":"succeeded"}))
+                }),
+            )
+            .route(
+                "/api/payments/checkout-completion/cs_completion",
+                axum::routing::get(move |headers: HeaderMap| {
+                    let reply = upstream.clone();
+                    async move {
+                        assert_eq!(
+                            headers.get("x-pay-checkout-token").unwrap(),
+                            &"b".repeat(64)
+                        );
+                        assert!(headers.get("cookie").is_none());
+                        let value = reply.lock().unwrap().clone();
+                        if value.is_null() {
+                            return (StatusCode::SERVICE_UNAVAILABLE, axum::Json(value))
+                                .into_response();
+                        }
+                        axum::Json(value).into_response()
+                    }
+                }),
+            );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let state = fixture_state(format!("http://{}", listener.local_addr().unwrap()));
+        let task = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        let credentials = Credentials {
+            checkout: Some("cs_completion".into()),
+            capability: Some("b".repeat(64)),
+            ..Default::default()
+        };
+        let read_fixture = || {
+            read(
+                state.clone(),
+                Page::Checkout("cs_completion".into()),
+                credentials.clone(),
+                HeaderMap::new(),
+            )
+        };
+        let data = read_fixture().await.unwrap();
+        assert!(data.completion_available);
+        assert!(!data.completion.as_ref().unwrap().ready());
+        reply.lock().unwrap()["completion"]["fulfillment_status"] = json!("granted");
+        assert!(read_fixture().await.unwrap().completion.unwrap().ready());
+        reply.lock().unwrap()["completion"]["return_url"] = json!(
+            "https://untrusted.invalid/account/payments/00000000-0000-0000-0000-000000000000"
+        );
+        let rejected = read_fixture().await.unwrap();
+        assert!(!rejected.completion_available && rejected.completion.is_none());
+        *reply.lock().unwrap() = json!({"completion":null});
+        let merchant = read_fixture().await.unwrap();
+        assert!(merchant.completion_available && merchant.completion.is_none());
+        *reply.lock().unwrap() = Value::Null;
+        let outage = read_fixture().await.unwrap();
+        assert!(!outage.completion_available);
+        assert_eq!(outage.payment.unwrap().status, "succeeded");
+        task.abort();
+    }
     #[test]
     fn registration_is_exactly_scoped_to_pay() {
         let names: Vec<_> = dioxus_server::ServerFunction::collect()
@@ -739,6 +855,16 @@ mod tests {
             assert!(!html.contains("YOUR MERCHANT WORKSPACE"));
             assert!(!html.contains("Pay is unavailable"));
         }
+        let checkout = client
+            .get(format!("http://{addr}/checkout/cs_fixture"))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(checkout.status(), 200);
+        let html = checkout.text().await.unwrap();
+        assert!(html.contains("Preparing your checkout"));
+        assert!(!html.contains("The requested page was not found"));
+        assert!(!html.contains("Workspace"));
         // The dashboard still reads Pay; even its unavailable shell must show
         // the requested environment correctly before client hydration.
         let response = client

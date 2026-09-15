@@ -18,6 +18,20 @@ try {
       case 'copy': await navigator.clipboard.writeText(input);value=true;break;
       case 'remaining': value=Math.max(0,Math.floor((Date.parse(input)-Date.now())/1000));if(!Number.isFinite(value))throw new Error('Checkout expiry unavailable');break;
       case 'pause': await new Promise(resolve=>setTimeout(resolve,4000));value=true;break;
+      case 'second': await new Promise(resolve=>setTimeout(resolve,1000));value=true;break;
+      case 'checkout_session': {
+        if(!/^cs_[A-Za-z0-9_]{1,125}$/.test(input.id))throw new Error('Invalid checkout');
+        const key='epsx.checkout.session.'+input.id;
+        if(input.session!==null)sessionStorage.setItem(key,JSON.stringify(input.session));
+        try{value=JSON.parse(sessionStorage.getItem(key)||'{}');}catch(_){value={};}break;
+      }
+      case 'return_purchase': {
+        const url=new URL(input.url),origin=new URL(input.origin);
+        if(url.origin!==origin.origin||!['https:','http:'].includes(url.protocol)||url.username||url.password||url.search||url.hash||!/^\/account\/payments\/[0-9a-f-]{36}$/.test(url.pathname))throw new Error('Purchase destination unavailable');
+        const key='epsx.checkout.session.'+input.id;
+        const session=JSON.parse(sessionStorage.getItem(key)||'{}');session.redirected=true;sessionStorage.setItem(key,JSON.stringify(session));
+        location.replace(url.href);value=true;break;
+      }
       case 'pairing': value=window.EPSXWalletConnect?.state()?.uri||'';break;
       case 'connect': {
         if(input.walletconnect){
@@ -39,6 +53,11 @@ try {
       }
       case 'send': {
         const p=provider(), tx=input.transaction;
+        const report=phase=>{if(input.pending)dioxus.send({phase});};
+        const submitted=hash=>{
+          if(input.pending){const key='epsx.checkout.session.'+input.pending.checkout_id;const session=JSON.parse(sessionStorage.getItem(key)||'{}');session.started=true;session.pending={...input.pending,hash};sessionStorage.setItem(key,JSON.stringify(session));report('submitted');}
+          return hash;
+        };
         const ensure=async()=>{
           const accounts=await p.request({method:'eth_accounts'});if(accounts[0]?.toLowerCase()!==tx.from.toLowerCase())throw new Error('Wallet changed. Reconnect the expected account.');
           let chain=await p.request({method:'eth_chainId'});
@@ -47,15 +66,16 @@ try {
         };
         await ensure();
         let hash=sessionStorage.getItem(input.storage_key);
-        if(hash){const receipt=await p.request({method:'eth_getTransactionReceipt',params:[hash]});if(receipt?.status==='0x0'){sessionStorage.removeItem(input.storage_key);throw new Error('Previous transaction reverted. Retry to prepare a new transaction.');}value=hash;break;}
+        if(hash){const receipt=await p.request({method:'eth_getTransactionReceipt',params:[hash]});if(receipt?.status==='0x0'){sessionStorage.removeItem(input.storage_key);throw new Error('Previous transaction reverted. Retry to prepare a new transaction.');}value=submitted(hash);break;}
         if(input.approval){
           let approval=sessionStorage.getItem(input.storage_key+'.approval');
-          if(!approval){approval=await p.request({method:'eth_sendTransaction',params:[input.approval]});sessionStorage.setItem(input.storage_key+'.approval',approval);}
+          if(!approval){report('approve_token');approval=await p.request({method:'eth_sendTransaction',params:[input.approval]});sessionStorage.setItem(input.storage_key+'.approval',approval);}
+          report('confirming_approval');
           let confirmed=false;
           for(let i=0;i<150;i++){const receipt=await p.request({method:'eth_getTransactionReceipt',params:[approval]});if(receipt){if(receipt.status!=='0x1'){sessionStorage.removeItem(input.storage_key+'.approval');throw new Error('Token approval reverted.');}confirmed=true;break;}await new Promise(r=>setTimeout(r,2000));}
           if(!confirmed)throw new Error('Approval is still pending. Return later to continue.');
         }
-        await ensure();hash=await p.request({method:'eth_sendTransaction',params:[tx]});sessionStorage.setItem(input.storage_key,hash);value=hash;break;
+        await ensure();report('confirm_payment');hash=await p.request({method:'eth_sendTransaction',params:[tx]});sessionStorage.setItem(input.storage_key,hash);value=submitted(hash);break;
       }
       default: throw new Error('Unsupported browser capability');
     }
