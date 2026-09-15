@@ -11,7 +11,7 @@ import time
 
 REPO = pathlib.Path(os.environ.get("EPSX_DEV_CHECKOUT", pathlib.Path(__file__).resolve().parents[2]))
 BUNDLES = ("dx-frontend", "dx-admin", "epsx-pay")
-APPS = dict(zip(BUNDLES, ("frontend", "admin", "pay")))
+APPS = dict(zip(BUNDLES, ("frontend", "admin", "frontend")))
 
 
 def stamp(path):

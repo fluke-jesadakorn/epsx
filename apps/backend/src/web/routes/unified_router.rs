@@ -266,6 +266,11 @@ impl UnifiedRouteBuilder {
                 get(crate::web::payments::merchant_checkout::quote)
                     .with_state(self.create_app_state()),
             )
+            .route(
+                "/api/payments/checkout-completion/{checkout}",
+                get(crate::web::payments::merchant_checkout::checkout_completion)
+                    .with_state(self.create_app_state()),
+            )
             // Authentication routes (Web3-first auth)
             .nest("/api/auth", auth_routes)
             // wave49(slice-4): pay-proxy (NEW mount at /api/v1/pay/*).

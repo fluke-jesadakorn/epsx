@@ -3,6 +3,9 @@ use super::{act_pay, read_pay, types::*, wallet};
 use crate::fullstack::LoadError;
 use dioxus::prelude::*;
 use std::collections::BTreeMap;
+#[path = "checkout.rs"]
+mod checkout;
+use checkout::Checkout;
 
 #[derive(Clone, Debug, PartialEq, Routable)]
 enum PayRoute {
@@ -140,6 +143,9 @@ struct Controller {
     secret: Signal<Option<String>>,
     revision: Signal<u64>,
     page: Signal<Page>,
+    session: Signal<CheckoutSession>,
+    session_loaded: Signal<bool>,
+    wallet_phase: Signal<WalletPhase>,
 }
 impl Controller {
     async fn perform(mut self, action: Action) -> Result<ActionResult, String> {
@@ -252,15 +258,31 @@ fn PayPage(page: Page, environment: Environment, path: String) -> Element {
         secret: use_signal(|| None),
         revision: use_signal(|| 0),
         page: use_signal(|| page.clone()),
+        session: use_signal(CheckoutSession::default),
+        session_loaded: use_signal(|| false),
+        wallet_phase: use_signal(|| WalletPhase::Idle),
     };
     use_context_provider(|| controller);
     let mut ready = use_signal(|| false);
     let mut generation = use_signal(|| 0_u64);
     let mut first_client_read = use_signal(|| true);
+    let mut refreshing = use_signal(|| false);
     use_future(move || async move {
         let current = (controller.credentials)();
         match wallet::credentials(current.checkout, current.environment).await {
             Ok(c) => {
+                if let Some(id) = &c.checkout {
+                    let mut session = wallet::checkout_session(id, None).await.unwrap_or_default();
+                    if session
+                        .pending
+                        .as_ref()
+                        .is_some_and(|p| p.checkout_id != *id || !checkout::valid_hash(&p.hash))
+                    {
+                        session.pending = None;
+                    }
+                    controller.session.set(session);
+                }
+                controller.session_loaded.set(true);
                 controller.credentials.set(c);
                 if controller
                     .data
@@ -277,7 +299,7 @@ fn PayPage(page: Page, environment: Environment, path: String) -> Element {
     });
     use_effect(move || {
         let revision = (controller.revision)();
-        if !ready() {
+        if !ready() || *refreshing.peek() {
             return;
         }
         if *first_client_read.peek() {
@@ -295,6 +317,7 @@ fn PayPage(page: Page, environment: Environment, path: String) -> Element {
         }
         let c = (controller.credentials)();
         let page = (controller.page)();
+        refreshing.set(true);
         let ticket = *generation.peek() + 1;
         generation.set(ticket);
         spawn(async move {
@@ -303,18 +326,35 @@ fn PayPage(page: Page, environment: Environment, path: String) -> Element {
                 .unwrap_or(Err(LoadError::Unavailable));
             if matches!(result, Err(LoadError::Unauthenticated)) && wallet::refresh().await.is_ok()
             {
-                result = read_pay(page, c)
+                result = read_pay(page.clone(), c)
                     .await
                     .unwrap_or(Err(LoadError::Unavailable));
             }
+            refreshing.set(false);
             if ticket != *generation.peek() {
                 return;
             }
             match result {
                 Ok(data) => {
                     if let Some(p) = &data.payment {
-                        if p.terminal() {
+                        if matches!(p.status.as_str(), "succeeded" | "refunded" | "expired") {
                             let _ = wallet::finish_checkout(&p.checkout_id).await;
+                        }
+                        if matches!(page, Page::Checkout(_)) {
+                            let mut session = controller.session.peek().clone();
+                            if !p.terminal() {
+                                session.started = true;
+                            }
+                            if matches!(p.status.as_str(), "succeeded" | "refunded" | "expired") {
+                                if let Some(pending) = session.pending.take() {
+                                    let _ = wallet::complete(&pending.request_context).await;
+                                }
+                            }
+                            if session != *controller.session.peek() {
+                                controller.session.set(session.clone());
+                                let _ =
+                                    wallet::checkout_session(&p.checkout_id, Some(session)).await;
+                            }
                         }
                     }
                     if [
@@ -557,61 +597,6 @@ fn OperationButtons(payment: Payment) -> Element {
         }.await;c.message.set(result.unwrap_or_else(|e|e));c.busy.set(false);c.revision+=1;});}},"{label}"}
     }}}}
 }
-#[component]
-fn Checkout(mut dark: Signal<bool>) -> Element {
-    let mut c = use_context::<Controller>();
-    let mut method_wallet = use_signal(|| false);
-    let mut address = use_signal(String::new);
-    let mut connecting = use_signal(|| false);
-    let mut pairing = use_signal(String::new);
-    use_future(move || async move {
-        loop {
-            if wallet::pause().await.is_err() {
-                break;
-            }
-            if connecting() {
-                if let Ok(uri) = wallet::pairing().await {
-                    pairing.set(uri)
-                }
-            }
-        }
-    });
-    let data = (c.data)();
-    let origin = data
-        .as_ref()
-        .map(|d| d.frontend_origin.clone())
-        .unwrap_or_default();
-    let p = data.and_then(|d| d.payment);
-    rsx! {document::Title{"Checkout · EPSX Pay"}PayNavbar { environment: (c.credentials)().environment, path: "/checkout".to_string(), dark,
-        actions: rsx! { crate::navigation::AppLink { class: "pay-back", href: format!("{origin}/plans"), "← Back to plans" } },
-    }
-    div{class:"pay-shell",
-        if let Some(payment)=p{div{class:"pay-layout",section{class:"pay-summary",p{class:"pay-eyebrow","{payment.checkout_snapshot.merchant_name}"}h1{"A simple way to pay."}div{class:"pay-total","{display_amount(&payment.amount,payment.token_decimals.unwrap_or(0))} {payment.token}"}
-            if payment.checkout_snapshot.pricing.promotion_active{div{class:"pay-sale",div{class:"pay-sale-row",span{"Regular price"}del{"{payment.checkout_snapshot.pricing.original_price} {payment.token}"}}div{class:"pay-sale-row pay-sale-saving",span{"Sale applied"}strong{"Save {payment.checkout_snapshot.pricing.savings} {payment.token}"}}p{"One-time payment · price reserved for this checkout"}}}
-            p{class:"pay-subtitle","One-time crypto payment. No automatic renewal."}div{class:"pay-item",span{class:"pay-item-icon","↗"}div{strong{"{payment.description}"}p{"{payment.checkout_snapshot.description}"}}}p{class:"pay-note",if payment.checkout_snapshot.kind=="epsx_plan"{"Payment confirmation and plan access are tracked separately. Check both in your EPSX account."}else{"Keep this checkout link as your receipt. Your merchant provides the purchased service after payment confirmation."}}
-            div{class:"pay-steps",for(label,n)in[("Send the exact amount from your wallet",1),("We verify payment on the network",2),("Your merchant receives payment confirmation",3)]{div{class:"pay-step",span{"{n}"}"{label}"}}}
-        }
-        section{class:"pay-card","aria-label":"Crypto checkout",div{class:"pay-card-head",h2{"Pay with crypto"}p{"Scan a QR code or connect your wallet."}}
-            if payment.terminal(){div{class:"pay-result",div{class:"pay-result-icon",if payment.status=="succeeded"{"✓"}else{"!"}}h3{match payment.status.as_str(){"succeeded"=>"Payment received","expired"=>"Checkout expired","refunded"=>"Payment refunded",_=>"Payment needs review"}}p{if payment.status=="expired"{"Do not send funds to this address. Start a new checkout."}else if payment.status=="succeeded"{"Payment confirmed on the network. Contact your merchant for service delivery."}else{"Contact support with your payment reference."}}if payment.checkout_snapshot.kind=="epsx_plan"{crate::navigation::AppLink {class:"pay-button",href:format!("{origin}/account/payments"),"View plan access"}}else{Link{class:"pay-button",to:format!("/m/{}?environment={}",payment.merchant_id,payment.environment.as_str()),"Back to merchant"}}if let Some(hash)=&payment.tx_hash{TransactionLink{chain_id:payment.chain_id,hash:hash.clone()}}}}
-            else if payment.payment_method=="transfer"{div{class:"pay-card-body",if payment.environment==Environment::Test{span{class:"pay-test","TEST PAYMENT · SIMULATED FUNDS"}}div{class:"pay-network-row",div{class:"pay-asset",span{class:"pay-coin","₮"}div{strong{"{payment.token}"}small{"Chain {payment.chain_id}"}}}Expiry{expires:payment.expires_at.clone()}}
-                div{class:"pay-methods","aria-label":"Payment method",button{"aria-pressed":(!method_wallet()).to_string(),onclick:move |_|method_wallet.set(false),"QR / Transfer"}button{"aria-pressed":method_wallet().to_string(),onclick:move |_|method_wallet.set(true),"Connect wallet"}}
-                if !method_wallet(){div{class:"pay-qr-wrap",img{class:"pay-qr",src:svg_uri(&payment.qr_svg),alt:"Payment QR with token, network, amount and recipient"}span{class:"pay-qr-caption","Scan with a compatible crypto wallet"}}CopyField{label:"Amount to send",text:display_amount(&payment.amount,payment.token_decimals.unwrap_or(0))}CopyField{label:"Payment address · unique to this checkout",text:payment.deposit_address.clone()}}
-                else{
-                    if address().is_empty(){div{class:"pay-wallet-options",for (wc,label)in[(false,"MetaMask"),(true,"WalletConnect")]{button{class:"pay-wallet-option",disabled:connecting()||(c.busy)(),onclick:move |_|{connecting.set(true);spawn(async move{match wallet::connect(payment.chain_id,wc).await{Ok(a)=>address.set(a),Err(e)=>c.message.set(e)}connecting.set(false);pairing.set(String::new());});},"{label}"}}}
-                        if connecting(){p{"Approve the connection in your wallet."}if !pairing().is_empty(){img{class:"pay-qr",src:pairing_qr(&pairing()),alt:"WalletConnect pairing QR — not a payment QR"}}button{class:"pay-wallet-option",onclick:move |_|{spawn(async move{let _=wallet::disconnect().await;connecting.set(false);pairing.set(String::new());});},"Cancel connection"}}
-                    }else{div{class:"pay-field",label{"Connected wallet"}code{class:"pay-wallet-address","{address()}"}}button{class:"pay-wallet-change",disabled:(c.busy)(),onclick:move |_|{spawn(async move{let _=wallet::disconnect().await;address.set(String::new());});},"Disconnect"}
-                        button{class:"pay-button",disabled:(c.busy)(),onclick:{let payment=payment.clone();move |_|{if *(c.busy).peek(){return}c.busy.set(true);c.message.set("Review and confirm the transfer in your wallet.".into());let payment=payment.clone();spawn(async move{let result=async{let prepared=c.perform(Action::PrepareTransfer{id:payment.checkout_id.clone(),payer:address()}).await?;let current=prepared.payment.ok_or("Checkout unavailable")?;if current.terminal(){return Err("Checkout is no longer payable. Refresh for its status.".into())}let tx=prepared.transaction_parameters.ok_or("Transaction unavailable")?;let hash=wallet::send(tx,format!("epsx.checkout.transfer.{}",payment.checkout_id),None).await?;c.transaction.set(Some((current.chain_id,hash)));Ok::<_,String>("Transaction submitted. Waiting for verified payment.".into())}.await;c.message.set(result.unwrap_or_else(|e|e));c.busy.set(false);c.revision+=1;});}},"Pay"}
-                    }
-                }
-                p{class:"pay-instruction","Send exactly the amount shown on chain {payment.chain_id}. Network fees are paid separately."}
-                if payment.chain_id==31337{p{class:"pay-instruction","Local test network: use a wallet on this Mac Mini. A phone cannot reach this chain."}}
-            }}else{div{class:"pay-card-body",OperationButtons{payment:payment.clone()}}}
-            div{class:"pay-status",role:"status",span{class:"pay-status-dot"}span{"{payment.status}"}}
-        }}}
-        else{p{class:"pay-feedback","Preparing your checkout…"}button{class:"pay-button",onclick:move |_|c.revision+=1,"Retry"}}
-        Feedback{}footer{class:"pay-footer",span{"Payments by EPSX"}div{class:"pay-footer-links",crate::navigation::AppLink {href:format!("{origin}/contact"),"Support"}crate::navigation::AppLink {href:format!("{origin}/terms"),"Terms"}crate::navigation::AppLink {href:format!("{origin}/privacy"),"Privacy"}}}
-    }}
-}
 fn pairing_qr(uri: &str) -> String {
     qrcode::QrCode::new(uri.as_bytes())
         .map(|code| {
@@ -729,7 +714,7 @@ fn PayLayout() -> Element {
     let environment = environment_for(query.split('#').next().unwrap_or(query));
     let PayTheme(dark) = use_context::<PayTheme>();
     rsx! { div { class: if dark() { "epsx-merchant dark" } else { "epsx-merchant" },
-        PayNavbar { environment, path: route, dark }
+        if !route.starts_with("/checkout/") { PayNavbar { environment, path: route, dark } }
         div { id: "epsx-main-content", tabindex: -1,
             SuspenseBoundary { fallback: |_| rsx! { crate::navigation::PageSkeleton {} }, PayContent {} }
         }

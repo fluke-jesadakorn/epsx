@@ -1,0 +1,61 @@
+/* Shared Pay checkout: native Tailwind pipeline, scoped away from other pages. */
+.pc-checkout { @apply min-h-screen px-5 sm:px-8; color:var(--pay-text); background:var(--pay-bg); font-family:Inter,ui-sans-serif,system-ui,sans-serif; }
+.pc-header { @apply mx-auto flex max-w-6xl items-center justify-between gap-5 border-b py-5 sm:py-6; border-color:var(--pay-border); }
+.pc-brand { @apply flex items-center gap-2.5 whitespace-nowrap text-lg font-bold tracking-tight sm:text-xl; color:var(--pay-text); }
+.pc-theme { @apply grid size-10 shrink-0 place-items-center rounded-full border transition-colors; border-color:var(--pay-border); }
+.pc-back { @apply text-sm font-medium; color:var(--pay-muted); }
+.pc-main { @apply mx-auto grid max-w-5xl items-start gap-8 py-10 sm:py-14 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16 lg:py-16; }
+.pc-summary { @apply pt-2 lg:pt-7; }
+.pc-eyebrow { @apply text-xs font-semibold tracking-widest uppercase; color:var(--pay-muted); }
+.pc-title { @apply mt-4 text-3xl font-semibold leading-tight tracking-tight sm:text-4xl; text-wrap:balance; }
+.pc-description { @apply mt-3 text-base leading-relaxed; color:var(--pay-muted); }
+.pc-order { @apply mt-8 flex items-start gap-4 rounded-2xl border p-5; border-color:var(--pay-border); background:var(--pay-surface); }
+.pc-order-icon { @apply grid size-11 shrink-0 place-items-center rounded-xl; background:var(--pay-tint); color:var(--pay-blue); }
+.pc-muted { @apply text-sm leading-relaxed; color:var(--pay-muted); }
+.pc-total-row { @apply mt-7 flex items-center justify-between gap-4 border-t pt-6; border-color:var(--pay-border); }
+.pc-total-row strong { @apply text-2xl font-semibold tracking-tight; }
+.pc-fee { @apply mt-3 text-xs leading-relaxed; color:var(--pay-muted); }
+.pc-trust { @apply mt-6 flex items-center gap-2 text-sm; color:var(--pay-muted); }
+.pc-discount { @apply mt-4 flex items-center justify-between gap-3 text-sm; color:var(--pay-muted); }
+.pc-card { @apply min-w-0 rounded-3xl border p-6 sm:p-8; background:var(--pay-surface); border-color:var(--pay-border); box-shadow:0 20px 70px -30px color-mix(in srgb,var(--pay-blue) 25%,transparent); }
+.pc-card-top { @apply mb-7 flex flex-wrap items-center justify-between gap-3; }
+.pc-network { @apply rounded-full border px-3 py-1.5 text-xs font-medium; border-color:var(--pay-border); color:var(--pay-muted); }
+.pc-pay-intro h2 { @apply text-2xl font-semibold tracking-tight; }
+.pc-pay-intro p { @apply mt-2 text-sm leading-relaxed; color:var(--pay-muted); }
+.pc-pay-total { @apply my-6 text-4xl font-bold tracking-tight; }
+.pc-methods { @apply my-5 flex gap-1 rounded-xl border p-1; border-color:var(--pay-border); background:var(--pay-bg); }
+.pc-methods button { @apply min-h-11 flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors; color:var(--pay-muted); }
+.pc-methods button[aria-pressed=true] { background:var(--pay-tint); color:var(--pay-blue); }
+.pc-checkout .pc-primary { @apply mt-5 flex min-h-14 w-full items-center justify-center gap-3 rounded-xl px-5 py-4 text-base font-semibold transition-all; background:var(--pay-blue); color:var(--pay-on-blue)!important; box-shadow:0 5px 18px color-mix(in srgb,var(--pay-blue) 20%,transparent); }
+.pc-primary:hover { @apply brightness-110; }
+.pc-primary:disabled { @apply cursor-wait opacity-50; }
+.pc-secondary { @apply mt-5 flex min-h-12 w-full items-center justify-center rounded-xl border px-5 py-3 text-sm font-semibold; border-color:var(--pay-border); color:var(--pay-blue); }
+.pc-state { @apply flex min-h-64 flex-col items-center justify-center py-5 text-center; }
+.pc-state h2 { @apply mt-6 text-2xl font-semibold tracking-tight; }
+.pc-state p { @apply mt-3 max-w-sm text-sm leading-relaxed; color:var(--pay-muted); }
+.pc-spinner { @apply block size-14 rounded-full border-[3px] motion-safe:animate-spin; border-color:var(--pay-border); border-top-color:var(--pay-blue); }
+.pc-success-icon,.pc-review-icon { @apply grid size-20 place-items-center rounded-full; }
+.pc-success-icon { background:color-mix(in srgb,var(--pay-green) 12%,transparent); color:var(--pay-green); }
+.pc-review-icon { background:var(--pay-tint); color:var(--pay-blue); }
+.pc-state .pc-countdown { @apply font-medium; color:var(--pay-blue); }
+.pc-state .pc-long-wait { @apply rounded-xl border p-3 text-xs; border-color:var(--pay-border); }
+.pc-steps { @apply mt-7 grid grid-cols-3 gap-2 border-t pt-5; border-color:var(--pay-border); }
+.pc-steps li { @apply flex flex-col items-center gap-2 text-center text-xs; color:var(--pay-muted); }
+.pc-steps li span { @apply grid size-6 place-items-center rounded-full border text-xs; border-color:var(--pay-border); }
+.pc-steps li[data-active=true] { color:var(--pay-blue); }
+.pc-steps li[data-active=true] span { background:var(--pay-tint); border-color:var(--pay-blue); }
+.pc-steps li[data-complete=true] { color:var(--pay-green); }
+.pc-steps li[data-complete=true] span { background:color-mix(in srgb,var(--pay-green) 12%,transparent); border-color:transparent; }
+.pc-transaction { @apply mt-6 rounded-xl border p-4; border-color:var(--pay-border); background:var(--pay-bg); }
+.pc-checkout .pc-transaction a { @apply mt-2 inline-flex min-w-0 items-center gap-2 font-mono text-sm underline underline-offset-4; color:var(--pay-blue); }
+.pc-copy { @apply min-h-10 shrink-0 px-2 text-sm font-semibold; color:var(--pay-blue); }
+.pc-notice { @apply mt-5 rounded-xl border p-3 text-sm leading-relaxed; border-color:var(--pay-border); color:var(--pay-muted); }
+.pc-text-button { @apply mt-2 min-h-10 px-2 text-sm font-semibold underline underline-offset-4; color:var(--pay-blue); }
+.pc-qr { @apply my-6 flex justify-center; }
+.pc-qr img,.pc-pairing { @apply size-52 rounded-xl bg-white p-2; }
+.pc-pairing { @apply mt-5; }
+.pc-test { @apply mb-4 rounded-lg px-3 py-2 text-xs font-semibold; background:var(--pay-tint); color:var(--pay-blue); }
+.pc-footer { @apply mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-5 border-t py-7 text-xs; border-color:var(--pay-border); color:var(--pay-muted); }
+.pc-checkout :is(button,a):focus-visible { @apply outline-2 outline-offset-4; outline-color:var(--pay-blue); }
+.pc-checkout .pay-timer { @apply mt-4 inline-block; }
+@media(max-width:640px) { .pc-summary { @apply pt-0; } .pc-title { @apply text-2xl; } .pc-description,.pc-trust { @apply hidden; } .pc-order { @apply mt-5; } .pc-main { @apply gap-6; } }
