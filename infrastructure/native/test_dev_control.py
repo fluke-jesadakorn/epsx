@@ -22,31 +22,32 @@ asset_spec.loader.exec_module(assets)
 
 class AssetTests(unittest.TestCase):
     def test_live_css_updates_generated_bundle_without_changing_source_or_duplicating_loader(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = pathlib.Path(directory)
-            native = root/'infrastructure/native'
-            native.mkdir(parents=True)
-            (native/'dev-live-css.js').write_text('// dev runtime')
-            public = root/'apps/frontend/public'
-            public.mkdir(parents=True)
-            (public/'dist').mkdir()
-            source = public/'dist/tailwind.css'
-            source.write_text('body { color: red; }')
-            bundle = root/'target/dx/dx-frontend/debug/web/public/wasm'
-            bundle.mkdir(parents=True)
-            bootstrap = bundle/'dx-frontend.js'
-            bootstrap.write_text('// generated DX module')
-            os.utime(bootstrap, (time.time() - 2, time.time() - 2))
-            assets.sync_live_css(root, 'dx-frontend')
-            manifest = json.loads((bundle/'epsx-dev-live-css.json').read_text())
-            asset = manifest['styles']['/public/dist/tailwind.css']
-            self.assertEqual((bundle/asset['file']).read_text(), source.read_text())
-            source.write_text('body { color: blue; }')
-            assets.sync_live_css(root, 'dx-frontend')
-            updated = json.loads((bundle/'epsx-dev-live-css.json').read_text())
-            self.assertNotEqual(manifest['revision'], updated['revision'])
-            self.assertEqual((bundle/asset['file']).read_text(), source.read_text())
-            self.assertEqual(bootstrap.read_text().count('EPSX_DEV_LIVE_CSS'), 1)
+        for bundle_name in ('dx-frontend', 'epsx-pay'):
+            with tempfile.TemporaryDirectory() as directory:
+                root = pathlib.Path(directory)
+                native = root/'infrastructure/native'
+                native.mkdir(parents=True)
+                (native/'dev-live-css.js').write_text('// dev runtime')
+                public = root/'apps/frontend/public'
+                public.mkdir(parents=True)
+                (public/'dist').mkdir()
+                source = public/'dist/tailwind.css'
+                source.write_text('body { color: red; }')
+                bundle = root/f'target/dx/{bundle_name}/debug/web/public/wasm'
+                bundle.mkdir(parents=True)
+                bootstrap = bundle/f'{bundle_name}.js'
+                bootstrap.write_text('// generated DX module')
+                os.utime(bootstrap, (time.time() - 2, time.time() - 2))
+                assets.sync_live_css(root, bundle_name)
+                manifest = json.loads((bundle/'epsx-dev-live-css.json').read_text())
+                asset = manifest['styles']['/public/dist/tailwind.css']
+                self.assertEqual((bundle/asset['file']).read_text(), source.read_text())
+                source.write_text('body { color: blue; }')
+                assets.sync_live_css(root, bundle_name)
+                updated = json.loads((bundle/'epsx-dev-live-css.json').read_text())
+                self.assertNotEqual(manifest['revision'], updated['revision'])
+                self.assertEqual((bundle/asset['file']).read_text(), source.read_text())
+                self.assertEqual(bootstrap.read_text().count('EPSX_DEV_LIVE_CSS'), 1)
 
     def test_live_loader_never_overwrites_a_newer_dx_bundle(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -147,6 +147,134 @@ pub struct CheckoutRequest {
     pub plan_id: Uuid,
     pub token: String,
 }
+
+/// A checkout capability authorizes this minimal receipt projection only. It
+/// never grants a plan and does not authorize the customer's account endpoints.
+pub async fn checkout_completion(
+    State(state): State<AppState>,
+    Path(checkout): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response> {
+    let token = headers
+        .get("x-pay-checkout-token")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or_default();
+    let value = completion(
+        &state.db_pool,
+        &Config::load()?,
+        &required("FRONTEND_URL")?,
+        &checkout,
+        token,
+    )
+    .await?;
+    Ok(([("cache-control", "no-store")], Json(value)).into_response())
+}
+
+fn purchase_return_url(frontend: &str, order: Uuid) -> Result<String> {
+    let mut url = reqwest::Url::parse(frontend).map_err(|_| unavailable())?;
+    let loopback = url.host_str().is_some_and(|h| {
+        h == "localhost"
+            || h.trim_matches(['[', ']'])
+                .parse::<std::net::IpAddr>()
+                .is_ok_and(|ip| ip.is_loopback())
+    });
+    if !(url.scheme() == "https" || url.scheme() == "http" && loopback)
+        || !url.username().is_empty()
+        || url.password().is_some()
+        || url.query().is_some()
+        || url.fragment().is_some()
+        || url.path() != "/"
+    {
+        return Err(unavailable());
+    }
+    url.set_path(&format!("/account/payments/{order}"));
+    Ok(url.into())
+}
+
+async fn completion(
+    pool: &sqlx::PgPool,
+    config: &Config,
+    frontend: &str,
+    checkout: &str,
+    token: &str,
+) -> Result<Value> {
+    let missing = || Error(StatusCode::NOT_FOUND, "checkout_not_found");
+    if !checkout.starts_with("cs_")
+        || checkout.len() > 128
+        || !checkout
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'_')
+        || token.len() != 64
+        || !token.bytes().all(|b| b.is_ascii_hexdigit())
+    {
+        return Err(missing());
+    }
+    // Validate the capability with Pay before looking up an EPSX order. Do not
+    // substitute the merchant API key: that would bypass capability validation.
+    let response = reqwest::Client::builder()
+        .timeout(Duration::from_secs(10))
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .map_err(|_| unavailable())?
+        .get(format!(
+            "{}/api/v1/pay/checkout-sessions/{checkout}",
+            config.base.trim_end_matches('/')
+        ))
+        .header("x-pay-api-version", "2026-09-08")
+        .header("x-pay-checkout-token", token)
+        .send()
+        .await
+        .map_err(|_| unavailable())?;
+    if matches!(response.status().as_u16(), 401 | 403 | 404) {
+        return Err(missing());
+    }
+    let payment: Value = response
+        .error_for_status()
+        .map_err(|_| unavailable())?
+        .json()
+        .await
+        .map_err(|_| unavailable())?;
+    if payment["checkout_id"] != checkout {
+        return Err(missing());
+    }
+    if payment["merchant_id"] != config.merchant || payment["environment"] != config.environment {
+        return Ok(json!({"completion":null}));
+    }
+    let pi = payment["id"].as_str().ok_or_else(missing)?;
+    let order: Option<Order> = sqlx::query_as("SELECT * FROM pay_purchase_orders WHERE pay_intent_id=$1 AND merchant_id=$2 AND environment=$3")
+        .bind(pi).bind(&config.merchant).bind(&config.environment).fetch_optional(pool).await?;
+    let Some(order) = order else {
+        return Ok(json!({"completion":null}));
+    };
+    if payment["chain_id"] != order.chain_id
+        || payment["contract_address"] != order.contract_address
+        || payment["payee"] != order.payee
+        || payment["token_address"] != order.token_address
+        || payment["amount"] != order.amount
+    {
+        return Err(missing());
+    }
+    let fulfillment: String = sqlx::query_scalar(r#"
+        SELECT CASE WHEN g.superseded THEN 'manual_override'
+            WHEN NOT g.active THEN 'revoked'
+            WHEN a.is_active AND (a.expires_at IS NULL OR a.expires_at>now()) THEN 'granted'
+            ELSE 'pending' END
+        FROM pay_purchase_grants g
+        LEFT JOIN wallet_plan_assignments a ON a.wallet_address=g.wallet_address AND a.plan_id=g.plan_id
+        WHERE g.reference=$1 AND g.wallet_address=$2 AND g.plan_id=$3
+    "#).bind(format!("epsx-pay:{}",order.id)).bind(&order.wallet_address).bind(order.plan_id)
+        .fetch_optional(pool).await?.unwrap_or_else(|| "pending".into());
+    // Payment proof must remain current even if an older webhook granted access.
+    let fulfillment = if order.status == "succeeded" && payment["status"] == "succeeded" {
+        fulfillment
+    } else {
+        "pending".into()
+    };
+    Ok(json!({"completion":{
+        "order_id":order.id,"payment_status":payment["status"],
+        "fulfillment_status":fulfillment,"return_url":purchase_return_url(frontend,order.id)?
+    }}))
+}
 fn digest(s: &[u8]) -> String {
     hex::encode(Sha256::digest(s))
 }
@@ -680,6 +808,29 @@ mod tests {
         assert!(units("-1", 18).is_err());
     }
     #[test]
+    fn checkout_return_url_uses_only_configured_origin_and_order() {
+        let id = Uuid::nil();
+        assert_eq!(
+            purchase_return_url("https://epsx.io", id).unwrap(),
+            format!("https://epsx.io/account/payments/{id}")
+        );
+        assert_eq!(
+            purchase_return_url("http://127.0.0.1:3000", id).unwrap(),
+            format!("http://127.0.0.1:3000/account/payments/{id}")
+        );
+        for value in [
+            "javascript:alert(1)",
+            "https://user:pass@epsx.io",
+            "https://epsx.io/?next=evil",
+            "https://epsx.io/#secret",
+            "https://epsx.io/auth",
+            "http://epsx.io",
+        ] {
+            assert!(purchase_return_url(value, id).is_err(), "{value}");
+        }
+    }
+
+    #[test]
     fn signed_webhooks_bind_payload_and_timestamp() {
         let secret = "whsec_test";
         let body = b"{}";
@@ -849,6 +1000,27 @@ mod tests {
         );
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let base = format!("http://{}", listener.local_addr().unwrap());
+        let checkout_data = payment.clone();
+        let app = app.route(
+            "/api/v1/pay/checkout-sessions/cs_fixture",
+            axum::routing::get(move |headers: HeaderMap| {
+                let payment = checkout_data.clone();
+                async move {
+                    if headers
+                        .get("x-pay-checkout-token")
+                        .and_then(|v| v.to_str().ok())
+                        != Some("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+                    {
+                        return StatusCode::NOT_FOUND.into_response();
+                    }
+                    assert!(headers.get("authorization").is_none());
+                    let mut result = payment.lock().unwrap().clone();
+                    result["checkout_id"] = json!("cs_fixture");
+                    result.as_object_mut().unwrap().remove("order_reference");
+                    Json(result).into_response()
+                }
+            }),
+        );
         let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
         let c = Config {
             base,
@@ -858,6 +1030,53 @@ mod tests {
             payee: "recipient".into(),
             frontend: "http://127.0.0.1:1".into(),
         };
+        let token = "b".repeat(64);
+        assert!(
+            completion(&pool, &c, "https://epsx.io", "cs_fixture", &"a".repeat(64))
+                .await
+                .is_err()
+        );
+        let before = completion(&pool, &c, "https://epsx.io", "cs_fixture", &token)
+            .await
+            .unwrap();
+        assert_eq!(before["completion"]["fulfillment_status"], "pending");
+        assert_eq!(before["completion"].as_object().unwrap().len(), 4);
+        let count: i64 =
+            sqlx::query_scalar("SELECT count(*) FROM pay_purchase_grants WHERE reference=$1")
+                .bind(format!("epsx-pay:{id}"))
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        assert_eq!(count, 0, "Reading completion must not create grants");
+        payment.lock().unwrap()["merchant_id"] = json!("mer_other");
+        assert!(
+            completion(&pool, &c, "https://epsx.io", "cs_fixture", &token)
+                .await
+                .unwrap()["completion"]
+                .is_null()
+        );
+        payment.lock().unwrap()["merchant_id"] = json!("mer_epsx");
+        payment.lock().unwrap()["environment"] = json!("live");
+        assert!(
+            completion(&pool, &c, "https://epsx.io", "cs_fixture", &token)
+                .await
+                .unwrap()["completion"]
+                .is_null()
+        );
+        payment.lock().unwrap()["environment"] = json!("test");
+        payment.lock().unwrap()["amount"] = json!("999999");
+        assert!(
+            completion(&pool, &c, "https://epsx.io", "cs_fixture", &token)
+                .await
+                .is_err()
+        );
+        let expected_amount =
+            sqlx::query_scalar::<_, String>("SELECT amount FROM pay_purchase_orders WHERE id=$1")
+                .bind(id)
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        payment.lock().unwrap()["amount"] = json!(expected_amount);
         let secret = "test-endpoint-secret";
         let event=json!({"id":format!("evt_{}",id.simple()),"merchant_id":"mer_epsx","environment":"test","type":"payment.succeeded","data":{"id":pi}}).to_string();
         let timestamp = Utc::now().timestamp();
@@ -899,6 +1118,14 @@ mod tests {
         .await
         .unwrap();
         assert_eq!(grants, 1);
+        let completed = completion(&pool, &c, "https://epsx.io", "cs_fixture", &token)
+            .await
+            .unwrap();
+        assert_eq!(completed["completion"]["fulfillment_status"], "granted");
+        assert_eq!(
+            completed["completion"]["return_url"],
+            format!("https://epsx.io/account/payments/{id}")
+        );
         let expiry: DateTime<Utc> = sqlx::query_scalar(
             "SELECT expires_at FROM wallet_plan_assignments WHERE wallet_address=$1 AND plan_id=$2",
         )

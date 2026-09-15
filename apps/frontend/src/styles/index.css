@@ -127,6 +127,7 @@
 @import "./components/about.css";
 @import "./components/account.css";
 @import "./components/analytics-loading.css";
+@import "./components/pay-checkout.css";
 
 body:has(#main > .epsx-frontend) { @apply m-0; }
 .epsx-frontend { --font-sans: ui-sans-serif, system-ui, sans-serif; }
