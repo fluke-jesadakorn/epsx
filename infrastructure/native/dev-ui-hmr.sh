@@ -29,7 +29,10 @@ done
 unset DIOXUS_PUBLIC_PATH
 export HOST=127.0.0.1
 export ROOT_ENV_FILE=/dev/null
-export EPSX_PUBLIC_DIR="$repo_dir/apps/$app/public"
+# Pay consumes the same Tailwind output as Frontend.
+public_app="$app"
+if [[ "$app" == pay ]]; then public_app=frontend; fi
+export EPSX_PUBLIC_DIR="$repo_dir/apps/$public_app/public"
 export EPSX_BROWSER_RUNTIME_DIR="$repo_dir/target/epsx-service-worker"
 export CARGO_TARGET_DIR="$repo_dir/target"
 export CARGO_BUILD_JOBS=2

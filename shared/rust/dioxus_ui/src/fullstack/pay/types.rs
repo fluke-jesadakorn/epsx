@@ -231,6 +231,63 @@ pub struct PageData {
     pub overview: Vec<Overview>,
     pub payment: Option<Payment>,
     pub link: Option<PaymentLink>,
+    pub completion: Option<CheckoutCompletion>,
+    pub completion_available: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct CheckoutCompletion {
+    pub order_id: uuid::Uuid,
+    pub payment_status: String,
+    pub fulfillment_status: String,
+    pub return_url: String,
+}
+impl CheckoutCompletion {
+    pub fn ready(&self) -> bool {
+        self.payment_status == "succeeded" && self.fulfillment_status == "granted"
+    }
+    pub fn valid_return(&self, origin: &str) -> bool {
+        let (Ok(target), Ok(base)) = (url::Url::parse(&self.return_url), url::Url::parse(origin))
+        else {
+            return false;
+        };
+        target.origin() == base.origin()
+            && target.username().is_empty()
+            && target.password().is_none()
+            && target.query().is_none()
+            && target.fragment().is_none()
+            && target.path() == format!("/account/payments/{}", self.order_id)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WalletPhase {
+    #[default]
+    Idle,
+    Connecting,
+    Preparing,
+    ApproveToken,
+    ConfirmingApproval,
+    ConfirmPayment,
+    Submitted,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct PendingCheckout {
+    pub checkout_id: String,
+    pub chain_id: u64,
+    pub hash: String,
+    pub operation_id: Option<String>,
+    pub request_context: String,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct CheckoutSession {
+    pub started: bool,
+    pub redirected: bool,
+    pub pending: Option<PendingCheckout>,
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ProductInput {

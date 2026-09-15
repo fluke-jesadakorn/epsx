@@ -2,7 +2,7 @@
 //! mutation belongs here. Dioxus owns everything visible, including pairing QR.
 use super::types::*;
 use dioxus::prelude::*;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 async fn adapter<T: DeserializeOwned>(operation: &str, input: impl Serialize) -> Result<T, String> {
     let mut eval = document::eval(include_str!("wallet_adapter.js"));
@@ -53,9 +53,6 @@ pub async fn connect(chain: u64, walletconnect: bool) -> Result<String, String> 
 pub async fn pairing() -> Result<String, String> {
     adapter("pairing", ()).await
 }
-pub async fn disconnect() -> Result<bool, String> {
-    adapter("disconnect", ()).await
-}
 async fn auth(command: PayAuthCommand) -> Result<ActionResult, String> {
     let key = key("pay-auth").await?;
     super::act_pay(
@@ -104,6 +101,61 @@ pub async fn send(
     adapter(
         "send",
         serde_json::json!({"transaction":tx,"storage_key":storage_key,"approval":approval}),
+    )
+    .await
+}
+
+pub async fn send_checkout(
+    tx: Transaction,
+    storage_key: String,
+    approval: Option<Transaction>,
+    pending: PendingCheckout,
+    mut on_phase: impl FnMut(WalletPhase),
+) -> Result<String, String> {
+    let mut eval = document::eval(include_str!("wallet_adapter.js"));
+    eval.send(serde_json::json!({"operation":"send","input":{
+        "transaction":tx,"storage_key":storage_key,"approval":approval,"pending":pending
+    }}))
+    .map_err(|e| e.to_string())?;
+    #[derive(Deserialize)]
+    struct Reply {
+        phase: Option<WalletPhase>,
+        value: Option<String>,
+        error: Option<String>,
+    }
+    loop {
+        let reply: Reply = eval.recv().await.map_err(|e| e.to_string())?;
+        if let Some(phase) = reply.phase {
+            on_phase(phase);
+            continue;
+        }
+        return reply.value.ok_or_else(|| {
+            reply
+                .error
+                .unwrap_or_else(|| "Wallet request failed".into())
+        });
+    }
+}
+
+pub async fn checkout_session(
+    id: &str,
+    value: Option<CheckoutSession>,
+) -> Result<CheckoutSession, String> {
+    adapter(
+        "checkout_session",
+        serde_json::json!({"id":id,"session":value}),
+    )
+    .await
+}
+
+pub async fn second() -> Result<bool, String> {
+    adapter("second", ()).await
+}
+
+pub async fn return_purchase(id: &str, url: &str, origin: &str) -> Result<bool, String> {
+    adapter(
+        "return_purchase",
+        serde_json::json!({"id":id,"url":url,"origin":origin}),
     )
     .await
 }
