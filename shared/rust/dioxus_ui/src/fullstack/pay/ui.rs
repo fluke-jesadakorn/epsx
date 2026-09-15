@@ -136,6 +136,7 @@ struct Controller {
     credentials: Signal<Credentials>,
     busy: Signal<bool>,
     message: Signal<String>,
+    transaction: Signal<Option<(u64, String)>>,
     secret: Signal<Option<String>>,
     revision: Signal<u64>,
     page: Signal<Page>,
@@ -247,6 +248,7 @@ fn PayPage(page: Page, environment: Environment, path: String) -> Element {
         credentials,
         busy: use_signal(|| false),
         message,
+        transaction: use_signal(|| None),
         secret: use_signal(|| None),
         revision: use_signal(|| 0),
         page: use_signal(|| page.clone()),
@@ -415,8 +417,35 @@ fn Feedback() -> Element {
     if message == LoadError::Unauthenticated.message() {
         return rsx! { crate::fullstack::load_error::SessionNotice { actions: rsx! { SignIn {} } } };
     }
-    rsx! { if !message.is_empty() { p { class: "md-feedback", role: "status", aria_live: "polite", "{message}" } } }
+    rsx! {
+        if !message.is_empty() { p { class: "md-feedback", role: "status", aria_live: "polite", "{message}" } }
+        if let Some((chain_id, hash)) = (c.transaction)() { TransactionLink { chain_id, hash } }
+    }
 }
+fn transaction_explorer_url(chain_id: u64, hash: &str) -> Option<String> {
+    if hash.len() != 66
+        || !hash.starts_with("0x")
+        || !hash[2..].bytes().all(|b| b.is_ascii_hexdigit())
+    {
+        return None;
+    }
+    let origin = match chain_id {
+        56 => "https://bscscan.com",
+        97 => "https://testnet.bscscan.com",
+        _ => return None,
+    };
+    Some(format!("{origin}/tx/{hash}"))
+}
+
+#[component]
+fn TransactionLink(chain_id: u64, hash: String) -> Element {
+    rsx! { p { class: "pay-transaction",
+        if let Some(href) = transaction_explorer_url(chain_id, &hash) {
+            a { href, target: "_blank", rel: "noopener noreferrer", style: "overflow-wrap:anywhere;text-decoration:underline", aria_label: "View transaction on block explorer (opens in a new tab)", "{hash}" }
+        } else { span { style: "overflow-wrap:anywhere", "{hash}" } span { " · Block explorer unavailable for this network" } }
+    } }
+}
+
 #[component]
 fn Secret() -> Element {
     let mut c = use_context::<Controller>();
@@ -519,7 +548,8 @@ fn OperationButtons(payment: Payment) -> Element {
         button{class:"md-primary",disabled:(c.busy)(),onclick:{let payment=payment.clone();move |_|{if *(c.busy).peek(){return}c.busy.set(true);c.message.set("Review and confirm the transaction in your wallet.".into());let payment=payment.clone();spawn(async move{let result=async{
             let payer=wallet::connect(payment.chain_id,false).await?;let checkout=matches!((c.page)(),Page::Checkout(_));let id=if checkout{payment.checkout_id.clone()}else{payment.id.clone()};let native=matches!((c.page)(),Page::NativeIntent(_));let prepare=if native{Action::NativePrepare{id,kind}}else{Action::PrepareOperation{id,checkout,kind,payer}};let request_context=serde_json::to_string(&((c.credentials)().environment,&prepare)).map_err(|e|e.to_string())?;let op=c.perform(prepare).await?;
             let tx=op.transaction_parameters.ok_or("Transaction unavailable")?;let hash=wallet::send(tx,format!("epsx.merchant.tx.{}",op.id),op.approval_transaction).await?;
-            c.message.set(format!("Transaction submitted: {hash}. Waiting for chain confirmations…"));
+            c.transaction.set(Some((payment.chain_id, hash.clone())));
+            c.message.set("Transaction submitted. Waiting for chain confirmations…".into());
             c.perform(if native{Action::NativeConfirm{id:op.id.clone(),tx_hash:hash}}else{Action::ConfirmOperation{id:op.id.clone(),tx_hash:hash}}).await?;
             for _ in 0..120{wallet::pause().await?;let state=c.perform(if native{Action::NativeRead{id:op.id.clone()}}else{Action::ReadOperation{id:op.id.clone()}}).await?;if state.status=="confirmed"{wallet::complete(&request_context).await?;return Ok("Transaction confirmed on chain.".to_string())}
             if state.status=="failed"{wallet::complete(&request_context).await?;return Err("Transaction failed. No successful payment was recorded.".to_string())}}
@@ -562,7 +592,7 @@ fn Checkout(mut dark: Signal<bool>) -> Element {
             div{class:"pay-steps",for(label,n)in[("Send the exact amount from your wallet",1),("We verify payment on the network",2),("Your merchant receives payment confirmation",3)]{div{class:"pay-step",span{"{n}"}"{label}"}}}
         }
         section{class:"pay-card","aria-label":"Crypto checkout",div{class:"pay-card-head",h2{"Pay with crypto"}p{"Scan a QR code or connect your wallet."}}
-            if payment.terminal(){div{class:"pay-result",div{class:"pay-result-icon",if payment.status=="succeeded"{"✓"}else{"!"}}h3{match payment.status.as_str(){"succeeded"=>"Payment received","expired"=>"Checkout expired","refunded"=>"Payment refunded",_=>"Payment needs review"}}p{if payment.status=="expired"{"Do not send funds to this address. Start a new checkout."}else if payment.status=="succeeded"{"Payment confirmed on the network. Contact your merchant for service delivery."}else{"Contact support with your payment reference."}}if payment.checkout_snapshot.kind=="epsx_plan"{crate::navigation::AppLink {class:"pay-button",href:format!("{origin}/account/payments"),"View plan access"}}else{Link{class:"pay-button",to:format!("/m/{}?environment={}",payment.merchant_id,payment.environment.as_str()),"Back to merchant"}}if let Some(hash)=&payment.tx_hash{p{class:"pay-transaction","{hash}"}}}}
+            if payment.terminal(){div{class:"pay-result",div{class:"pay-result-icon",if payment.status=="succeeded"{"✓"}else{"!"}}h3{match payment.status.as_str(){"succeeded"=>"Payment received","expired"=>"Checkout expired","refunded"=>"Payment refunded",_=>"Payment needs review"}}p{if payment.status=="expired"{"Do not send funds to this address. Start a new checkout."}else if payment.status=="succeeded"{"Payment confirmed on the network. Contact your merchant for service delivery."}else{"Contact support with your payment reference."}}if payment.checkout_snapshot.kind=="epsx_plan"{crate::navigation::AppLink {class:"pay-button",href:format!("{origin}/account/payments"),"View plan access"}}else{Link{class:"pay-button",to:format!("/m/{}?environment={}",payment.merchant_id,payment.environment.as_str()),"Back to merchant"}}if let Some(hash)=&payment.tx_hash{TransactionLink{chain_id:payment.chain_id,hash:hash.clone()}}}}
             else if payment.payment_method=="transfer"{div{class:"pay-card-body",if payment.environment==Environment::Test{span{class:"pay-test","TEST PAYMENT · SIMULATED FUNDS"}}div{class:"pay-network-row",div{class:"pay-asset",span{class:"pay-coin","₮"}div{strong{"{payment.token}"}small{"Chain {payment.chain_id}"}}}Expiry{expires:payment.expires_at.clone()}}
                 div{class:"pay-methods","aria-label":"Payment method",button{"aria-pressed":(!method_wallet()).to_string(),onclick:move |_|method_wallet.set(false),"QR / Transfer"}button{"aria-pressed":method_wallet().to_string(),onclick:move |_|method_wallet.set(true),"Connect wallet"}}
                 if !method_wallet(){div{class:"pay-qr-wrap",img{class:"pay-qr",src:svg_uri(&payment.qr_svg),alt:"Payment QR with token, network, amount and recipient"}span{class:"pay-qr-caption","Scan with a compatible crypto wallet"}}CopyField{label:"Amount to send",text:display_amount(&payment.amount,payment.token_decimals.unwrap_or(0))}CopyField{label:"Payment address · unique to this checkout",text:payment.deposit_address.clone()}}
@@ -570,7 +600,7 @@ fn Checkout(mut dark: Signal<bool>) -> Element {
                     if address().is_empty(){div{class:"pay-wallet-options",for (wc,label)in[(false,"MetaMask"),(true,"WalletConnect")]{button{class:"pay-wallet-option",disabled:connecting()||(c.busy)(),onclick:move |_|{connecting.set(true);spawn(async move{match wallet::connect(payment.chain_id,wc).await{Ok(a)=>address.set(a),Err(e)=>c.message.set(e)}connecting.set(false);pairing.set(String::new());});},"{label}"}}}
                         if connecting(){p{"Approve the connection in your wallet."}if !pairing().is_empty(){img{class:"pay-qr",src:pairing_qr(&pairing()),alt:"WalletConnect pairing QR — not a payment QR"}}button{class:"pay-wallet-option",onclick:move |_|{spawn(async move{let _=wallet::disconnect().await;connecting.set(false);pairing.set(String::new());});},"Cancel connection"}}
                     }else{div{class:"pay-field",label{"Connected wallet"}code{class:"pay-wallet-address","{address()}"}}button{class:"pay-wallet-change",disabled:(c.busy)(),onclick:move |_|{spawn(async move{let _=wallet::disconnect().await;address.set(String::new());});},"Disconnect"}
-                        button{class:"pay-button",disabled:(c.busy)(),onclick:{let payment=payment.clone();move |_|{if *(c.busy).peek(){return}c.busy.set(true);c.message.set("Review and confirm the transfer in your wallet.".into());let payment=payment.clone();spawn(async move{let result=async{let prepared=c.perform(Action::PrepareTransfer{id:payment.checkout_id.clone(),payer:address()}).await?;let current=prepared.payment.ok_or("Checkout unavailable")?;if current.terminal(){return Err("Checkout is no longer payable. Refresh for its status.".into())}let tx=prepared.transaction_parameters.ok_or("Transaction unavailable")?;let hash=wallet::send(tx,format!("epsx.checkout.transfer.{}",payment.checkout_id),None).await?;Ok::<_,String>(format!("Transaction submitted: {hash}. Waiting for verified payment."))}.await;c.message.set(result.unwrap_or_else(|e|e));c.busy.set(false);c.revision+=1;});}},"Pay"}
+                        button{class:"pay-button",disabled:(c.busy)(),onclick:{let payment=payment.clone();move |_|{if *(c.busy).peek(){return}c.busy.set(true);c.message.set("Review and confirm the transfer in your wallet.".into());let payment=payment.clone();spawn(async move{let result=async{let prepared=c.perform(Action::PrepareTransfer{id:payment.checkout_id.clone(),payer:address()}).await?;let current=prepared.payment.ok_or("Checkout unavailable")?;if current.terminal(){return Err("Checkout is no longer payable. Refresh for its status.".into())}let tx=prepared.transaction_parameters.ok_or("Transaction unavailable")?;let hash=wallet::send(tx,format!("epsx.checkout.transfer.{}",payment.checkout_id),None).await?;c.transaction.set(Some((current.chain_id,hash)));Ok::<_,String>("Transaction submitted. Waiting for verified payment.".into())}.await;c.message.set(result.unwrap_or_else(|e|e));c.busy.set(false);c.revision+=1;});}},"Pay"}
                     }
                 }
                 p{class:"pay-instruction","Send exactly the amount shown on chain {payment.chain_id}. Network fees are paid separately."}
