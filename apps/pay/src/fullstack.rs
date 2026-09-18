@@ -857,7 +857,12 @@ mod tests {
             axum::serve(listener, app).await.unwrap();
         });
         let client = reqwest::Client::new();
-        for (query, environment) in [("", "test"), ("?environment=live", "live")] {
+        for (query, environment) in [
+            ("", "live"),
+            ("?environment=test", "test"),
+            ("?environment=live", "live"),
+            ("?environment=invalid", "live"),
+        ] {
             let response = client
                 .get(format!("http://{addr}/{query}"))
                 .send()
@@ -884,8 +889,8 @@ mod tests {
         assert!(html.contains("Preparing your checkout"));
         assert!(!html.contains("The requested page was not found"));
         assert!(!html.contains("Workspace"));
-        // The dashboard still reads Pay; even its unavailable shell must show
-        // the requested environment correctly before client hydration.
+        // The dashboard still reads Pay, but it must not advertise an
+        // environment until the upstream configuration has loaded.
         let response = client
             .get(format!("http://{addr}/dashboard?environment=live"))
             .send()
@@ -894,12 +899,8 @@ mod tests {
         assert_eq!(response.status(), 502);
         let html = response.text().await.unwrap();
         assert!(html.contains("YOUR MERCHANT WORKSPACE"));
-        let live_option = html
-            .split("<option")
-            .filter_map(|part| part.split('>').next())
-            .find(|tag| tag.contains("value=\"live\""))
-            .expect("Live environment option");
-        assert!(live_option.contains("selected"));
+        assert!(!html.contains("Test environment"));
+        assert!(!html.contains("Live environment"));
         let response = client
             .get(format!("http://{addr}/docs"))
             .send()

@@ -24,11 +24,17 @@ fn Home(query: String) -> Element {
     rsx! { super::home::Landing { environment: environment_for(&query), dark } }
 }
 fn environment_for(query: &str) -> Environment {
-    if url::form_urlencoded::parse(query.as_bytes()).any(|(k, v)| k == "environment" && v == "live")
+    if url::form_urlencoded::parse(query.as_bytes()).any(|(k, v)| k == "environment" && v == "test")
     {
-        Environment::Live
-    } else {
         Environment::Test
+    } else {
+        Environment::Live
+    }
+}
+fn environment_label(environment: Environment) -> &'static str {
+    match environment {
+        Environment::Test => "Test environment",
+        Environment::Live => "Live environment",
     }
 }
 pub(super) fn page_for(path: &str) -> Option<Page> {
@@ -401,7 +407,7 @@ fn PayPage(page: Page, environment: Environment, path: String) -> Element {
                     div { class: "md-context-bar",
                         span { if let Some(m)=current.as_ref().and_then(|d|d.merchant.as_ref()) { "{m.name}" } else { "Your business" } }
                         div { class: "md-tools",
-                            if !page.public(){EnvironmentSelect{path,environment}}
+                            if !page.public(){if let Some(data)=current.as_ref(){EnvironmentSelect{path:path.clone(),environment,config:data.config.clone()}}}
                             if signed_in { button { class: "md-secondary", disabled: (controller.busy)(), onclick: move |_| { spawn(async move { match wallet::logout().await { Ok(_) => controller.revision += 1, Err(e) => controller.message.set(e) } }); }, "Sign out" } }
                             button{class:"md-quiet",onclick:move |_|controller.revision+=1,"Refresh"}
                         }
@@ -412,7 +418,8 @@ fn PayPage(page: Page, environment: Environment, path: String) -> Element {
                         }
                         Feedback{}
                         if let Some(data)=current{
-                            if !page.public()&&data.merchant.is_none()&&!matches!(page,Page::Payment(_)|Page::NativeIntent(_)|Page::NativeDashboard){Onboarding{signed_in}}
+                            if !page.public()&&!matches!(page,Page::NativeDashboard)&&!data.config.supports_environment(environment){UnsupportedEnvironment{path:path.clone(),config:data.config.clone()}}
+                            else if !page.public()&&data.merchant.is_none()&&!matches!(page,Page::Payment(_)|Page::NativeIntent(_)|Page::NativeDashboard){Onboarding{signed_in}}
                             else{match page{
                                 Page::Dashboard=>rsx!{OverviewPanel{data:data.clone(),environment}PaymentRows{payments:data.payments}},
                                 Page::Payments=>rsx!{PaymentRows{payments:data.payments}},
@@ -435,9 +442,33 @@ fn PayPage(page: Page, environment: Environment, path: String) -> Element {
     }
 }
 #[component]
-fn EnvironmentSelect(path: String, environment: Environment) -> Element {
+fn EnvironmentSelect(path: String, environment: Environment, config: Config) -> Element {
     let navigator = use_navigator();
-    rsx! {select{"aria-label":"Environment",value:environment.as_str(),onchange:move|e|{navigator.push(format!("{path}?environment={}",if e.value()=="live"{"live"}else{"test"}));},option{value:"test",selected:environment==Environment::Test,"Test environment"}option{value:"live",selected:environment==Environment::Live,"Live environment"}}}
+    let available = config
+        .environments
+        .iter()
+        .map(|network| network.environment)
+        .collect::<Vec<_>>();
+    if available.len() <= 1 {
+        return rsx! {if let Some(value)=available.first(){span{class:"md-muted","{environment_label(*value)}"}}};
+    }
+    rsx! {select{"aria-label":"Environment",value:environment.as_str(),onchange:move|e|{navigator.push(format!("{path}?environment={}",if e.value()=="test"{"test"}else{"live"}));},for value in available{option{value:value.as_str(),selected:environment==value,"{environment_label(value)}"}}}}
+}
+#[component]
+fn UnsupportedEnvironment(path: String, config: Config) -> Element {
+    let navigator = use_navigator();
+    let target = config.preferred_environment().unwrap_or(Environment::Live);
+    let target_name = if target == Environment::Live {
+        "Live"
+    } else {
+        "Test"
+    };
+    let destination = format!("{path}?environment={}", target.as_str());
+    let redirect = destination.clone();
+    use_effect(move || {
+        navigator.replace(redirect.clone());
+    });
+    rsx! {section{class:"md-panel",role:"status",h2{"Environment unavailable"}p{"This payment environment is not configured. Opening {target_name} environment…"}Link{class:"md-secondary",to:destination,"Continue"}}}
 }
 #[component]
 fn SignIn() -> Element {
@@ -670,9 +701,9 @@ mod tests {
     }
     #[test]
     fn landing_and_workspace_share_environment_selection() {
-        assert_eq!(environment_for(""), Environment::Test);
+        assert_eq!(environment_for(""), Environment::Live);
         assert_eq!(environment_for("environment=test"), Environment::Test);
-        assert_eq!(environment_for("environment=invalid"), Environment::Test);
+        assert_eq!(environment_for("environment=invalid"), Environment::Live);
         assert_eq!(environment_for("environment=live"), Environment::Live);
         assert_eq!(
             environment_for("other=value&environment=live"),
@@ -683,6 +714,40 @@ mod tests {
     fn units_remain_exact() {
         assert_eq!(display_amount("5125000000000000000", 18), "5.125");
         assert_eq!(display_amount("1", 6), "0.000001");
+    }
+    #[test]
+    fn configured_environment_prefers_live_and_rejects_missing_test() {
+        let live = NetworkConfig {
+            environment: Environment::Live,
+            ..Default::default()
+        };
+        let test = NetworkConfig {
+            environment: Environment::Test,
+            ..Default::default()
+        };
+        let live_only = Config {
+            environments: vec![live.clone()],
+            ..Default::default()
+        };
+        assert!(live_only.supports_environment(Environment::Live));
+        assert!(!live_only.supports_environment(Environment::Test));
+        assert_eq!(live_only.preferred_environment(), Some(Environment::Live));
+        let test_only = Config {
+            environments: vec![test],
+            ..Default::default()
+        };
+        assert_eq!(test_only.preferred_environment(), Some(Environment::Test));
+        let both = Config {
+            environments: vec![
+                live,
+                NetworkConfig {
+                    environment: Environment::Test,
+                    ..Default::default()
+                },
+            ],
+            ..Default::default()
+        };
+        assert_eq!(both.preferred_environment(), Some(Environment::Live));
     }
 }
 
