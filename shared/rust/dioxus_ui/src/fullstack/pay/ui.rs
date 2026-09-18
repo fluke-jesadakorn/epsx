@@ -109,7 +109,6 @@ pub fn PayApp() -> Element {
     });
     rsx! {
         document::Meta{name:"viewport",content:"width=device-width,initial-scale=1"}
-        document::Style { ".md-route-actions {{ display:flex;justify-content:flex-end;gap:.75rem;padding:.75rem 2rem; }} .md-route-actions:empty {{ display:none; }}" }
         document::Link{rel:"stylesheet",href:"/public/dist/tailwind.css"}
         document::Link{rel:"stylesheet",href:"/merchant.css"}
         document::Link{rel:"stylesheet",href:"/checkout.css"}
@@ -129,7 +128,7 @@ fn View(segments: Vec<String>, query: String) -> Element {
     match page_for(&path) {
         Some(page) => rsx! {PayPage{key:"{path}:{env:?}",page,environment:env,path}},
         None => {
-            rsx! {div { class: if dark() { "epsx-merchant dark" } else { "epsx-merchant" }, PayNavbar { environment: env, path, dark } main{class:"container-x py-10",document::Title{"Page not found · EPSX Pay"}h1{"Page not found"}Link{to:"/","Back to Pay"}}}}
+            rsx! {div { class: if dark() { "epsx-merchant dark" } else { "epsx-merchant" }, PayNavbar { environment: env, path, dark } main{class:"md-content md-empty",document::Title{"Page not found · EPSX Pay"}h1{"Page not found"}p{"This page may have moved, or the link may be incomplete."}Link{class:"md-secondary",to:format!("/?environment={}",env.as_str()),"Back to Pay"}}}}
         }
     }
 }
@@ -399,28 +398,23 @@ fn PayPage(page: Page, environment: Environment, path: String) -> Element {
         div{class:if dark(){"dark epsx-merchant"}else{"epsx-merchant"},
             main{class:"md-app md-shared-nav",
                 div{class:"md-workspace",
-                    PayNavbar { environment, path: format!("{path}?environment={}",environment.as_str()), dark,
-                        actions: rsx! {
-                            if signed_in{button{class:"md-quiet",disabled:(controller.busy)(),onclick:move |_|{spawn(async move{match wallet::logout().await{Ok(_)=>controller.revision+=1,Err(e)=>controller.message.set(e)}});},"Sign out"}}
-                            else if !page.public(){SignIn{}}
-                        },
-                    }
                     div { class: "md-context-bar",
                         span { if let Some(m)=current.as_ref().and_then(|d|d.merchant.as_ref()) { "{m.name}" } else { "Your business" } }
                         div { class: "md-tools",
                             if !page.public(){EnvironmentSelect{path,environment}}
+                            if signed_in { button { class: "md-secondary", disabled: (controller.busy)(), onclick: move |_| { spawn(async move { match wallet::logout().await { Ok(_) => controller.revision += 1, Err(e) => controller.message.set(e) } }); }, "Sign out" } }
                             button{class:"md-quiet",onclick:move |_|controller.revision+=1,"Refresh"}
                         }
                     }
                     div{class:"md-content",
-                        div{class:"md-heading",div{p{class:"md-eyebrow","YOUR MERCHANT WORKSPACE"}h1{"{page.title()}"}p{class:"md-muted","A clear view of every payment, from checkout to your wallet."}}
+                        div{class:"md-heading",div{p{class:"md-eyebrow",if page.public(){"EPSX PAY"}else{"YOUR MERCHANT WORKSPACE"}}h1{"{page.title()}"}p{class:"md-muted",if page.public(){"Review the details and choose how you would like to pay."}else{"A clear view of every payment, from checkout to your wallet."}}}
                             if let Some(m)=current.as_ref().and_then(|v|v.merchant.as_ref()){Link{class:"md-secondary",to:format!("/m/{}?environment={}",m.merchant_id,environment.as_str()),"View storefront ↗"}}
                         }
                         Feedback{}
                         if let Some(data)=current{
                             if !page.public()&&data.merchant.is_none()&&!matches!(page,Page::Payment(_)|Page::NativeIntent(_)|Page::NativeDashboard){Onboarding{signed_in}}
                             else{match page{
-                                Page::Dashboard=>rsx!{OverviewPanel{data:data.clone()}PaymentRows{payments:data.payments}},
+                                Page::Dashboard=>rsx!{OverviewPanel{data:data.clone(),environment}PaymentRows{payments:data.payments}},
                                 Page::Payments=>rsx!{PaymentRows{payments:data.payments}},
                                 Page::NativeDashboard=>rsx!{if signed_in{LinkEditor{}PaymentRows{payments:data.payments}}else{SignIn{}}},
                                 Page::Packages|Page::EditPackage(_)=>rsx!{ProductEditor{product:if matches!(page,Page::EditPackage(_)){data.products.first().cloned()}else{None},config:data.config.clone(),environment}Products{products:data.products,config:data.config,environment,public:false}},
@@ -506,12 +500,12 @@ fn Onboarding(signed_in: bool) -> Element {
     rsx! {section{class:"md-panel",h2{"Your wallet. Your business."}p{class:"md-muted","Connect MetaMask and sign in. Choose a shop name to start accepting payments."}if signed_in{Field{label:"Shop name",value:name}button{class:"md-primary",disabled:(c.busy)(),onclick:move |_|c.dispatch(Action::Register{name:name()}),"Create shop"}}else{SignIn{}}}}
 }
 #[component]
-fn OverviewPanel(data: PageData) -> Element {
-    rsx! {div{class:"md-stats",if data.overview.is_empty(){p{"Your first payment starts here. Create a package to get going."}}for v in data.overview{for (label,value)in[("Customer payments confirmed",v.paid),("Ready to collect · after fee",v.ready),("Processing fees · estimated until collection",v.fees)]{div{class:"md-stat",small{"{label}"}strong{"{display_amount(&value,v.decimals)} {v.token}"}}}}section{class:"md-panel md-hero",h2{"Turn a great idea into your next sale."}p{"Create a package or share a payment link."}div{class:"md-tools",Link{class:"md-primary",to:"/packages","Create a package"}Link{class:"md-secondary",to:"/payment-links","Create a payment link"}}}}}
+fn OverviewPanel(data: PageData, environment: Environment) -> Element {
+    rsx! {div{class:"md-stats",if data.overview.is_empty(){p{"Your first payment starts here. Create a package to get going."}}for v in data.overview{for (label,value)in[("Customer payments confirmed",v.paid),("Ready to collect · after fee",v.ready),("Processing fees · estimated until collection",v.fees)]{div{class:"md-stat",small{"{label}"}strong{"{display_amount(&value,v.decimals)} {v.token}"}}}}section{class:"md-panel md-hero",h2{"Turn a great idea into your next sale."}p{"Create a package or share a payment link."}div{class:"md-tools",Link{class:"md-primary",to:format!("/packages?environment={}",environment.as_str()),"Create a package"}Link{class:"md-secondary",to:format!("/payment-links?environment={}",environment.as_str()),"Create a payment link"}}}}}
 }
 #[component]
 fn PaymentRows(payments: Vec<Payment>) -> Element {
-    rsx! {section{class:"md-panel",h2{"Payment activity"}if payments.is_empty(){p{"No payments yet."}}for p in payments{div{class:"md-payment-row",div{strong{"{p.checkout_snapshot.item_name}"}small{"{p.status} · {p.settlement_status}"}}strong{"{display_amount(&p.amount,p.token_decimals.unwrap_or(0))} {p.token}"}Link{class:"md-secondary",to:format!("/{}/{}",if p.id.starts_with("pi_"){"payments"}else{"checkout"},p.id),"View payment →"}}}}}
+    rsx! {section{class:"md-panel",h2{"Payment activity"}if payments.is_empty(){p{"No payments yet."}}for p in payments{div{class:"md-payment-row",div{strong{"{p.checkout_snapshot.item_name}"}small{"{p.status} · {p.settlement_status}"}}strong{"{display_amount(&p.amount,p.token_decimals.unwrap_or(0))} {p.token}"}Link{class:"md-secondary",to:format!("/{}/{}?environment={}",if p.id.starts_with("pi_"){"payments"}else{"checkout"},p.id,p.environment.as_str()),"View payment →"}}}}}
 }
 #[component]
 fn Products(
@@ -626,7 +620,7 @@ fn CopyField(label: String, text: String) -> Element {
 fn Docs(merchant: bool, environment: Environment) -> Element {
     let PayTheme(dark) = use_context::<PayTheme>();
     let source = if merchant {
-        include_str!("../../../../../../docs/pay/merchant-dashboard-dev.md")
+        include_str!("../../../../../../docs/pay/merchant-guide.md")
     } else {
         include_str!("../../../../../../docs/pay/merchant-api.md")
     };
@@ -635,7 +629,13 @@ fn Docs(merchant: bool, environment: Environment) -> Element {
         &mut html,
         pulldown_cmark::Parser::new_ext(source, pulldown_cmark::Options::ENABLE_TABLES),
     );
-    rsx! {document::Title{"Integration guide · EPSX Pay"}div { class: if dark() { "epsx-merchant dark" } else { "epsx-merchant" }, PayNavbar { environment, path: format!("{}?environment={}",if merchant { "/docs/merchant" } else { "/docs" },environment.as_str()), dark } main{class:"container-x max-w-5xl mx-auto py-10 prose",Link{to:format!("/?environment={}",environment.as_str()),"Back to Pay"}article{dangerous_inner_html:html}}}}
+    for path in ["/docs", "/docs/merchant"] {
+        html = html.replace(
+            &format!("href=\"{path}\""),
+            &format!("href=\"{path}?environment={}\"", environment.as_str()),
+        );
+    }
+    rsx! {document::Title{if merchant {"Merchant guide · EPSX Pay"} else {"API reference · EPSX Pay"}}div { class: if dark() { "epsx-merchant dark" } else { "epsx-merchant" }, PayNavbar { environment, path: format!("{}?environment={}",if merchant { "/docs/merchant" } else { "/docs" },environment.as_str()), dark } main{class:"md-docs",Link{to:format!("/?environment={}",environment.as_str()),"Back to Pay"}article{dangerous_inner_html:html}}}}
 }
 #[cfg(test)]
 mod tests {
@@ -714,7 +714,7 @@ fn PayLayout() -> Element {
     let environment = environment_for(query.split('#').next().unwrap_or(query));
     let PayTheme(dark) = use_context::<PayTheme>();
     rsx! { div { class: if dark() { "epsx-merchant dark" } else { "epsx-merchant" },
-        if !route.starts_with("/checkout/") { PayNavbar { environment, path: route, dark } }
+        if !matches!(page_for(route.split('?').next().unwrap_or(&route)), Some(Page::Checkout(_))) { PayNavbar { environment, path: route, dark, actions: rsx! { Link { class: "md-secondary", to: format!("/dashboard?environment={}",environment.as_str()), "Dashboard" } } } }
         div { id: "epsx-main-content", tabindex: -1,
             SuspenseBoundary { fallback: |_| rsx! { crate::navigation::PageSkeleton {} }, PayContent {} }
         }

@@ -1,9 +1,6 @@
-//! Admin sidebar — full 1:1 port of
-//! `apps-old/admin-frontend/components/layout/sidebar.tsx`.
-//!
-//! The original `Sidebar` scaffold is preserved as a thin wrapper around
-//! the new TS-parity [`AdminSidebar`] so the public API of
-//! `crate::layout::Sidebar` stays importable for downstream callers.
+//! Shared admin navigation inventory and sidebar. The hydrated desktop and
+//! mobile menus consume this same tree; aliases remain routable without
+//! appearing as duplicate destinations.
 
 use crate::primitives::icon::Icon;
 
@@ -18,7 +15,7 @@ use dioxus::prelude::*;
 /// shape when they don't need the chrome features.
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct SidebarItem {
-    /// Stable id (used as the React `key` and for expand/collapse state).
+    /// Stable id for keyed rows and expand/collapse state.
     pub id: String,
     /// Visible label.
     pub label: String,
@@ -48,39 +45,21 @@ pub struct SidebarItem {
     pub chat_count: Option<u32>,
 }
 
-/// Full TS-parity admin sidebar.
-///
-/// Mirrors `apps-old/admin-frontend/components/layout/sidebar.tsx`:
-/// - EPSX logo + "ADMIN" subtext at the top
-/// - Vertical scrollable nav with nested children (expand/collapse)
-/// - Disabled rows show a `Lock` icon when the item requires auth and the
-///   caller is unauthed
-/// - Per-row badge: chat count pill (purple gradient) or active dot
-/// - "Full Access" connect-wallet CTA when unauthed
-/// - User pill at the bottom (authed: "Admin user" + emerald dot,
-///   guest: "?" + grey dot)
-/// - Auto-expand any parent whose `href` is a prefix of the current
-///   pathname (mirrors the `useEffect` in the TS source)
-///
-/// State is **owned internally** for expand/collapse (purely UI) but
-/// callers control routing via `current_path` and auth via
-/// `is_authenticated`. The `default_expanded` and
-/// `expanded_set` props allow controlled override for tests / pages
-/// that need to seed the open set.
+/// Admin sidebar with query-aware selection and automatic parent expansion.
+/// Expand/collapse is UI state; authentication truth comes from the caller.
 #[component]
 pub fn AdminSidebar(
-    /// Current pathname, e.g. `"/wallet-management/access"`. Used for
-    /// active-state matching and auto-expand.
+    /// Current URL path and query, used for active selection and expansion.
     current_path: String,
     /// Whether the viewer is authenticated. When `false`, items with
     /// `requires_auth = true` render as disabled stubs.
     is_authenticated: bool,
     /// Optional override for the sidebar items. When `None`, the
-    /// built-in TS-parity `DEFAULT_NAV_ITEMS` are used.
+    /// shared `DEFAULT_NAV_ITEMS` are used.
     items: Option<Vec<SidebarItem>>,
     /// Initial expand/collapse set (controlled-mode seed).
-    /// `Some(Set)` fixes the open set; `None` lets the component
-    /// auto-manage expand state from the pathname.
+    /// `Some(Set)` supplies the initial open set; navigation also opens
+    /// the parent containing the active destination.
     default_expanded: Option<Vec<String>>,
     /// Optional `class_name` override for the outer container.
     class_name: Option<String>,
@@ -93,37 +72,36 @@ pub fn AdminSidebar(
 ) -> Element {
     let navigation = try_consume_context::<crate::fullstack::admin::AdminNavigation>();
     let items = items.unwrap_or_else(|| DEFAULT_NAV_ITEMS.clone());
+    let active_id = active_nav_item(&items, &current_path).map(|item| item.id.clone());
 
     // Expand/collapse state — owned by the component (purely UI). Seed
     // route-matching parents synchronously so SSR emits the same initially
     // expanded tree as the production client. `use_effect` does not run
-    // during SSR, so relying on it alone left active children absent from
-    // the document until hydration (which the node-free BFF does not use).
+    // during SSR, so the active submenu must be open before hydration.
     let expanded_seed: std::collections::HashSet<String> = match default_expanded {
         Some(seed) => seed.into_iter().collect(),
         None => items
             .iter()
-            .filter(|item| item.children.is_some() && current_path.starts_with(&item.href))
+            .filter(|item| contains_active_child(item, active_id.as_deref()))
             .map(|item| item.id.clone())
             .collect(),
     };
     let mut expanded: Signal<std::collections::HashSet<String>> = use_signal(move || expanded_seed);
 
-    // Auto-expand any parent whose href is a prefix of the current path
-    // (mirrors the `useEffect(() => { setExpandedItems(...) }, [pathname])`
-    // in the TS source).
-    {
-        let items_for_effect = items.clone();
-        let path_for_effect = current_path.clone();
-        use_effect(move || {
-            let mut next = expanded.write();
-            for it in items_for_effect.iter() {
-                if it.children.is_some() && path_for_effect.starts_with(&it.href) {
-                    next.insert(it.id.clone());
-                }
+    // Follow route props after client-side navigation, including children whose
+    // destinations live outside their parent's URL prefix (plans/subscriptions).
+    use_effect(use_reactive!(|items, current_path| {
+        let active_id = active_nav_item(&items, &current_path).map(|item| item.id.clone());
+        let mut next = expanded.peek().clone();
+        for item in &items {
+            if contains_active_child(item, active_id.as_deref()) {
+                next.insert(item.id.clone());
             }
-        });
-    }
+        }
+        if next != *expanded.peek() {
+            expanded.set(next);
+        }
+    }));
 
     let session_state = session_state.unwrap_or({
         if is_authenticated {
@@ -171,7 +149,9 @@ pub fn AdminSidebar(
                     // Hide the "Connect Wallet" item once authenticated (matches TS filter).
                     if !(item.id == "auth" && is_authenticated) {
                         SidebarRow {
+                            key: "{item.id}",
                             item: item.clone(),
+                            active_id: active_id.clone(),
                             current_path: current_path.clone(),
                             is_authenticated,
                             chat_count: item.chat_count.unwrap_or(0),
@@ -181,44 +161,15 @@ pub fn AdminSidebar(
                 }
             }
 
-            // ── Bottom block: connect CTA + user pill ──────────────────
+            // ── Session status ────────────────────────────────────────
             div { class: "mt-auto p-4",
-                if !is_authenticated {
-                    ConnectWalletCta { return_url: current_path.clone() }
-                }
                 UserPill { session_state }
             }
         }
     }
 }
 
-/// Connect-wallet CTA card shown in the sidebar when the viewer is
-/// unauthenticated. Mirrors the gradient card in the TS source.
-#[component]
-fn ConnectWalletCta(return_url: String) -> Element {
-    let navigation = try_consume_context::<crate::fullstack::admin::AdminNavigation>();
-    let href = format!("/auth?return_url={}", urlencode(&return_url));
-    rsx! {
-        div { class: "mb-4",
-            div { class: "bg-gradient-to-br from-[#1fc7d4]/5 to-[#7645d9]/5 rounded-xl p-4 border border-border/40 relative overflow-hidden group",
-                div { class: "absolute -right-4 -top-4 w-16 h-16 bg-[#1fc7d4]/10 rounded-full blur-2xl group-hover:bg-[#1fc7d4]/20 transition-colors" }
-                div { class: "relative z-10 text-center",
-                    p { class: "text-sm font-bold text-foreground mb-1", "Full Access" }
-                    p { class: "text-[10px] text-muted-foreground mb-4 px-2", "Unlock all features by connecting your wallet." }
-                    crate::navigation::AppLink { class: "admin-sidebar-cta block w-full bg-[#1fc7d4] text-white text-sm font-bold py-2.5 px-4 rounded-2xl shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40 hover:scale-[1.02] active:scale-95 transition-all text-center",
-                        href: "{href}",
-                        onclick: move |event| crate::fullstack::admin::follow_admin_link(event,navigation,&href),
-                        "Connect Wallet"
-                    }
-                }
-            }
-        }
-    }
-}
-
-/// User pill at the bottom of the sidebar. Reflects the SSR-injected
-/// session truth instead of guessing from cookies: `Verified` sessions are
-/// emerald, UI-only fixture identities are amber, anonymous is grey.
+/// Session status supplied by the server, without duplicating account actions.
 #[component]
 fn UserPill(session_state: crate::layout::session_state::SessionState) -> Element {
     let (avatar_class, initials, dot_class, label) = match session_state {
@@ -270,24 +221,18 @@ fn UserPill(session_state: crate::layout::session_state::SessionState) -> Elemen
 #[component]
 fn SidebarRow(
     item: SidebarItem,
+    active_id: Option<String>,
     current_path: String,
     is_authenticated: bool,
     chat_count: u32,
     expanded: Signal<std::collections::HashSet<String>>,
 ) -> Element {
     let navigation = try_consume_context::<crate::fullstack::admin::AdminNavigation>();
-    let is_active = current_path == item.href
-        || (item.href != "/" && current_path.starts_with(&format!("{}/", item.href)));
+    let is_active = active_id.as_deref() == Some(item.id.as_str());
     let is_expanded = expanded.read().contains(&item.id);
     let has_children = item.children.is_some();
     let is_disabled = item.disabled || (item.requires_auth && !is_authenticated);
-    let has_active_child = match &item.children {
-        Some(children) => children
-            .iter()
-            .any(|c| is_child_active(c, &current_path, None)),
-        None => false,
-    };
-    let is_highlighted = is_active || has_active_child;
+    let is_highlighted = is_active || contains_active_child(&item, active_id.as_deref());
 
     // Disabled visual — locked stub.
     if is_disabled {
@@ -334,7 +279,8 @@ fn SidebarRow(
                 }
                 NavChildren {
                     item: item.clone(),
-                    current_path: current_path.clone(),
+                    active_id: active_id.clone(),
+                    is_authenticated,
                     child_id: child_id.clone(),
                     expanded: is_expanded,
                 }
@@ -381,7 +327,8 @@ fn SidebarRow(
 #[component]
 fn NavChildren(
     item: SidebarItem,
-    current_path: String,
+    active_id: Option<String>,
+    is_authenticated: bool,
     child_id: String,
     expanded: bool,
 ) -> Element {
@@ -399,13 +346,17 @@ fn NavChildren(
             "aria-hidden": if expanded { "false" } else { "true" },
             for child in children.iter() {
                 {
-                    let child_active = is_child_active(child, &current_path, None);
+                    let child_active = active_id.as_deref() == Some(child.id.as_str());
+                    let child_disabled = child.disabled || (child.requires_auth && !is_authenticated);
                     let child_href = match &child.tab {
                         Some(t) if !t.is_empty() => format!("{}?tab={}", child.href, t),
                         _ => child.href.clone(),
                     };
                     rsx! {
-                        crate::navigation::AppLink { class: if child_active { "flex items-center gap-3 px-3 py-2 rounded-xl transition-all text-[#1fc7d4] bg-[#1fc7d4]/5 font-bold" } else { "flex items-center gap-3 px-3 py-2 rounded-xl transition-all text-muted-foreground hover:text-foreground hover:bg-muted/30" },
+                        if child_disabled {
+                            span { key: "{child.id}", class: "flex items-center gap-3 px-3 py-2 text-xs text-muted-foreground opacity-40", aria_disabled: "true", "{child.label}" }
+                        } else {
+                        crate::navigation::AppLink { key: "{child.id}", class: if child_active { "flex items-center gap-3 px-3 py-2 rounded-xl transition-all text-[#1fc7d4] bg-[#1fc7d4]/5 font-bold" } else { "flex items-center gap-3 px-3 py-2 rounded-xl transition-all text-muted-foreground hover:text-foreground hover:bg-muted/30" },
                             href: "{child_href}",
                             onclick: move |event| { crate::fullstack::admin::follow_admin_link(event, navigation, &child_href); },
                             "aria-current": if child_active { "page" } else { "false" },
@@ -416,10 +367,11 @@ fn NavChildren(
                                     class_name: Some("flex-shrink-0".to_string()),
                                 }
                             }
-                            span { class: "text-xs font-medium truncate", "{child.label}" }
+                            span { class: "min-w-0 text-xs font-medium text-left", "{child.label}" }
                             if child_active {
                                 div { class: "w-1 h-1 rounded-full bg-[#1fc7d4] ml-auto" }
                             }
+                        }
                         }
                     }
                 }
@@ -451,261 +403,289 @@ fn NavItemBadge(item_id: String, chat_count: u32, is_active: bool) -> Element {
     rsx! { Fragment {} }
 }
 
-/// TS-parity default nav items — the full admin sidebar tree.
-///
-/// Mirrors `navigationItems` in `sidebar.tsx` line-for-line (id, label,
-/// href, icon, requires_auth, children, tab). Consumer code can pass a
-/// custom set via `AdminSidebar`'s `items` prop when the page needs a
-/// different set.
+/// One navigation inventory for the sidebar, desktop dropdowns and mobile menu.
 pub fn default_nav_items() -> Vec<SidebarItem> {
     DEFAULT_NAV_ITEMS.clone()
 }
 
-/// One static copy of the default nav tree; exposed as a `const` style
-/// `static` via a function so callers can clone it cheaply.
+fn nav_link(id: &str, label: &str, href: &str, icon: &str) -> SidebarItem {
+    SidebarItem {
+        id: id.into(),
+        label: label.into(),
+        href: href.into(),
+        icon: icon.into(),
+        requires_auth: true,
+        ..Default::default()
+    }
+}
+
+fn nav_tab(id: &str, label: &str, href: &str, icon: &str, tab: &str) -> SidebarItem {
+    SidebarItem {
+        tab: Some(tab.into()),
+        ..nav_link(id, label, href, icon)
+    }
+}
+
+fn nav_group(
+    id: &str,
+    label: &str,
+    href: &str,
+    icon: &str,
+    children: Vec<SidebarItem>,
+) -> SidebarItem {
+    SidebarItem {
+        children: Some(children),
+        ..nav_link(id, label, href, icon)
+    }
+}
+
 pub static DEFAULT_NAV_ITEMS: std::sync::LazyLock<Vec<SidebarItem>> =
     std::sync::LazyLock::new(|| {
         vec![
             SidebarItem {
-                id: "dashboard".into(),
-                label: "Dashboard".into(),
-                href: "/".into(),
-                icon: "home".into(),
-                ..Default::default()
+                requires_auth: false,
+                ..nav_link("dashboard", "Dashboard", "/", "home")
             },
             SidebarItem {
-                id: "auth".into(),
-                label: "Connect Wallet".into(),
-                href: "/auth".into(),
-                icon: "link".into(),
-                ..Default::default()
+                requires_auth: false,
+                ..nav_link("auth", "Connect Wallet", "/auth", "link")
             },
-            SidebarItem {
-                id: "wallet-management".into(),
-                label: "Wallet Mgmt".into(),
-                href: "/wallet-management".into(),
-                icon: "wallet".into(),
-                requires_auth: true,
-                children: Some(vec![
-                    SidebarItem {
-                        id: "wm-wallets".into(),
-                        label: "Wallets".into(),
-                        href: "/wallet-management/wallets".into(),
-                        icon: "wallet".into(),
-                        ..Default::default()
-                    },
-                    SidebarItem {
-                        id: "wm-access".into(),
-                        label: "Access".into(),
-                        href: "/wallet-management/access".into(),
-                        icon: "shield".into(),
-                        ..Default::default()
-                    },
-                    SidebarItem {
-                        id: "wm-credits".into(),
-                        label: "Credits".into(),
-                        href: "/wallet-management/credits".into(),
-                        icon: "coins".into(),
-                        ..Default::default()
-                    },
-                ]),
-                ..Default::default()
-            },
-            SidebarItem {
-                id: "payments".into(),
-                label: "Payments".into(),
-                href: "/payments".into(),
-                icon: "credit-card".into(),
-                requires_auth: true,
-                children: Some(vec![
-                    SidebarItem {
-                        id: "pay-payments".into(),
-                        label: "Payments".into(),
-                        href: "/payments".into(),
-                        icon: "credit-card".into(),
-                        tab: Some("payments".into()),
-                        ..Default::default()
-                    },
-                    SidebarItem {
-                        id: "pay-access".into(),
-                        label: "User Access".into(),
-                        href: "/payments".into(),
-                        icon: "users".into(),
-                        tab: Some("user-access".into()),
-                        ..Default::default()
-                    },
-                    SidebarItem {
-                        id: "pay-links".into(),
-                        label: "Links".into(),
-                        href: "/payments".into(),
-                        icon: "link-2".into(),
-                        tab: Some("payment-links".into()),
-                        ..Default::default()
-                    },
-                ]),
-                ..Default::default()
-            },
-            SidebarItem {
-                id: "chat".into(),
-                label: "Chat Support".into(),
-                href: "/chat".into(),
-                icon: "message-circle".into(),
-                requires_auth: true,
-                ..Default::default()
-            },
-            SidebarItem {
-                id: "news".into(),
-                label: "News".into(),
-                href: "/news".into(),
-                icon: "newspaper".into(),
-                requires_auth: true,
-                ..Default::default()
-            },
-            SidebarItem {
-                id: "media".into(),
-                label: "Media".into(),
-                href: "/media".into(),
-                icon: "image".into(),
-                requires_auth: true,
-                ..Default::default()
-            },
-            SidebarItem {
-                id: "analytics".into(),
-                label: "Analytics".into(),
-                href: "/analytics".into(),
-                icon: "bar-chart-3".into(),
-                requires_auth: true,
-                ..Default::default()
-            },
-            SidebarItem {
-                id: "audit-log".into(),
-                label: "Audit Log".into(),
-                href: "/audit-log".into(),
-                icon: "file-text".into(),
-                requires_auth: true,
-                ..Default::default()
-            },
-            SidebarItem {
-                id: "developer".into(),
-                label: "Developer".into(),
-                href: "/developer-portal".into(),
-                icon: "code".into(),
-                requires_auth: true,
-                children: Some(vec![
-                    SidebarItem {
-                        id: "dev-overview".into(),
-                        label: "Overview".into(),
-                        href: "/developer-portal".into(),
-                        icon: "layout-dashboard".into(),
-                        tab: Some("overview".into()),
-                        ..Default::default()
-                    },
-                    SidebarItem {
-                        id: "dev-keys".into(),
-                        label: "API Keys".into(),
-                        href: "/developer-portal".into(),
-                        icon: "key".into(),
-                        tab: Some("keys".into()),
-                        ..Default::default()
-                    },
-                    SidebarItem {
-                        id: "dev-docs".into(),
-                        label: "Docs".into(),
-                        href: "/developer-portal".into(),
-                        icon: "book-open".into(),
-                        tab: Some("docs".into()),
-                        ..Default::default()
-                    },
-                    SidebarItem {
-                        id: "dev-usage".into(),
-                        label: "Usage".into(),
-                        href: "/developer-portal".into(),
-                        icon: "trending-up".into(),
-                        tab: Some("usage".into()),
-                        ..Default::default()
-                    },
-                ]),
-                ..Default::default()
-            },
-            SidebarItem {
-                id: "notifications".into(),
-                label: "Notifications".into(),
-                href: "/notifications".into(),
-                icon: "bell".into(),
-                requires_auth: true,
-                children: Some(vec![
-                    SidebarItem {
-                        id: "notif-manage".into(),
-                        label: "Overview".into(),
-                        href: "/notifications/manage".into(),
-                        icon: "bell".into(),
-                        ..Default::default()
-                    },
-                    SidebarItem {
-                        id: "notif-create".into(),
-                        label: "Send Signal".into(),
-                        href: "/notifications/create".into(),
-                        icon: "send".into(),
-                        ..Default::default()
-                    },
-                ]),
-                ..Default::default()
-            },
-            SidebarItem {
-                id: "settings".into(),
-                label: "Settings".into(),
-                href: "/settings".into(),
-                icon: "settings".into(),
-                children: Some(vec![
-                    SidebarItem {
-                        id: "set-general".into(),
-                        label: "Nodes".into(),
-                        href: "/settings".into(),
-                        icon: "globe".into(),
-                        tab: Some("general".into()),
-                        ..Default::default()
-                    },
-                    SidebarItem {
-                        id: "set-notifications".into(),
-                        label: "Signals".into(),
-                        href: "/settings".into(),
-                        icon: "bell".into(),
-                        tab: Some("notifications".into()),
-                        ..Default::default()
-                    },
-                    SidebarItem {
-                        id: "set-security".into(),
-                        label: "Vault".into(),
-                        href: "/settings".into(),
-                        icon: "lock".into(),
-                        tab: Some("security".into()),
-                        ..Default::default()
-                    },
-                    SidebarItem {
-                        id: "set-appearance".into(),
-                        label: "Optics".into(),
-                        href: "/settings".into(),
-                        icon: "palette".into(),
-                        tab: Some("appearance".into()),
-                        ..Default::default()
-                    },
-                ]),
-                ..Default::default()
-            },
+            nav_link("analytics", "Analytics", "/analytics", "bar-chart-3"),
+            nav_group(
+                "wallet-management",
+                "Wallets & access",
+                "/wallet-management",
+                "wallet",
+                vec![
+                    nav_link(
+                        "wm-wallets",
+                        "Wallets & permissions",
+                        "/wallet-management/wallets",
+                        "wallet",
+                    ),
+                    nav_tab(
+                        "wm-subscriptions",
+                        "Subscriptions",
+                        "/payments",
+                        "users",
+                        "user-access",
+                    ),
+                    nav_link("wm-plans", "Plan catalog", "/plans", "layers"),
+                    nav_link(
+                        "wm-credits",
+                        "Credits",
+                        "/wallet-management/credits",
+                        "coins",
+                    ),
+                ],
+            ),
+            nav_group(
+                "payments",
+                "Payments",
+                "/payments",
+                "credit-card",
+                vec![
+                    nav_link(
+                        "pay-purchases",
+                        "Plan purchases",
+                        "/payments/epsx",
+                        "credit-card",
+                    ),
+                    nav_tab(
+                        "pay-payments",
+                        "Payment intents",
+                        "/payments",
+                        "credit-card",
+                        "payments",
+                    ),
+                    nav_tab(
+                        "pay-links",
+                        "Payment links",
+                        "/payments",
+                        "link-2",
+                        "payment-links",
+                    ),
+                    nav_link("pay-escrows", "Escrows", "/pay/escrows", "shield"),
+                    nav_link(
+                        "pay-merchant-escrows",
+                        "Merchant escrows",
+                        "/pay/merchant-escrows",
+                        "building",
+                    ),
+                ],
+            ),
+            nav_group(
+                "content",
+                "Content",
+                "/news",
+                "newspaper",
+                vec![
+                    nav_link("news", "News", "/news", "newspaper"),
+                    nav_link("news-create", "Create news", "/news/create", "plus"),
+                    nav_link("media", "Media library", "/media", "image"),
+                ],
+            ),
+            nav_link("chat", "Chat support", "/chat", "message-circle"),
+            nav_group(
+                "notifications",
+                "Notifications",
+                "/notifications",
+                "bell",
+                vec![
+                    nav_link(
+                        "notif-manage",
+                        "Manage notifications",
+                        "/notifications/manage",
+                        "bell",
+                    ),
+                    nav_link(
+                        "notif-create",
+                        "Send notification",
+                        "/notifications/create",
+                        "send",
+                    ),
+                ],
+            ),
+            nav_group(
+                "developer",
+                "Developer",
+                "/developer-portal",
+                "code",
+                vec![
+                    nav_tab(
+                        "dev-overview",
+                        "Overview",
+                        "/developer-portal",
+                        "layout-dashboard",
+                        "overview",
+                    ),
+                    nav_tab("dev-keys", "API keys", "/developer-portal", "key", "keys"),
+                    nav_link(
+                        "dev-create",
+                        "Create API key",
+                        "/developer-portal/api-keys/create",
+                        "plus",
+                    ),
+                    nav_tab(
+                        "dev-usage",
+                        "Usage",
+                        "/developer-portal",
+                        "trending-up",
+                        "usage",
+                    ),
+                    nav_tab(
+                        "dev-docs",
+                        "Documentation",
+                        "/developer-portal",
+                        "book-open",
+                        "docs",
+                    ),
+                ],
+            ),
+            nav_group(
+                "settings",
+                "Settings",
+                "/settings",
+                "settings",
+                vec![
+                    nav_tab("set-general", "General", "/settings", "globe", "general"),
+                    nav_tab(
+                        "set-notifications",
+                        "Notification preferences",
+                        "/settings",
+                        "bell",
+                        "notifications",
+                    ),
+                    nav_tab("set-security", "Security", "/settings", "lock", "security"),
+                    nav_tab(
+                        "set-appearance",
+                        "Appearance",
+                        "/settings",
+                        "palette",
+                        "appearance",
+                    ),
+                    nav_link("audit-log", "Audit log", "/audit-log", "file-text"),
+                ],
+            ),
         ]
     });
 
-/// TS-parity helper: is this child the active route? Mirrors
-/// `isChildActive` in `sidebar.tsx` — a child matches if its `tab` is
-/// the current `?tab=` value (or no tab is set) AND its href matches the
-/// pathname (with optional `/`-prefix match for index pages).
-pub fn is_child_active(item: &SidebarItem, current_path: &str, current_tab: Option<&str>) -> bool {
-    if let Some(tab) = &item.tab {
-        if !tab.is_empty() {
-            return current_path == item.href && current_tab == Some(tab.as_str());
+impl SidebarItem {
+    pub fn destination(&self) -> String {
+        match self.tab.as_deref().filter(|tab| !tab.is_empty()) {
+            Some(tab) => format!("{}?tab={tab}", self.href),
+            None => self.href.clone(),
         }
     }
-    current_path == item.href || current_path.starts_with(&format!("{}/", item.href))
+}
+
+fn contains_active_child(item: &SidebarItem, active_id: Option<&str>) -> bool {
+    item.children.as_ref().is_some_and(|children| {
+        children.iter().any(|child| {
+            active_id == Some(child.id.as_str()) || contains_active_child(child, active_id)
+        })
+    })
+}
+
+/// Normalize existing route aliases for display only; routing and authorization
+/// remain owned by the Router and backend.
+fn canonical_path(path: &str) -> String {
+    let path = path.split(['?', '#']).next().unwrap_or(path);
+    let path = path
+        .strip_prefix("/admin/")
+        .map(|tail| format!("/{tail}"))
+        .unwrap_or_else(|| path.to_owned());
+    match path.as_str() {
+        "/admin" | "/index" | "/dashboard" => "/".into(),
+        "/notifications" => "/notifications/manage".into(),
+        "/wallet-management/access" => "/wallet-management/wallets".into(),
+        path if path == "/wallet-management/access/plans"
+            || path.starts_with("/wallet-management/access/plans/") =>
+        {
+            path.replacen("/wallet-management/access/plans", "/plans", 1)
+        }
+        path if path.starts_with("/wallet-management/0x") => {
+            path.replacen("/wallet-management/", "/wallet-management/wallets/", 1)
+        }
+        _ => path,
+    }
+}
+
+/// Match a destination, including tab defaults and existing route aliases.
+pub fn is_child_active(item: &SidebarItem, current_path: &str, current_tab: Option<&str>) -> bool {
+    let path = canonical_path(current_path);
+    let query_tab = current_path.split_once('?').and_then(|(_, query)| {
+        url::form_urlencoded::parse(query.split('#').next().unwrap_or(query).as_bytes())
+            .find(|(key, _)| key == "tab")
+            .map(|(_, value)| value.into_owned())
+    });
+    let tab = current_tab
+        .or(query_tab.as_deref())
+        .or(match path.as_str() {
+            "/payments" => Some("payments"),
+            "/settings" => Some("general"),
+            "/developer-portal" => Some("overview"),
+            _ => None,
+        });
+    if let Some(expected) = item.tab.as_deref().filter(|tab| !tab.is_empty()) {
+        return path == item.href && tab == Some(expected);
+    }
+    path == item.href || (item.href != "/" && path.starts_with(&format!("{}/", item.href)))
+}
+
+/// Select only the most specific leaf, so create/detail pages do not highlight
+/// multiple entries. Parent expansion follows that leaf, never a URL prefix.
+pub fn active_nav_item<'a>(
+    items: &'a [SidebarItem],
+    current_path: &str,
+) -> Option<&'a SidebarItem> {
+    items
+        .iter()
+        .filter_map(|item| match &item.children {
+            Some(children) => active_nav_item(children, current_path),
+            None => is_child_active(item, current_path, None).then_some(item),
+        })
+        .max_by_key(|item| item.href.len())
 }
 
 /// Minimal percent-encoder for query values (only encodes the chars that
@@ -773,7 +753,7 @@ mod tests {
     fn is_child_active_matches_tabbed_route() {
         let item = SidebarItem {
             id: "set-general".into(),
-            label: "Nodes".into(),
+            label: "General".into(),
             href: "/settings".into(),
             icon: "globe".into(),
             tab: Some("general".into()),
@@ -799,7 +779,12 @@ mod tests {
             "/wallet-management/wallets/123",
             None
         ));
-        assert!(!is_child_active(&item, "/wallet-management/access", None));
+        assert!(is_child_active(&item, "/wallet-management/access", None));
+        assert!(!is_child_active(
+            &item,
+            "/wallet-management/wallets-other",
+            None
+        ));
     }
 
     #[test]
@@ -841,5 +826,101 @@ mod tests {
         assert!(child_html.starts_with(
             "id=\"sidebar-children-wallet-management\" role=\"list\" aria-hidden=\"false\""
         ));
+    }
+    #[test]
+    fn navigation_inventory_has_unique_routable_destinations() {
+        let mut ids = std::collections::HashSet::new();
+        let mut destinations = std::collections::HashSet::new();
+        for parent in DEFAULT_NAV_ITEMS.iter() {
+            assert!(ids.insert(parent.id.clone()));
+            for item in parent
+                .children
+                .as_deref()
+                .unwrap_or(std::slice::from_ref(parent))
+            {
+                if item.id != parent.id {
+                    assert!(ids.insert(item.id.clone()));
+                }
+                let href = item.destination();
+                assert!(
+                    destinations.insert(href.clone()),
+                    "Duplicate destination: {href}"
+                );
+                assert!(
+                    href.parse::<crate::routes::AdminRoute>().is_ok(),
+                    "Missing route: {href}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn active_destination_follows_tabs_defaults_details_and_aliases() {
+        for (path, id) in [
+            ("/payments", "pay-payments"),
+            ("/payments?tab=user-access&page=2", "wm-subscriptions"),
+            ("/payments?tab=payment-links", "pay-links"),
+            ("/payments/epsx/123", "pay-purchases"),
+            ("/pay/escrows/123", "pay-escrows"),
+            ("/pay/merchant-escrows/123", "pay-merchant-escrows"),
+            ("/settings", "set-general"),
+            ("/admin/settings?tab=security#panel", "set-security"),
+            ("/settings?tab=%61ppearance", "set-appearance"),
+            ("/developer-portal", "dev-overview"),
+            ("/developer-portal?tab=keys", "dev-keys"),
+            ("/developer-portal/api-keys/create", "dev-create"),
+            ("/admin/wallet-management/access/plans/123", "wm-plans"),
+            ("/plans/123", "wm-plans"),
+            ("/wallet-management/access", "wm-wallets"),
+            ("/wallet-management/0x123", "wm-wallets"),
+            ("/wallet-management/wallets/0x123/disable", "wm-wallets"),
+            ("/news/create", "news-create"),
+            ("/news/123/edit", "news"),
+            ("/media", "media"),
+            ("/notifications", "notif-manage"),
+            ("/admin/dashboard", "dashboard"),
+        ] {
+            assert_eq!(
+                active_nav_item(&DEFAULT_NAV_ITEMS, path).map(|item| item.id.as_str()),
+                Some(id),
+                "{path}"
+            );
+            let html = rendered_sidebar(path);
+            assert_eq!(html.matches("aria-current=\"page\"").count(), 1, "{path}");
+        }
+        for path in [
+            "/payments-other",
+            "/settings?tab=invalid",
+            "/administer",
+            "/unknown",
+        ] {
+            assert!(
+                active_nav_item(&DEFAULT_NAV_ITEMS, path).is_none(),
+                "{path}"
+            );
+        }
+    }
+
+    #[test]
+    fn regrouped_destinations_expand_their_actual_parent() {
+        for (path, parent) in [
+            ("/plans", "wallet-management"),
+            ("/payments?tab=user-access", "wallet-management"),
+            ("/pay/escrows", "payments"),
+            ("/pay/merchant-escrows", "payments"),
+            ("/media", "content"),
+            ("/audit-log", "settings"),
+        ] {
+            let html = rendered_sidebar(path);
+            let marker = format!("id=\"sidebar-children-{parent}\"");
+            let start = html.find(&marker).unwrap();
+            let opening_tag = html[start..].split('>').next().unwrap();
+            assert!(
+                opening_tag.contains("aria-hidden=\"false\""),
+                "{path}: {opening_tag}"
+            );
+            assert!(!opening_tag.contains(" hidden"), "{path}: {opening_tag}");
+            assert_eq!(html.matches("aria-expanded=\"true\"").count(), 1, "{path}");
+        }
     }
 }

@@ -130,7 +130,7 @@ pub fn AdminShell(
             // existing `DashboardShell` from `shell.rs`).
             div { class: "admin-shell-sidebar hidden md:block", style: "height: 100vh; min-height: 100vh;",
                 AdminSidebar {
-                    current_path: ctx.path.clone(),
+                    current_path: if ctx.query.is_empty() { ctx.path.clone() } else { format!("{}?{}", ctx.path, ctx.query) },
                     is_authenticated,
                     items: Some(items),
                     session_state: Some(session_state),

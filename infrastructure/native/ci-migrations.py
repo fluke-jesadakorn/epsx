@@ -28,9 +28,11 @@ def main():
         value = os.environ[key]
         parsed = urlsplit(value)
         if (parsed.scheme not in ("postgres", "postgresql")
-                or parsed.hostname not in ("localhost", "127.0.0.1")
+                or parsed.hostname != "127.0.0.1"
+                or (parsed.port or 5432) != 5432
+                or parsed.username != "epsx_shadow_admin"
                 or not re.fullmatch(r"/epsx_[a-z0-9_]+_shadow", parsed.path)):
-            raise RuntimeError(f"{family}: requires a local epsx_*_shadow database")
+            raise RuntimeError(f"{family}: requires epsx_shadow_admin on 127.0.0.1:5432 and an epsx_*_shadow database")
         urls[family] = value
 
     def sql(url, statement):
@@ -41,6 +43,9 @@ def main():
         return result.stdout.strip()
 
     for url in set(urls.values()):
+        guard = sql(url, "SELECT current_user||'|'||rolsuper||'|'||rolcreatedb||'|'||rolcreaterole||'|'||pg_get_userbyid(datdba) FROM pg_roles CROSS JOIN pg_database WHERE rolname=current_user AND datname=current_database()")
+        if guard != "epsx_shadow_admin|false|true|false|epsx_shadow_admin":
+            raise RuntimeError("Unsafe EPSX shadow role or database ownership")
         if sql(url, "SELECT COUNT(*) FROM pg_tables WHERE schemaname NOT IN ('pg_catalog','information_schema')") != "0":
             raise RuntimeError("Shadow database must be empty before the first migration")
 

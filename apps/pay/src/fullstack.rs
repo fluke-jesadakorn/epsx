@@ -146,6 +146,11 @@ async fn read(
         &page,
         Page::NativeIntent(_) | Page::NativeLink(_) | Page::NativeDashboard
     );
+    // The signed-out escrow view only needs its sign-in action. Do not gate
+    // it on native contract readiness before the merchant can authenticate.
+    if matches!(page, Page::NativeDashboard) && !signed_in {
+        return Ok(data);
+    }
     data.config = request(&state, (&headers, &c), "config", None, None, true, !native).await?;
     match &page {
         Page::Store(id) => {
@@ -681,6 +686,20 @@ mod tests {
             cookie_environment: epsx_bff::cookies::CookieEnvironment::Local,
             verifier: Arc::new(verifier),
         }
+    }
+    #[tokio::test]
+    async fn signed_out_escrow_renders_when_payment_upstream_is_offline() {
+        let data = read(
+            fixture_state("http://127.0.0.1:9".into()),
+            Page::NativeDashboard,
+            Credentials::default(),
+            HeaderMap::new(),
+        )
+        .await
+        .unwrap();
+        assert!(!data.signed_in);
+        assert!(data.payments.is_empty());
+        assert!(data.merchant.is_none());
     }
     #[tokio::test]
     async fn mutation_rejects_cross_origin_and_forged_sessions_before_upstream() {
