@@ -7,24 +7,20 @@ SERVICES = ['epsx','wallet','pay-service','subscription','notification','analyti
 UI = ['bff-frontend', 'bff-admin', 'bff-pay']
 PORTS = dict(zip(UI, [3000, 3001, 3002]))
 CHECKOUT = pathlib.Path(__file__).resolve().parents[2]
-ALL = ['minio','anvil',*SERVICES,'tunnel']
+ALL = ['anvil',*SERVICES]
 DOMAIN = f'gui/{os.getuid()}'
 
 def job(name): return f'com.epsx.dev.{name}'
-def path(name): return pathlib.Path.home()/'Library/LaunchAgents'/(job(name)+'.plist')
+def path(name): return ROOT/'launchd'/(job(name)+'.plist')
 def run(*args, check=True): return subprocess.run(args, check=check)
 def install(name):
     root = str(ROOT)
-    if name == 'minio':
-        args = ['/bin/bash',root+'/tools/minio.sh']
-    elif name == 'anvil':
+    if name == 'anvil':
         shutil.copy2(pathlib.Path(__file__).with_name('dev-anvil.py'), ROOT/'tools/dev-anvil.py')
         args = ['/usr/bin/python3',root+'/tools/dev-anvil.py']
-    elif name == 'tunnel':
-        args = ['/opt/homebrew/bin/cloudflared','tunnel','--config',root+'/config/tunnel.yml','run','epsx-dev']
     else:
         args = ['/bin/bash',str(RELEASES/'current/ops/run-service.sh'),name,root+'/config']
-    plist={'Label':job(name),'ProgramArguments':args,'WorkingDirectory':root,'RunAtLoad':True,'KeepAlive':True,'ThrottleInterval':10,'ExitTimeOut':30,'StandardOutPath':root+'/logs/'+name+'.log','StandardErrorPath':root+'/logs/'+name+'.log','EnvironmentVariables':{'PATH':'/opt/homebrew/bin:/usr/bin:/bin'},'ProcessType':'Background'}
+    plist={'Label':job(name),'ProgramArguments':args,'WorkingDirectory':root,'RunAtLoad':False,'KeepAlive':True,'ThrottleInterval':10,'ExitTimeOut':30,'StandardOutPath':root+'/logs/'+name+'.log','StandardErrorPath':root+'/logs/'+name+'.log','EnvironmentVariables':{'PATH':'/opt/homebrew/bin:/usr/bin:/bin'},'ProcessType':'Background'}
     p=path(name);p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(plistlib.dumps(plist));p.chmod(0o600)
 
 def loaded(name):
@@ -46,7 +42,7 @@ def hmr_plist(name):
     if p.exists():
         config = plistlib.loads(p.read_bytes())
     else:
-        config = {'Label': job(name), 'RunAtLoad': True, 'KeepAlive': True,
+        config = {'Label': job(name), 'RunAtLoad': False, 'KeepAlive': True,
                   'ThrottleInterval': 10, 'ExitTimeOut': 30, 'ProcessType': 'Background',
                   'StandardOutPath': str(ROOT/'logs'/f'{name}.log'),
                   'StandardErrorPath': str(ROOT/'logs'/f'{name}.log')}

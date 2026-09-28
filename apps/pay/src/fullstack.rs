@@ -146,6 +146,11 @@ async fn read(
         &page,
         Page::NativeIntent(_) | Page::NativeLink(_) | Page::NativeDashboard
     );
+    // The signed-out escrow view only needs its sign-in action. Do not gate
+    // it on native contract readiness before the merchant can authenticate.
+    if matches!(page, Page::NativeDashboard) && !signed_in {
+        return Ok(data);
+    }
     data.config = request(&state, (&headers, &c), "config", None, None, true, !native).await?;
     match &page {
         Page::Store(id) => {
@@ -683,6 +688,20 @@ mod tests {
         }
     }
     #[tokio::test]
+    async fn signed_out_escrow_renders_when_payment_upstream_is_offline() {
+        let data = read(
+            fixture_state("http://127.0.0.1:9".into()),
+            Page::NativeDashboard,
+            Credentials::default(),
+            HeaderMap::new(),
+        )
+        .await
+        .unwrap();
+        assert!(!data.signed_in);
+        assert!(data.payments.is_empty());
+        assert!(data.merchant.is_none());
+    }
+    #[tokio::test]
     async fn mutation_rejects_cross_origin_and_forged_sessions_before_upstream() {
         let state = fixture_state("http://127.0.0.1:9".into());
         let a = Action::Register {
@@ -838,7 +857,12 @@ mod tests {
             axum::serve(listener, app).await.unwrap();
         });
         let client = reqwest::Client::new();
-        for (query, environment) in [("", "test"), ("?environment=live", "live")] {
+        for (query, environment) in [
+            ("", "live"),
+            ("?environment=test", "test"),
+            ("?environment=live", "live"),
+            ("?environment=invalid", "live"),
+        ] {
             let response = client
                 .get(format!("http://{addr}/{query}"))
                 .send()
@@ -865,8 +889,8 @@ mod tests {
         assert!(html.contains("Preparing your checkout"));
         assert!(!html.contains("The requested page was not found"));
         assert!(!html.contains("Workspace"));
-        // The dashboard still reads Pay; even its unavailable shell must show
-        // the requested environment correctly before client hydration.
+        // The dashboard still reads Pay, but it must not advertise an
+        // environment until the upstream configuration has loaded.
         let response = client
             .get(format!("http://{addr}/dashboard?environment=live"))
             .send()
@@ -875,12 +899,8 @@ mod tests {
         assert_eq!(response.status(), 502);
         let html = response.text().await.unwrap();
         assert!(html.contains("YOUR MERCHANT WORKSPACE"));
-        let live_option = html
-            .split("<option")
-            .filter_map(|part| part.split('>').next())
-            .find(|tag| tag.contains("value=\"live\""))
-            .expect("Live environment option");
-        assert!(live_option.contains("selected"));
+        assert!(!html.contains("Test environment"));
+        assert!(!html.contains("Live environment"));
         let response = client
             .get(format!("http://{addr}/docs"))
             .send()

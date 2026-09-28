@@ -51,6 +51,9 @@ fn active(path: &str, href: &str) -> bool {
 pub fn SiteNavbar(
     groups: Vec<SiteNavGroup>,
     path: String,
+    /// Optional canonical selection supplied by an app with route aliases.
+    #[props(default)]
+    current_item: Option<String>,
     #[props(default = "/".into())] brand_href: String,
     #[props(default = "EPSX".into())] brand_label: String,
     #[props(default = "/public/logos/epsx-icon.svg".into())] logo_src: String,
@@ -90,7 +93,7 @@ pub fn SiteNavbar(
                                 nav { aria_label: group.label,
                                     for item in group.items {
                                         if item.disabled { span { class: "site-nav-link", aria_disabled: "true", if !item.icon.is_empty() { crate::primitives::Icon { name: item.icon.clone(), size: 20 } } "{item.label}" } }
-                                        else { crate::navigation::AppLink { class: "site-nav-link", href: item.href.clone(), aria_current: active(&path, &item.href).then_some("page"), onclick: move |event| close(event, item.href.clone()), if !item.icon.is_empty() { crate::primitives::Icon { name: item.icon.clone(), size: 20 } } "{item.label}" } }
+                                        else { crate::navigation::AppLink { class: "site-nav-link", href: item.href.clone(), aria_current: current_item.as_ref().map_or_else(|| active(&path, &item.href), |current| current == &item.href).then_some("page"), onclick: move |event| close(event, item.href.clone()), if !item.icon.is_empty() { crate::primitives::Icon { name: item.icon.clone(), size: 20 } } "{item.label}" } }
                                     }
                                 }
                             } }
@@ -106,7 +109,7 @@ pub fn SiteNavbar(
                         p { class: "site-nav-caption", "{group.label}" }
                         for item in group.items {
                             if item.disabled { span { class: "site-nav-link", aria_disabled: "true", if !item.icon.is_empty() { crate::primitives::Icon { name: item.icon.clone(), size: 20 } } "{item.label}" } }
-                            else { crate::navigation::AppLink { class: "site-nav-link", href: item.href.clone(), aria_current: active(&path, &item.href).then_some("page"), onclick: move |event| close(event, item.href.clone()), if !item.icon.is_empty() { crate::primitives::Icon { name: item.icon.clone(), size: 20 } } "{item.label}" } }
+                            else { crate::navigation::AppLink { class: "site-nav-link", href: item.href.clone(), aria_current: current_item.as_ref().map_or_else(|| active(&path, &item.href), |current| current == &item.href).then_some("page"), onclick: move |event| close(event, item.href.clone()), if !item.icon.is_empty() { crate::primitives::Icon { name: item.icon.clone(), size: 20 } } "{item.label}" } }
                         }
                     }
                 }

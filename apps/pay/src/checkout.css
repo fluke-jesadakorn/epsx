@@ -16,3 +16,9 @@
 .pay-sale-row { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; font-size: 14px; padding: 6px 0; }
 .pay-sale-saving { color: var(--pay-green); }
 .pay-sale p { font-size: 12px; line-height: 1.6; opacity: .7; margin: 10px 0 0; }
+
+/* Empty/error checkout and long merchant content must fit the same viewport. */
+.pc-main:has(>.pc-card:only-child){grid-template-columns:minmax(0,1fr);max-width:560px}
+.pc-summary,.pc-order>div,.pc-total-row strong{min-width:0;overflow-wrap:anywhere}
+.pc-total-row{flex-wrap:wrap}
+@media(max-width:480px){.pc-header{flex-wrap:wrap;gap:12px}.pc-header>div{margin-left:auto;flex-wrap:wrap}.pc-qr img,.pc-pairing{max-width:100%;height:auto;aspect-ratio:1}}

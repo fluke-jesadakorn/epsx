@@ -432,9 +432,6 @@
   .-top-3 {
     top: calc(var(--spacing) * -3);
   }
-  .-top-4 {
-    top: calc(var(--spacing) * -4);
-  }
   .-top-6 {
     top: calc(var(--spacing) * -6);
   }
@@ -494,9 +491,6 @@
   }
   .-right-2 {
     right: calc(var(--spacing) * -2);
-  }
-  .-right-4 {
-    right: calc(var(--spacing) * -4);
   }
   .-right-6 {
     right: calc(var(--spacing) * -6);
@@ -1433,9 +1427,6 @@
   .mb-12 {
     margin-bottom: calc(var(--spacing) * 12);
   }
-  .mb-16 {
-    margin-bottom: calc(var(--spacing) * 16);
-  }
   .mb-\[64px\]\! {
     margin-bottom: 64px !important;
   }
@@ -2151,9 +2142,6 @@
   .grid-cols-\[auto_1fr\] {
     grid-template-columns: auto 1fr;
   }
-  .grid-cols-\[repeat\(auto-fit\,minmax\(min\(100\%\,300px\)\,1fr\)\)\] {
-    grid-template-columns: repeat(auto-fit,minmax(min(100%, 300px),1fr));
-  }
   .grid-cols-\[repeat\(auto-fit\,minmax\(min\(100\%\,300px\)\,1fr\)\)\]\! {
     grid-template-columns: repeat(auto-fit,minmax(min(100%, 300px),1fr)) !important;
   }
@@ -2234,9 +2222,6 @@
   }
   .gap-8 {
     gap: calc(var(--spacing) * 8);
-  }
-  .gap-\[24px\] {
-    gap: 24px;
   }
   .gap-\[24px\]\! {
     gap: 24px !important;
@@ -3175,9 +3160,6 @@
   .bg-\[\#ffb237\]\/10 {
     background-color: color-mix(in oklab, #ffb237 10%, transparent);
   }
-  .bg-\[\#hex\] {
-    background-color: #hex;
-  }
   .bg-accent {
     background-color: var(--accent);
   }
@@ -3940,10 +3922,6 @@
     --tw-gradient-from: #1fc7d4;
     --tw-gradient-stops: var(--tw-gradient-via-stops, var(--tw-gradient-position), var(--tw-gradient-from) var(--tw-gradient-from-position), var(--tw-gradient-to) var(--tw-gradient-to-position));
   }
-  .from-\[\#1fc7d4\]\/5 {
-    --tw-gradient-from: color-mix(in oklab, #1fc7d4 5%, transparent);
-    --tw-gradient-stops: var(--tw-gradient-via-stops, var(--tw-gradient-position), var(--tw-gradient-from) var(--tw-gradient-from-position), var(--tw-gradient-to) var(--tw-gradient-to-position));
-  }
   .from-\[\#1fc7d4\]\/10 {
     --tw-gradient-from: color-mix(in oklab, #1fc7d4 10%, transparent);
     --tw-gradient-stops: var(--tw-gradient-via-stops, var(--tw-gradient-position), var(--tw-gradient-from) var(--tw-gradient-from-position), var(--tw-gradient-to) var(--tw-gradient-to-position));
@@ -4437,10 +4415,6 @@
   }
   .to-\[\#7645d9\] {
     --tw-gradient-to: #7645d9;
-    --tw-gradient-stops: var(--tw-gradient-via-stops, var(--tw-gradient-position), var(--tw-gradient-from) var(--tw-gradient-from-position), var(--tw-gradient-to) var(--tw-gradient-to-position));
-  }
-  .to-\[\#7645d9\]\/5 {
-    --tw-gradient-to: color-mix(in oklab, #7645d9 5%, transparent);
     --tw-gradient-stops: var(--tw-gradient-via-stops, var(--tw-gradient-position), var(--tw-gradient-from) var(--tw-gradient-from-position), var(--tw-gradient-to) var(--tw-gradient-to-position));
   }
   .to-\[\#7645d9\]\/10 {
@@ -5718,12 +5692,6 @@
     --tw-shadow-color: color-mix(in srgb, oklch(71.5% 0.143 215.221) 10%, transparent);
     @supports (color: color-mix(in lab, red, red)) {
       --tw-shadow-color: color-mix(in oklab, color-mix(in oklab, var(--color-cyan-500) 10%, transparent) var(--tw-shadow-alpha), transparent);
-    }
-  }
-  .shadow-cyan-500\/20 {
-    --tw-shadow-color: color-mix(in srgb, oklch(71.5% 0.143 215.221) 20%, transparent);
-    @supports (color: color-mix(in lab, red, red)) {
-      --tw-shadow-color: color-mix(in oklab, color-mix(in oklab, var(--color-cyan-500) 20%, transparent) var(--tw-shadow-alpha), transparent);
     }
   }
   .shadow-emerald-500\/10 {
@@ -7284,16 +7252,6 @@
         --tw-shadow-color: color-mix(in srgb, oklch(71.5% 0.143 215.221) 25%, transparent);
         @supports (color: color-mix(in lab, red, red)) {
           --tw-shadow-color: color-mix(in oklab, color-mix(in oklab, var(--color-cyan-500) 25%, transparent) var(--tw-shadow-alpha), transparent);
-        }
-      }
-    }
-  }
-  .hover\:shadow-cyan-500\/40 {
-    &:hover {
-      @media (hover: hover) {
-        --tw-shadow-color: color-mix(in srgb, oklch(71.5% 0.143 215.221) 40%, transparent);
-        @supports (color: color-mix(in lab, red, red)) {
-          --tw-shadow-color: color-mix(in oklab, color-mix(in oklab, var(--color-cyan-500) 40%, transparent) var(--tw-shadow-alpha), transparent);
         }
       }
     }
