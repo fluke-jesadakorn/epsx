@@ -39,6 +39,43 @@ async fn pay_browser_fixture() {
             prices: [("USDT".into(), "5000000".into())].into(),
             ..Default::default()
         }],
+        links: vec![PaymentLink {
+            id: "plink_fixture".into(),
+            description: "Research pass".into(),
+            amount: "5000000".into(),
+            token: "USDT".into(),
+            mode: "direct".into(),
+            ..Default::default()
+        }],
+        link: Some(PaymentLink {
+            id: "plink_fixture".into(),
+            description: "Research pass".into(),
+            amount: "5000000".into(),
+            token: "USDT".into(),
+            mode: "direct".into(),
+            ..Default::default()
+        }),
+        webhooks: vec![Webhook {
+            id: "wh_fixture".into(),
+            url: format!(
+                "https://example.com/webhooks/{}",
+                "long-endpoint-".repeat(8)
+            ),
+            enabled: true,
+        }],
+        deliveries: vec![Delivery {
+            id: "del_fixture".into(),
+            event_id: "event_fixture".into(),
+            status: "delivered".into(),
+            attempts: 1,
+            last_status: Some(200),
+        }],
+        keys: vec![ApiKey {
+            id: "key_fixture".into(),
+            name: "Test integration".into(),
+            prefix: "pay_test_fixture".into(),
+            revoked: false,
+        }],
         payments: vec![payment.clone()],
         payment: Some(payment),
         ..Default::default()
@@ -109,11 +146,11 @@ async fn pay_browser_fixture() {
                 let p=d.payment.as_mut().unwrap();p.chain_id=56;p.mode="direct".into();p.payment_method="contract".into();p.available_actions=vec!["pay".into()];p.status="awaiting_payment".into();p.tx_hash=None;
                 p.checkout_snapshot.kind="merchant".into();
                 if matches!(scenario.as_str(),"paid"|"granted"|"merchant") {p.status="succeeded".into();p.tx_hash=Some(format!("0x{}","a".repeat(64)));}
-                if scenario=="expired" {p.status="expired".into();}
+                if matches!(scenario.as_str(),"expired"|"merchant_expired") {p.status="expired".into();}
                 if scenario=="outage" {d.completion_available=false;}
                 if matches!(scenario.as_str(),"paid"|"granted"|"merchant") {d.completion.as_mut().unwrap().payment_status="succeeded".into();}
                 if scenario=="granted" {d.completion.as_mut().unwrap().fulfillment_status="granted".into();}
-                if scenario=="merchant" {d.completion=None;}
+                if matches!(scenario.as_str(),"merchant"|"merchant_expired") {d.completion=None;}
                 let mut cfg=settings.lock().unwrap();
                 cfg["read_error"]=json!(scenario=="outage");cfg["reject"]=json!(scenario=="rejected");cfg["approval"]=json!(scenario=="approval");cfg["delay_ms"]=json!(if scenario=="wallet"||scenario=="approval"{3000}else{0});cfg["operation_status"]=json!(if scenario=="failed"{"failed"}else{"pending"});
                 Json(json!({"scenario":scenario,"sent":cfg["sent"]}))

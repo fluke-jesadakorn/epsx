@@ -155,6 +155,7 @@ pub fn AdminAnalyticsShell(
         div { onmounted: move |_| {spawn(async move {if let Ok(value)=document::eval("let theme=true; try {theme=localStorage.getItem('epsx-theme')!=='light';} catch (_) {} dioxus.send(theme);").recv::<bool>().await {dark.set(value);}});}, class: if dark() { "dark admin-app-shell flex flex-col min-h-screen w-full bg-background text-foreground" } else { "admin-app-shell flex flex-col min-h-screen w-full bg-background text-foreground" },
             crate::layout::site_navbar::SiteNavbar {
                 groups: admin_nav_groups(authenticated),
+                current_item: Some(crate::layout::sidebar::active_nav_item(&crate::layout::sidebar::DEFAULT_NAV_ITEMS, &nav_path).map(|item| item.destination()).unwrap_or_default()),
                 path: nav_path,
                 brand_label: "EPSX Admin",
                 on_navigate: move |(event, href): (MouseEvent, String)| follow_admin_link(event, Some(AdminNavigation(navigate)), &href),
@@ -188,26 +189,28 @@ fn admin_nav_groups(authenticated: bool) -> Vec<crate::layout::site_navbar::Site
     let mut groups = vec![
         SiteNavGroup::new("Workspace", vec![]),
         SiteNavGroup::new("Manage", vec![]),
+        SiteNavGroup::new("Content & support", vec![]),
         SiteNavGroup::new("System", vec![]),
     ];
     for parent in crate::layout::sidebar::default_nav_items() {
+        if parent.id == "auth" && authenticated {
+            continue;
+        }
         let index = match parent.id.as_str() {
-            "dashboard" | "analytics" | "chat" | "news" | "media" => 0,
-            "developer" | "notifications" | "settings" | "audit-log" => 2,
+            "dashboard" | "auth" | "analytics" => 0,
+            "content" | "chat" | "notifications" => 2,
+            "developer" | "settings" => 3,
             _ => 1,
         };
         let locked = parent.disabled || (parent.requires_auth && !authenticated);
         let prefix = parent.label.clone();
-        let nested = parent.children.is_some();
+        let contextual_label = matches!(parent.id.as_str(), "developer" | "settings");
         for item in parent.children.clone().unwrap_or_else(|| vec![parent]) {
-            let href = match item.tab {
-                Some(tab) => format!("{}?tab={tab}", item.href),
-                None => item.href,
-            };
+            let href = item.destination();
             groups[index].items.push(SiteNavItem {
                 href,
                 icon: item.icon,
-                label: if nested {
+                label: if contextual_label {
                     format!("{prefix} · {}", item.label)
                 } else {
                     item.label
@@ -469,3 +472,51 @@ pub type AdminDashboardProviderCallback = std::sync::Arc<
         > + Send
         + Sync,
 >;
+
+#[cfg(test)]
+mod navigation_tests {
+    use super::*;
+
+    #[test]
+    fn menus_share_destinations_and_show_only_one_active_leaf_per_surface() {
+        let groups = admin_nav_groups(true);
+        assert!(!groups
+            .iter()
+            .flat_map(|g| &g.items)
+            .any(|i| i.href == "/auth"));
+        assert!(groups.iter().flat_map(|g| &g.items).all(|i| !i.disabled));
+        for path in [
+            "/payments",
+            "/payments?tab=user-access",
+            "/plans/123",
+            "/admin/settings?tab=security",
+            "/developer-portal/api-keys/create",
+        ] {
+            let selected = crate::layout::sidebar::active_nav_item(
+                &crate::layout::sidebar::DEFAULT_NAV_ITEMS,
+                path,
+            )
+            .unwrap()
+            .destination();
+            let html = dioxus_ssr::render_element(rsx! { crate::layout::site_navbar::SiteNavbar {
+                groups: groups.clone(), path: path.to_owned(), current_item: Some(selected), actions: rsx! {},
+            } });
+            // One desktop link and its corresponding mobile link.
+            assert_eq!(html.matches("aria-current=\"page\"").count(), 2, "{path}");
+        }
+        let guests = admin_nav_groups(false);
+        assert_eq!(
+            guests
+                .iter()
+                .flat_map(|g| &g.items)
+                .filter(|i| i.href == "/auth")
+                .count(),
+            1
+        );
+        assert!(guests
+            .iter()
+            .flat_map(|g| &g.items)
+            .filter(|i| !matches!(i.href.as_str(), "/" | "/auth"))
+            .all(|i| i.disabled));
+    }
+}

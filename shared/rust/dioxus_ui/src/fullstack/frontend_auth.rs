@@ -164,12 +164,20 @@ pub fn HydratedAuth(query: String) -> Element {
     let initial = use_server_future(auth_session)?;
     let mut busy = use_signal(|| false);
     let mut error = use_signal(|| None::<String>);
+    let mut mobile_wallet_link = use_signal(String::new);
     let mut recovered = use_signal(|| false);
     let fallback = use_signal(|| true);
     let mut dark = try_use_context::<super::shell::ThemeSignal>()
         .map(|context| context.0)
         .unwrap_or(fallback);
     let redirect = destination.clone();
+    use_effect(move || {
+        spawn(async move {
+            if let Ok(link) = browser::<String>("mobile_wallet_link", ()).await {
+                mobile_wallet_link.set(link);
+            }
+        });
+    });
     use_effect(move || {
         let Some(Ok(Ok(session))) = initial.read().as_ref().cloned() else {
             return;
@@ -203,11 +211,11 @@ pub fn HydratedAuth(query: String) -> Element {
     rsx! {
      document::Title{"Sign in | EPSX"}
      div {class:if dark(){"dark"}else{"light"},
-      RenderAuth {session_state:state,return_url:Some(destination.clone()),busy:busy(),error:error(),
+      RenderAuth {session_state:state,return_url:Some(destination.clone()),busy:busy(),error:error(),mobile_wallet_link:Some(mobile_wallet_link()),
        on_theme:move |_|{let value=!dark();dark.set(value);},
        on_sign_in:move |_|{if busy(){return;}busy.set(true);error.set(None);let destination=destination.clone();let recovery=recovery.clone();spawn(async move{
          let result:Result<(),String>=async{
-          let address:String=browser("connect",serde_json::json!({"chain":0,"walletconnect":false})).await?;
+          let address:String=browser("connect",serde_json::json!({"chain":0,"walletconnect":false,"mobile_in_app_browser":true})).await?;
           let challenge=command(AuthCommand::Challenge{address:address.clone()}).await?.challenge.ok_or("Wallet challenge unavailable")?;
           if !challenge.address.eq_ignore_ascii_case(&address){return Err("Wallet challenge does not match".into());}
           let signature:String=browser("sign",&challenge).await?;

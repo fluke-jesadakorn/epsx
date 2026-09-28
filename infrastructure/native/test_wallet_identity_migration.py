@@ -81,9 +81,11 @@ class WalletIdentityMigration(unittest.TestCase):
         value = os.environ["EPSX_WALLET_IDENTITY_TEST_URL"]
         parsed = urlsplit(value)
         if (parsed.scheme not in ("postgres", "postgresql")
-                or parsed.hostname not in ("localhost", "127.0.0.1")
+                or parsed.hostname != "127.0.0.1"
+                or (parsed.port or 5432) != 5432
+                or parsed.username != "epsx_shadow_admin"
                 or not re.fullmatch(r"/epsx_[a-z0-9_]+_shadow", parsed.path)):
-            raise RuntimeError("Requires a migrated local epsx_*_shadow database")
+            raise RuntimeError("Requires epsx_shadow_admin on 127.0.0.1:5432 and a migrated epsx_*_shadow database")
         options = parse_qs(parsed.query)
         host = options.get("host", [parsed.hostname])[0]
         if host not in ("localhost", "127.0.0.1") and not Path(host).is_absolute():
@@ -93,6 +95,13 @@ class WalletIdentityMigration(unittest.TestCase):
                            "PGUSER": unquote(parsed.username or ""),
                            "PGPASSWORD": unquote(parsed.password or "")}
         cls.psql = str(Path(os.environ.get("EPSX_PG_BIN", "/usr/bin")) / "psql")
+        guard = subprocess.run(
+            [cls.psql, "-XAt", "--no-password", "-c",
+             "SELECT current_user||'|'||rolsuper||'|'||rolcreatedb||'|'||rolcreaterole||'|'||pg_get_userbyid(datdba) FROM pg_roles CROSS JOIN pg_database WHERE rolname=current_user AND datname=current_database()"],
+            env=cls.environment, text=True, capture_output=True,
+        )
+        if guard.returncode != 0 or guard.stdout.strip() != "epsx_shadow_admin|false|true|false|epsx_shadow_admin":
+            raise RuntimeError("Unsafe EPSX shadow role or database ownership")
 
     def run_sql(self, sql):
         result = subprocess.run(

@@ -5,6 +5,14 @@ try {
     const provider = () => {const p=window.__epsxPayProvider || window.ethereum; if(!p?.request) throw new Error('No wallet detected. Install or unlock MetaMask, then try again.');return p;};
     let value;
     switch(operation){
+      case 'mobile_wallet_link': {
+        const mobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        const current=new URL(location.href);
+        value=mobile && !window.ethereum?.request && current.protocol==='https:'
+          ? 'https://metamask.app.link/dapp/'+current.href.slice('https://'.length)
+          : '';
+        break;
+      }
       case 'theme': {if(input===null){const saved=localStorage.getItem('theme');value=saved?saved==='dark':matchMedia('(prefers-color-scheme: dark)').matches;}else{localStorage.setItem('theme',input?'dark':'light');value=input;}break;}
       case 'credentials': {
         const cs=input.checkout;
@@ -41,7 +49,18 @@ try {
           const rpc={56:'https://bsc-dataseed.binance.org',97:'https://data-seed-prebsc-1-s1.binance.org:8545',31337:'http://127.0.0.1:8545'}[input.chain];
           if(!rpc)throw new Error('Unsupported checkout network');
           window.__epsxPayProvider=await window.EPSXWalletConnect.connect({...config,chainId:input.chain,rpcUrl:rpc});
-        }else{window.__epsxPayProvider=window.ethereum;}
+        }else{
+          window.__epsxPayProvider=window.ethereum;
+          if(input.mobile_in_app_browser && !window.ethereum?.request && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)){
+            // Mobile Safari cannot use MetaMask's injected provider. Open this
+            // same auth URL (including return_url) in MetaMask's dapp browser.
+            const current=new URL(location.href);
+            if(current.protocol==='https:'){
+              location.assign('https://metamask.app.link/dapp/'+current.href.slice('https://'.length));
+              throw new Error('Opening EPSX in MetaMask. If it does not open, use the browser in the MetaMask app.');
+            }
+          }
+        }
         const accounts=await provider().request({method:'eth_requestAccounts'});if(!accounts[0])throw new Error('No account selected');value=accounts[0];break;
       }
       case 'disconnect': await window.EPSXWalletConnect?.disconnect();delete window.__epsxPayProvider;value=true;break;
