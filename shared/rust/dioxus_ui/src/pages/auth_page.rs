@@ -69,6 +69,7 @@ pub fn RenderAuth(
     #[props(default)] on_sign_in: Option<EventHandler<MouseEvent>>,
     #[props(default)] busy: bool,
     #[props(default)] error: Option<String>,
+    #[props(default)] mobile_wallet_link: Option<String>,
     #[props(default)] on_theme: Option<EventHandler<MouseEvent>>,
 ) -> Element {
     // The component is purely declarative — every interactive state
@@ -224,6 +225,14 @@ pub fn RenderAuth(
                                 data_provider: Some("metamask".to_string()),
                                 data_return_url: return_url.clone(),
                             } }
+                        }
+                        if let Some(link) = mobile_wallet_link.as_ref().filter(|link| !link.is_empty()) {
+                            p { class: "auth-mobile-wallet-help",
+                                "Using MetaMask on your phone? "
+                                a { href: "{link}", "Open in MetaMask" }
+                                " · "
+                                a { href: "https://metamask.io/download/", "Download MetaMask" }
+                            }
                         }
                         div { class: "auth-card-divider auth-card-divider-thin", aria_hidden: "true" }
                         // === Loading state (hidden by default) ===

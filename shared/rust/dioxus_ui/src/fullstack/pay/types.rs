@@ -206,6 +206,20 @@ pub struct Config {
     pub tokens: BTreeMap<String, TokenConfig>,
 }
 impl Config {
+    pub fn supports_environment(&self, environment: Environment) -> bool {
+        self.environments
+            .iter()
+            .any(|network| network.environment == environment)
+    }
+
+    pub fn preferred_environment(&self) -> Option<Environment> {
+        if self.supports_environment(Environment::Live) {
+            Some(Environment::Live)
+        } else {
+            self.environments.first().map(|network| network.environment)
+        }
+    }
+
     pub fn decimals(&self, env: Environment, token: &str) -> Option<u32> {
         self.environments
             .iter()

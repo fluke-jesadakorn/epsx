@@ -22,9 +22,6 @@ pub(super) fn Landing(environment: Environment, dark: Signal<bool>) -> Element {
         }
         div { class: if dark() { "epsx-merchant epsx-pay-home dark" } else { "epsx-merchant epsx-pay-home" },
             crate::navigation::AppLink { class: "ph-skip", href: "#pay-home-main", "Skip to content" }
-            super::ui::PayNavbar { environment, path: format!("/?environment={}",environment.as_str()), dark,
-                actions: rsx! { Link { class: "ph-button ph-button-small", to: dashboard.clone(), "Dashboard" Icon { kind: "arrow" } } },
-            }
             main { id: "pay-home-main", tabindex: "-1",
                 section { class: "ph-wrap ph-hero", "aria-labelledby": "pay-home-title",
                     div { class: "ph-hero-copy",

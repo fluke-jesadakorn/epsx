@@ -82,30 +82,31 @@ jobs:
           PGPASSWORD: epsx_shadow_only
         run: |
           psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U epsx_shadow -d postgres <<'SQL'
-          CREATE DATABASE epsx_core_shadow;
-          CREATE DATABASE epsx_analytics_shadow;
-          CREATE DATABASE epsx_payments_shadow;
-          CREATE DATABASE epsx_notifications_shadow;
-          CREATE DATABASE epsx_wallet_shadow;
-          CREATE DATABASE epsx_pay_shadow;
-          CREATE DATABASE epsx_subscription_shadow;
+          CREATE ROLE epsx_shadow_admin LOGIN PASSWORD 'epsx_shadow_admin_only' NOSUPERUSER CREATEDB NOCREATEROLE;
+          CREATE DATABASE epsx_core_shadow OWNER epsx_shadow_admin;
+          CREATE DATABASE epsx_analytics_shadow OWNER epsx_shadow_admin;
+          CREATE DATABASE epsx_payments_shadow OWNER epsx_shadow_admin;
+          CREATE DATABASE epsx_notifications_shadow OWNER epsx_shadow_admin;
+          CREATE DATABASE epsx_wallet_shadow OWNER epsx_shadow_admin;
+          CREATE DATABASE epsx_pay_shadow OWNER epsx_shadow_admin;
+          CREATE DATABASE epsx_subscription_shadow OWNER epsx_shadow_admin;
           SQL
       - name: Apply all eight native migration families twice
         env:
-          DATABASE_URL: postgresql://epsx_shadow:epsx_shadow_only@127.0.0.1:5432/epsx_core_shadow
-          ANALYTICS_DATABASE_URL: postgresql://epsx_shadow:epsx_shadow_only@127.0.0.1:5432/epsx_analytics_shadow
-          PAYMENTS_DATABASE_URL: postgresql://epsx_shadow:epsx_shadow_only@127.0.0.1:5432/epsx_payments_shadow
-          NOTIFICATIONS_DATABASE_URL: postgresql://epsx_shadow:epsx_shadow_only@127.0.0.1:5432/epsx_notifications_shadow
-          WALLET_DATABASE_URL: postgresql://epsx_shadow:epsx_shadow_only@127.0.0.1:5432/epsx_wallet_shadow
-          PAY_SERVICE_DATABASE_URL: postgresql://epsx_shadow:epsx_shadow_only@127.0.0.1:5432/epsx_pay_shadow
-          SUBSCRIPTION_DATABASE_URL: postgresql://epsx_shadow:epsx_shadow_only@127.0.0.1:5432/epsx_subscription_shadow
-          ANALYTICS_SERVICE_DATABASE_URL: postgresql://epsx_shadow:epsx_shadow_only@127.0.0.1:5432/epsx_analytics_shadow
+          DATABASE_URL: postgresql://epsx_shadow_admin:epsx_shadow_admin_only@127.0.0.1:5432/epsx_core_shadow
+          ANALYTICS_DATABASE_URL: postgresql://epsx_shadow_admin:epsx_shadow_admin_only@127.0.0.1:5432/epsx_analytics_shadow
+          PAYMENTS_DATABASE_URL: postgresql://epsx_shadow_admin:epsx_shadow_admin_only@127.0.0.1:5432/epsx_payments_shadow
+          NOTIFICATIONS_DATABASE_URL: postgresql://epsx_shadow_admin:epsx_shadow_admin_only@127.0.0.1:5432/epsx_notifications_shadow
+          WALLET_DATABASE_URL: postgresql://epsx_shadow_admin:epsx_shadow_admin_only@127.0.0.1:5432/epsx_wallet_shadow
+          PAY_SERVICE_DATABASE_URL: postgresql://epsx_shadow_admin:epsx_shadow_admin_only@127.0.0.1:5432/epsx_pay_shadow
+          SUBSCRIPTION_DATABASE_URL: postgresql://epsx_shadow_admin:epsx_shadow_admin_only@127.0.0.1:5432/epsx_subscription_shadow
+          ANALYTICS_SERVICE_DATABASE_URL: postgresql://epsx_shadow_admin:epsx_shadow_admin_only@127.0.0.1:5432/epsx_analytics_shadow
         run: |
           cargo build -p epsx --features cli-tools --bin migrate --locked
           python3 infrastructure/native/ci-migrations.py
       - name: Preserve legacy wallet identity and reject case collisions
         env:
-          EPSX_WALLET_IDENTITY_TEST_URL: postgresql://epsx_shadow:epsx_shadow_only@127.0.0.1:5432/epsx_core_shadow
+          EPSX_WALLET_IDENTITY_TEST_URL: postgresql://epsx_shadow_admin:epsx_shadow_admin_only@127.0.0.1:5432/epsx_core_shadow
         run: python3 infrastructure/native/test_wallet_identity_migration.py
       - name: Exercise plan repository against migrated PostgreSQL
         env:

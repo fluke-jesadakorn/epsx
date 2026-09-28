@@ -314,6 +314,11 @@ pub(super) fn Checkout(mut dark: Signal<bool>) -> Element {
         .map(|d| d.frontend_origin.clone())
         .unwrap_or_default();
     let message = (c.message)();
+    let incomplete = (c.session_loaded)()
+        && (c.credentials)().capability.is_none()
+        && payment.is_none()
+        && session.pending.is_none();
+    let unavailable = phase == Stage::Loading && !message.is_empty();
     let transaction = (c.transaction)().or_else(|| {
         payment
             .as_ref()
@@ -352,7 +357,8 @@ pub(super) fn Checkout(mut dark: Signal<bool>) -> Element {
                 crate::navigation::AppLink { class:"pc-brand",href:"/",img{src:"/brand-icon.svg",alt:"",width:32,height:32} "EPSX Pay" }
                 div { class:"flex items-center gap-4",
                     if !epsx && payment.is_some() {if let Some(p)=payment.clone(){Link{class:"pc-back",to:format!("/m/{}?environment={}",p.merchant_id,p.environment.as_str()),"← Back to merchant"}}}
-                    else {crate::navigation::AppLink { class:"pc-back",href:format!("{origin}/plans"), "← Back to plans" }}
+                    else if epsx {crate::navigation::AppLink { class:"pc-back",href:format!("{origin}/plans"), "← Back to plans" }}
+                    else {Link { class:"pc-back",to:"/", "← Back to Pay" }}
                     button { class:"pc-theme",r#type:"button",aria_label:"Toggle theme",aria_pressed:dark(),onclick:move |_|dark.toggle(),
                         crate::primitives::Icon {name:if dark(){"sun"}else{"moon"},size:20}
                     }
@@ -386,7 +392,14 @@ pub(super) fn Checkout(mut dark: Signal<bool>) -> Element {
                         if p.environment == Environment::Test {p{class:"pc-test","Test payment · Simulated funds"}}
                     }
                     if phase == Stage::Loading {
-                        div {class:"pc-state",role:"status",aria_live:"polite",span{class:"pc-spinner",aria_hidden:true}h2{"Preparing your checkout"}p{"Loading your payment details securely…"}}
+                        div {class:"pc-state",role:"status",aria_live:"polite",
+                            if incomplete || unavailable {
+                                span { class:"pc-review-icon",aria_hidden:true,crate::primitives::Icon{name:"info",size:30} }
+                                h2 { if incomplete {"This checkout link is incomplete"} else {"Checkout unavailable"} }
+                                p { if incomplete {"Open the full checkout link provided by the merchant. It includes the payment token needed to load your order."} else {"We could not load your payment details. Check again in a moment, or contact the merchant with your checkout link."} }
+                                Link { class:"pc-secondary",to:"/","Back to Pay" }
+                            } else {span{class:"pc-spinner",aria_hidden:true}h2{"Preparing your checkout"}p{"Loading your payment details securely…"}}
+                        }
                     } else if phase == Stage::Ready {
                         if let Some(p)=payment.clone() {
                             div {class:"pc-pay-intro",h2{"Ready when you are"}p{"Review the amount, then confirm in your wallet."}}
@@ -436,7 +449,10 @@ pub(super) fn Checkout(mut dark: Signal<bool>) -> Element {
                             span{class:"sr-only","Purchase {done.order_id}"}
                         } else if phase==Stage::Success {
                             if let Some(p)=payment.clone() {Link{class:"pc-primary",to:format!("/m/{}?environment={}",p.merchant_id,p.environment.as_str()),"Back to merchant"}}
-                        } else if phase==Stage::Expired {crate::navigation::AppLink{class:"pc-primary",href:format!("{origin}/plans"),"Explore plans"}}
+                        } else if phase==Stage::Expired {
+                            if epsx {crate::navigation::AppLink{class:"pc-primary",href:format!("{origin}/plans"),"Explore plans"}}
+                            else if let Some(p)=payment.clone() {Link{class:"pc-primary",to:format!("/m/{}?environment={}",p.merchant_id,p.environment.as_str()),"Back to merchant"}}
+                        }
                     }
                     if let Some((chain_id,hash))=transaction {
                         TransactionReceipt{chain_id,hash}
