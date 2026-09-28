@@ -198,7 +198,7 @@ fn is_browser_adapter_asset(path: &Path, bytes: &[u8]) -> bool {
     // deployment console. Exact hashes require review when any source changes.
     let expected = match path.to_str().unwrap_or("") {
         "shared/rust/dioxus_ui/src/fullstack/pay/wallet_adapter.js" => {
-            "cb19b7a563bfcd70fffba303ae85f41fbb3c88af3afb5195fb283c636179eb90"
+            "8b3d28abadd8054e59f14bacd91e296449b41c93dffbd2bd84df3bd1e224404d"
         }
         "shared/rust/dioxus_ui/src/fullstack/wallet_disconnect.js" => {
             "925b85698c5e7d851a7812ae9c97c6926b15641a85ace4bc5df0399600bb9d35"

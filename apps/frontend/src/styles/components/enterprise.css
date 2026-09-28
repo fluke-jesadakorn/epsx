@@ -642,6 +642,8 @@ html.dark .epsx-frontend .fe-hero, .epsx-frontend[data-theme=dark] .fe-hero {
 .epsx-frontend .auth-page .auth-page-value-props { grid-template-columns: 1fr; }
 .epsx-frontend .auth-page .auth-card-desktop-heading { @apply text-left; }
 .epsx-frontend .auth-page .auth-card-cta button { @apply w-[100%]; @apply text-[14px]; }
+.epsx-frontend .auth-page .auth-mobile-wallet-help { @apply text-center; @apply text-[12px]; @apply text-fe-muted; line-height: 1.6; }
+.epsx-frontend .auth-page .auth-mobile-wallet-help a { color: var(--fe-primary); text-decoration: underline; text-underline-offset: 2px; }
 .epsx-frontend .fe-preview-indicator { @apply text-[10px]; @apply text-fe-muted; border: 1px dashed var(--fe-border); @apply rounded-[5px]; padding: 4px 7px; }
 /* Support occupies the shell's content area; the BFF owns all fixed chrome. */
 .epsx-frontend .fe-support { @apply relative; inset: auto; height: calc(100dvh - 64px); @apply min-h-[560px]; @apply overflow-hidden; @apply flex; background: var(--fe-bg); }
