@@ -497,6 +497,7 @@ html.dark .epsx-frontend .fe-hero, .epsx-frontend[data-theme=dark] .fe-hero {
 .epsx-frontend .contact-hero { padding: 56px 24px 16px; background: transparent; }
 .epsx-frontend .contact-hero-title { @apply text-[40px]; @apply tracking-[-.04em]; @apply font-semibold; @apply text-fe-text; }
 .epsx-frontend .contact-email-card { @apply p-[32px]; @apply max-w-[720px]; }
+.epsx-frontend :is(.contact-email-title,.contact-info-title) { color: var(--fe-text); }
 .epsx-frontend :is(.contact-email-icon,.contact-info-icon,.offline-icon) { background: var(--fe-tint); @apply text-fe-primary; border-color: var(--fe-border); @apply rounded-[12px]; box-shadow: none; }
 .epsx-frontend .contact-mailto-btn { background: var(--fe-primary); @apply text-fe-on-primary; @apply rounded-[8px]; }
 .epsx-frontend .contact-copy-btn { @apply text-fe-primary; @apply min-h-[44px]; }

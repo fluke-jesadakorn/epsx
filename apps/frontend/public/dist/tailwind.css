@@ -23930,6 +23930,9 @@ html.dark .epsx-frontend .fe-hero, .epsx-frontend[data-theme=dark] .fe-hero {
   padding: 32px;
   max-width: 720px;
 }
+.epsx-frontend :is(.contact-email-title,.contact-info-title) {
+  color: var(--fe-text);
+}
 .epsx-frontend :is(.contact-email-icon,.contact-info-icon,.offline-icon) {
   background: var(--fe-tint);
   color: var(--fe-primary);
